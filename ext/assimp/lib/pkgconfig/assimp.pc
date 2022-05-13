@@ -1,0 +1,11 @@
+prefix=D:/Boulot/libs/assimp/assimp-5/build/install
+exec_prefix=D:/Boulot/libs/assimp/assimp-5/build/install/
+libdir=D:/Boulot/libs/assimp/assimp-5/build/install/lib
+includedir=D:/Boulot/libs/assimp/assimp-5/build/install/../include/include
+
+Name: Assimp
+Description: Import various well-known 3D model formats in an uniform manner.
+Version: 5.0.0
+Libs: -L${libdir} -lassimp
+Libs.private:  
+Cflags: -I${includedir}
