@@ -407,6 +407,7 @@ void vulkanApp::BuildQuads()
         VkSubpassDescription Subpass = {};
         Subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         Subpass.pColorAttachments = ColorReferences.data();
+        Subpass.colorAttachmentCount = (uint32_t)ColorReferences.size();
         Subpass.pDepthStencilAttachment = &DepthReference;
 
         //Subpass dependencies to transition the attachments from memory read to write, and then back from write to read
@@ -581,6 +582,7 @@ void vulkanApp::BuildQuads()
     SamplerCreateInfo.minLod=0.0f;
     SamplerCreateInfo.maxLod=1.0f;
     SamplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    SamplerCreateInfo.compareEnable=VK_TRUE;
     VK_CALL(vkCreateSampler(Device, &SamplerCreateInfo, nullptr, &ColorSampler));
 
 }
@@ -1161,51 +1163,51 @@ void vulkanApp::BuildDeferredCommandBuffers()
 
     vkCmdEndRenderPass(OffscreenCommandBuffer);
 
-    if(EnableSSAO)
-    {
-        ClearValues[0].color = {{0.0f,0.0f,0.0f,0.0f}};
-        ClearValues[1].depthStencil = {1.0f, 0};
+    // if(EnableSSAO)
+    // {
+    //     ClearValues[0].color = {{0.0f,0.0f,0.0f,0.0f}};
+    //     ClearValues[1].depthStencil = {1.0f, 0};
 
-        RenderPassBeginInfo.framebuffer = Framebuffers.SSAO.Framebuffer;
-        RenderPassBeginInfo.renderPass = Framebuffers.SSAO.RenderPass;
-        RenderPassBeginInfo.renderArea.extent.width = Framebuffers.SSAO.Width;
-        RenderPassBeginInfo.renderArea.extent.height = Framebuffers.SSAO.Height;
-        RenderPassBeginInfo.clearValueCount=2;
-        RenderPassBeginInfo.pClearValues = ClearValues.data();
+    //     RenderPassBeginInfo.framebuffer = Framebuffers.SSAO.Framebuffer;
+    //     RenderPassBeginInfo.renderPass = Framebuffers.SSAO.RenderPass;
+    //     RenderPassBeginInfo.renderArea.extent.width = Framebuffers.SSAO.Width;
+    //     RenderPassBeginInfo.renderArea.extent.height = Framebuffers.SSAO.Height;
+    //     RenderPassBeginInfo.clearValueCount=2;
+    //     RenderPassBeginInfo.pClearValues = ClearValues.data();
 
-        vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        
-        Viewport = vulkanTools::BuildViewport((float)Framebuffers.SSAO.Width, (float)Framebuffers.SSAO.Height, 0.0f, 1.0f);
-        vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
-
-        Scissor = vulkanTools::BuildRect2D(Framebuffers.SSAO.Width,Framebuffers.SSAO.Height,0,0);
-        vkCmdSetScissor(OffscreenCommandBuffer, 0, 1, &Scissor);
-
-        vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("SSAO.Generate"), 0, 1, Resources.DescriptorSets->GetPtr("SSAO.Generate"), 0, nullptr);
-        vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("SSAO.Generate"));
-        vkCmdDraw(OffscreenCommandBuffer, 3, 1, 0, 0);
-        vkCmdEndRenderPass(OffscreenCommandBuffer);
-        
-        //ssao blur
-        RenderPassBeginInfo.framebuffer = Framebuffers.SSAO.Framebuffer;
-        RenderPassBeginInfo.renderPass = Framebuffers.SSAO.RenderPass;
-        RenderPassBeginInfo.renderArea.extent.width = Framebuffers.SSAO.Width;
-        RenderPassBeginInfo.renderArea.extent.height = Framebuffers.SSAO.Height;
-        vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    //     vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         
-        Viewport = vulkanTools::BuildViewport((float)Framebuffers.SSAOBlur.Width, (float)Framebuffers.SSAOBlur.Height, 0.0f, 1.0f);
-        vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
+    //     Viewport = vulkanTools::BuildViewport((float)Framebuffers.SSAO.Width, (float)Framebuffers.SSAO.Height, 0.0f, 1.0f);
+    //     vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
 
-        Scissor = vulkanTools::BuildRect2D(Framebuffers.SSAOBlur.Width,Framebuffers.SSAOBlur.Height,0,0);
-        vkCmdSetScissor(OffscreenCommandBuffer, 0, 1, &Scissor);
+    //     Scissor = vulkanTools::BuildRect2D(Framebuffers.SSAO.Width,Framebuffers.SSAO.Height,0,0);
+    //     vkCmdSetScissor(OffscreenCommandBuffer, 0, 1, &Scissor);
+
+    //     vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("SSAO.Generate"), 0, 1, Resources.DescriptorSets->GetPtr("SSAO.Generate"), 0, nullptr);
+    //     vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("SSAO.Generate"));
+    //     vkCmdDraw(OffscreenCommandBuffer, 3, 1, 0, 0);
+    //     vkCmdEndRenderPass(OffscreenCommandBuffer);
         
-        vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("SSAO.Blur"), 0, 1, Resources.DescriptorSets->GetPtr("SSAO.Blur"), 0, nullptr);
-        vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("SSAO.Generate"));
-        vkCmdDraw(OffscreenCommandBuffer, 3, 1, 0, 0);
-        vkCmdEndRenderPass(OffscreenCommandBuffer);
-    }
+    //     //ssao blur
+    //     RenderPassBeginInfo.framebuffer = Framebuffers.SSAO.Framebuffer;
+    //     RenderPassBeginInfo.renderPass = Framebuffers.SSAO.RenderPass;
+    //     RenderPassBeginInfo.renderArea.extent.width = Framebuffers.SSAO.Width;
+    //     RenderPassBeginInfo.renderArea.extent.height = Framebuffers.SSAO.Height;
+    //     vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        
+    //     Viewport = vulkanTools::BuildViewport((float)Framebuffers.SSAOBlur.Width, (float)Framebuffers.SSAOBlur.Height, 0.0f, 1.0f);
+    //     vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
+
+    //     Scissor = vulkanTools::BuildRect2D(Framebuffers.SSAOBlur.Width,Framebuffers.SSAOBlur.Height,0,0);
+    //     vkCmdSetScissor(OffscreenCommandBuffer, 0, 1, &Scissor);
+        
+    //     vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("SSAO.Blur"), 0, 1, Resources.DescriptorSets->GetPtr("SSAO.Blur"), 0, nullptr);
+    //     vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("SSAO.Generate"));
+    //     vkCmdDraw(OffscreenCommandBuffer, 3, 1, 0, 0);
+    //     vkCmdEndRenderPass(OffscreenCommandBuffer);
+    // }
     VK_CALL(vkEndCommandBuffer(OffscreenCommandBuffer));
 }
 
@@ -1256,10 +1258,10 @@ void vulkanApp::Render()
     SubmitInfo.pCommandBuffers = &OffscreenCommandBuffer;
     VK_CALL(vkQueueSubmit(Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
 
-    SubmitInfo.pWaitSemaphores = &OffscreenSemaphore;
-    SubmitInfo.pSignalSemaphores = &Semaphores.RenderComplete;
-    SubmitInfo.pCommandBuffers = &DrawCommandBuffers[CurrentBuffer];
-    VK_CALL(vkQueueSubmit(Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+     SubmitInfo.pWaitSemaphores = &OffscreenSemaphore;
+     SubmitInfo.pSignalSemaphores = &Semaphores.RenderComplete;
+     SubmitInfo.pCommandBuffers = &DrawCommandBuffers[CurrentBuffer];
+     VK_CALL(vkQueueSubmit(Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
 
     VK_CALL(Swapchain.QueuePresent(Queue, CurrentBuffer, Semaphores.RenderComplete));
     VK_CALL(vkQueueWaitIdle(Queue));

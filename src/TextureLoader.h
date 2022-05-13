@@ -191,7 +191,7 @@ public:
         SamplerCreateInfo.minLod=0;
         SamplerCreateInfo.maxLod=(float)Texture->MipLevels;
         SamplerCreateInfo.maxAnisotropy=8;
-        SamplerCreateInfo.anisotropyEnable=VK_TRUE;
+        SamplerCreateInfo.anisotropyEnable=VK_FALSE;
         SamplerCreateInfo.borderColor=VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
         VK_CALL(vkCreateSampler(VulkanDevice->Device, &SamplerCreateInfo, nullptr, &Texture->Sampler));
 

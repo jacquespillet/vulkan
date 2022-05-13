@@ -343,7 +343,7 @@ namespace vulkanTools
         Result.frontFace = FrontFace;
         Result.flags = Flags;
         Result.depthClampEnable = VK_FALSE;
-        Result.lineWidth;
+        Result.lineWidth = 1.0f;
         return Result;
     }
 
@@ -472,6 +472,10 @@ namespace vulkanTools
         ImageMemoryBarrier.newLayout = NewImageLayout;
         ImageMemoryBarrier.image = Image;
         ImageMemoryBarrier.subresourceRange = SubresourceRange;
+        
+        
+        VkPipelineStageFlags SrcStageFlags = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+        VkPipelineStageFlags DstStageFlags = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
 
         //Defines actions that need to be finished on the old layout before the image is transitionned to new layout.
         switch (OldImageLayout)
@@ -498,6 +502,7 @@ namespace vulkanTools
         case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
             //Image is a dest of transfer --> make sure write is finished
             ImageMemoryBarrier.srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;
+			SrcStageFlags = VK_PIPELINE_STAGE_TRANSFER_BIT;
             break;
         case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
             //Image is read in shaders --> make sure shaders finished reading.
@@ -510,6 +515,7 @@ namespace vulkanTools
         {
         case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
             ImageMemoryBarrier.dstAccessMask =VK_ACCESS_TRANSFER_WRITE_BIT;
+            DstStageFlags = VK_PIPELINE_STAGE_TRANSFER_BIT;
             break;
         case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
             //Image will be used as a source of transfers --> make sure any read / write have finished on the image
@@ -529,11 +535,10 @@ namespace vulkanTools
                 ImageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
             }
             ImageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			DstStageFlags = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
             break;
         }
 
-        VkPipelineStageFlags SrcStageFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        VkPipelineStageFlags DstStageFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
         vkCmdPipelineBarrier(CommandBuffer, 
                              SrcStageFlags, 

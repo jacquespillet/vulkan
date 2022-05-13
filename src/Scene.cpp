@@ -374,7 +374,7 @@ void scene::LoadMeshes(VkCommandBuffer CopyCommandBuffer)
     SetLayoutBindings.push_back(
         vulkanTools::BuildDescriptorSetLayoutBinding(
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            VK_SHADER_STAGE_VERTEX_BIT,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
             1
         )
     );
@@ -382,7 +382,7 @@ void scene::LoadMeshes(VkCommandBuffer CopyCommandBuffer)
     SetLayoutBindings.push_back(
         vulkanTools::BuildDescriptorSetLayoutBinding(
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            VK_SHADER_STAGE_VERTEX_BIT,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
             2
         )
     );
@@ -390,13 +390,13 @@ void scene::LoadMeshes(VkCommandBuffer CopyCommandBuffer)
     SetLayoutBindings.push_back(
         vulkanTools::BuildDescriptorSetLayoutBinding(
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            VK_SHADER_STAGE_VERTEX_BIT,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
             3
         )
     );
 
-    VkDescriptorSetLayoutCreateInfo DescriptorLayout = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), (uint32_t)SetLayoutBindings.size());
-    VK_CALL(vkCreateDescriptorSetLayout(Device, &DescriptorLayout, nullptr, &DescriptorSetLayout));
+    VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), (uint32_t)SetLayoutBindings.size());
+    VK_CALL(vkCreateDescriptorSetLayout(Device, &DescriptorLayoutCreateInfo, nullptr, &DescriptorSetLayout));
 
     VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(&DescriptorSetLayout, 1);
     VK_CALL(vkCreatePipelineLayout(Device, &pPipelineLayoutCreateInfo, nullptr, &PipelineLayout));
@@ -422,13 +422,13 @@ void scene::LoadMeshes(VkCommandBuffer CopyCommandBuffer)
         WriteDescriptorSets.push_back(vulkanTools::BuildWriteDescriptorSet(
             Meshes[i].DescriptorSet,
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            1,
+            2,
             &Meshes[i].Material->Specular.Descriptor
         ));
         WriteDescriptorSets.push_back(vulkanTools::BuildWriteDescriptorSet(
             Meshes[i].DescriptorSet,
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            1,
+            3,
             &Meshes[i].Material->Bump.Descriptor
         ));
         vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
