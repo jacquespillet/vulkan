@@ -322,21 +322,6 @@ void vulkanApp::BuildOffscreenBuffers()
         Framebuffers.SSAOBlur.BuildBuffers(VulkanDevice,LayoutCommand);  
     }
 
-    VkSamplerCreateInfo SamplerCreateInfo = vulkanTools::BuildSamplerCreateInfo();
-    SamplerCreateInfo.magFilter=VK_FILTER_LINEAR;
-    SamplerCreateInfo.minFilter = VK_FILTER_LINEAR;
-    SamplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    SamplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    SamplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    SamplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    SamplerCreateInfo.mipLodBias = 0.0f;
-    SamplerCreateInfo.maxAnisotropy=0;
-    SamplerCreateInfo.minLod=0.0f;
-    SamplerCreateInfo.maxLod=1.0f;
-    SamplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-    SamplerCreateInfo.compareEnable=VK_TRUE;
-    VK_CALL(vkCreateSampler(Device, &SamplerCreateInfo, nullptr, &ColorSampler));
-
     vulkanTools::FlushCommandBuffer(VulkanDevice->Device, CommandPool, LayoutCommand, Queue, true);
     
 }
@@ -474,10 +459,10 @@ void vulkanApp::BuildLayoutsAndDescriptors()
     TargetDescriptorSet = Resources.DescriptorSets->Add("Composition", DescriptorAllocateInfo);
 
     ImageDescriptors = {
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen._Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen._Attachments[1].ImageView, VK_IMAGE_LAYOUT_GENERAL),
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen._Attachments[2].ImageView, VK_IMAGE_LAYOUT_GENERAL),
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.SSAOBlur._Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
+        vulkanTools::BuildDescriptorImageInfo(Framebuffers.Offscreen.Sampler, Framebuffers.Offscreen._Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
+        vulkanTools::BuildDescriptorImageInfo(Framebuffers.Offscreen.Sampler, Framebuffers.Offscreen._Attachments[1].ImageView, VK_IMAGE_LAYOUT_GENERAL),
+        vulkanTools::BuildDescriptorImageInfo(Framebuffers.Offscreen.Sampler, Framebuffers.Offscreen._Attachments[2].ImageView, VK_IMAGE_LAYOUT_GENERAL),
+        vulkanTools::BuildDescriptorImageInfo(Framebuffers.SSAOBlur.Sampler, Framebuffers.SSAOBlur._Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
     };
     WriteDescriptorSets = 
     {
@@ -507,8 +492,8 @@ void vulkanApp::BuildLayoutsAndDescriptors()
     TargetDescriptorSet = Resources.DescriptorSets->Add("SSAO.Generate", DescriptorAllocateInfo);      
     ImageDescriptors = 
     {
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen._Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen._Attachments[1].ImageView, VK_IMAGE_LAYOUT_GENERAL)
+        vulkanTools::BuildDescriptorImageInfo(Framebuffers.Offscreen.Sampler, Framebuffers.Offscreen._Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
+        vulkanTools::BuildDescriptorImageInfo(Framebuffers.Offscreen.Sampler, Framebuffers.Offscreen._Attachments[1].ImageView, VK_IMAGE_LAYOUT_GENERAL)
     };
     WriteDescriptorSets = 
     {
@@ -533,7 +518,7 @@ void vulkanApp::BuildLayoutsAndDescriptors()
     TargetDescriptorSet = Resources.DescriptorSets->Add("SSAO.Blur", DescriptorAllocateInfo);    
     ImageDescriptors = 
     {
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.SSAO._Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
+        vulkanTools::BuildDescriptorImageInfo(Framebuffers.SSAO.Sampler, Framebuffers.SSAO._Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
     };
     WriteDescriptorSets = 
     {

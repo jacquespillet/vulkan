@@ -140,8 +140,6 @@ public:
     } Framebuffers;
 
 
-
-    VkSampler ColorSampler;
     VkCommandBuffer OffscreenCommandBuffer = VK_NULL_HANDLE;
     bool Rebuild=false;
 

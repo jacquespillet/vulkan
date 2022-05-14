@@ -29,6 +29,8 @@ struct framebuffer
     std::vector<framebufferAttachment> _Attachments;
     std::vector<VkFormat> AttachmentFormats;
 
+    VkSampler Sampler;
+
     bool HasDepth=true;
 
     framebuffer& SetSize(uint32_t NewWidth, uint32_t NewHeight)
@@ -167,5 +169,21 @@ struct framebuffer
         FramebufferCreateInfo.height = Height;
         FramebufferCreateInfo.layers=1;
         VK_CALL(vkCreateFramebuffer(VulkanDevice->Device, &FramebufferCreateInfo, nullptr, &Framebuffer));
+
+
+        VkSamplerCreateInfo SamplerCreateInfo = vulkanTools::BuildSamplerCreateInfo();
+        SamplerCreateInfo.magFilter=VK_FILTER_LINEAR;
+        SamplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+        SamplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        SamplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        SamplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        SamplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        SamplerCreateInfo.mipLodBias = 0.0f;
+        SamplerCreateInfo.maxAnisotropy=0;
+        SamplerCreateInfo.minLod=0.0f;
+        SamplerCreateInfo.maxLod=1.0f;
+        SamplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+        SamplerCreateInfo.compareEnable=VK_TRUE;
+        VK_CALL(vkCreateSampler(VulkanDevice->Device, &SamplerCreateInfo, nullptr, &Sampler));        
     }
 };
