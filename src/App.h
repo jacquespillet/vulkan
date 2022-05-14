@@ -82,6 +82,15 @@ struct descriptor
     }    
 };
 
+struct resources
+{
+    descriptorSetLayoutList *DescriptorSetLayouts;
+    pipelineLayoutList *PipelineLayouts;
+    pipelineList *Pipelines;
+    descriptorSetList *DescriptorSets;
+    textureList *Textures;
+};
+
 class vulkanApp
 {
 public:
@@ -137,14 +146,7 @@ public:
     };
 
     VkDescriptorPool DescriptorPool;
-    struct resources
-    {
-        descriptorSetLayoutList *DescriptorSetLayouts;
-        pipelineLayoutList *PipelineLayouts;
-        pipelineList *Pipelines;
-        descriptorSetList *DescriptorSets;
-        textureList *Textures;
-    } Resources;
+    resources Resources;
 
     struct 
     {

@@ -26,7 +26,27 @@ public:
     }
 };
 
+class pipelineLayoutList : public vulkanResourceList<VkPipelineLayout>
+{
+public:
+    pipelineLayoutList(VkDevice &Device) : vulkanResourceList(Device) {}
 
+    ~pipelineLayoutList()
+    {
+        for(auto &PipelineLayout : Resources)
+        {
+            vkDestroyPipelineLayout(Device, PipelineLayout.second, nullptr);
+        }
+    }
+
+    VkPipelineLayout Add(std::string Name, VkPipelineLayoutCreateInfo &CreateInfo)
+    {
+        VkPipelineLayout PipelineLayout;
+        VK_CALL(vkCreatePipelineLayout(Device, &CreateInfo, nullptr, &PipelineLayout));
+        Resources[Name] = PipelineLayout;
+        return PipelineLayout;
+    }
+};
 
 class pipelineList : public vulkanResourceList<VkPipeline>
 {
@@ -47,28 +67,6 @@ public:
         VK_CALL(vkCreateGraphicsPipelines(Device, PipelineCache, 1, &CreateInfo, nullptr, &Pipeline));
         Resources[Name] = Pipeline;
         return Pipeline;
-    }
-};
-
-class pipelineLayoutList : public vulkanResourceList<VkPipelineLayout>
-{
-public:
-    pipelineLayoutList(VkDevice &Device) : vulkanResourceList(Device) {}
-
-    ~pipelineLayoutList()
-    {
-        for(auto &PipelineLayout : Resources)
-        {
-            vkDestroyPipelineLayout(Device, PipelineLayout.second, nullptr);
-        }
-    }
-
-    VkPipelineLayout Add(std::string Name, VkPipelineLayoutCreateInfo &CreateInfo)
-    {
-        VkPipelineLayout PipelineLayout;
-        VK_CALL(vkCreatePipelineLayout(Device, &CreateInfo, nullptr, &PipelineLayout));
-        Resources[Name] = PipelineLayout;
-        return PipelineLayout;
     }
 };
 
