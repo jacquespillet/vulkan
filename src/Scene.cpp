@@ -138,222 +138,63 @@ void scene::LoadMeshes(VkCommandBuffer CopyCommandBuffer)
             GIndexBase+=3;
         }
 
-        uint32_t VertexDataSize = (uint32_t)Vertices.size() * sizeof(vertex);
-        uint32_t IndexDataSize = (uint32_t)Indices.size() * sizeof(uint32_t);
-
-        VkMemoryAllocateInfo MemAlloc = vulkanTools::BuildMemoryAllocateInfo();
-        VkMemoryRequirements MemoryRequirements;
-
-        void *Data;
-
-        struct
-        {
-            struct 
-            {
-                VkDeviceMemory Memory;
-                VkBuffer Buffer;
-            } VBuffer;
-            struct 
-            {
-                VkDeviceMemory Memory;
-                VkBuffer Buffer;
-            } IBuffer;
-        } Staging;
-
         //Vertex
-        VkBufferCreateInfo VBufferInfo;
-        
-        VBufferInfo = vulkanTools::BuildBufferCreateInfo(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VertexDataSize);
-        VK_CALL(vkCreateBuffer(Device, &VBufferInfo, nullptr, &Staging.VBuffer.Buffer));
-        vkGetBufferMemoryRequirements(Device, Staging.VBuffer.Buffer, &MemoryRequirements);
-        MemAlloc.allocationSize = MemoryRequirements.size;
-        MemAlloc.memoryTypeIndex = App->VulkanDevice->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        VK_CALL(vkAllocateMemory(Device, &MemAlloc, nullptr, &Staging.VBuffer.Memory));
-        VK_CALL(vkMapMemory(Device, Staging.VBuffer.Memory, 0, VK_WHOLE_SIZE, 0, &Data));
-        memcpy(Data, Vertices.data(), VertexDataSize);
-        vkUnmapMemory(Device, Staging.VBuffer.Memory);
-        VK_CALL(vkBindBufferMemory(Device, Staging.VBuffer.Buffer, Staging.VBuffer.Memory, 0));
-
-        VBufferInfo = vulkanTools::BuildBufferCreateInfo(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VertexDataSize);
-        VK_CALL(vkCreateBuffer(Device, &VBufferInfo, nullptr, &Meshes[i].VertexBuffer));
-        vkGetBufferMemoryRequirements(Device, Meshes[i].VertexBuffer, &MemoryRequirements);
-        MemAlloc.allocationSize=MemoryRequirements.size;
-        MemAlloc.memoryTypeIndex = App->VulkanDevice->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        VK_CALL(vkAllocateMemory(Device, &MemAlloc, nullptr, &Meshes[i].VertexMemory));
-        VK_CALL(vkBindBufferMemory(Device, Meshes[i].VertexBuffer, Meshes[i].VertexMemory, 0));
-
-        //Index
-        VkBufferCreateInfo IBufferInfo;
-
-        IBufferInfo = vulkanTools::BuildBufferCreateInfo(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, IndexDataSize);
-        VK_CALL(vkCreateBuffer(Device, &IBufferInfo, nullptr, &Staging.IBuffer.Buffer));
-        vkGetBufferMemoryRequirements(Device, Staging.IBuffer.Buffer, &MemoryRequirements);
-        MemAlloc.allocationSize = MemoryRequirements.size;
-        MemAlloc.memoryTypeIndex = App->VulkanDevice->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        VK_CALL(vkAllocateMemory(Device, &MemAlloc, nullptr, &Staging.IBuffer.Memory));
-        VK_CALL(vkMapMemory(Device, Staging.IBuffer.Memory, 0, VK_WHOLE_SIZE, 0, &Data));
-        memcpy(Data, Indices.data(), IndexDataSize);
-        vkUnmapMemory(Device, Staging.IBuffer.Memory);
-        VK_CALL(vkBindBufferMemory(Device, Staging.IBuffer.Buffer, Staging.IBuffer.Memory, 0));
-
-        IBufferInfo = vulkanTools::BuildBufferCreateInfo(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, IndexDataSize);
-        VK_CALL(vkCreateBuffer(Device, &IBufferInfo, nullptr, &Meshes[i].IndexBuffer));
-        vkGetBufferMemoryRequirements(Device, Meshes[i].IndexBuffer, &MemoryRequirements);
-        MemAlloc.allocationSize=MemoryRequirements.size;
-        MemAlloc.memoryTypeIndex = App->VulkanDevice->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        VK_CALL(vkAllocateMemory(Device, &MemAlloc, nullptr, &Meshes[i].IndexMemory));
-        VK_CALL(vkBindBufferMemory(Device, Meshes[i].IndexBuffer, Meshes[i].IndexMemory, 0));
-
-        //Copy
-        VkCommandBufferBeginInfo CommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
-        VK_CALL(vkBeginCommandBuffer(CopyCommandBuffer, &CommandBufferBeginInfo));
-
-        VkBufferCopy CopyRegion = {};
-
-        CopyRegion.size = VertexDataSize;
-        vkCmdCopyBuffer(
+        uint32_t VertexDataSize = (uint32_t)Vertices.size() * sizeof(vertex);
+        vulkanTools::CreateAndFillBuffer(
+            App->VulkanDevice,
+            Vertices.data(),
+            VertexDataSize,
+            &Meshes[i].VertexBuffer,
+            &Meshes[i].VertexMemory,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             CopyCommandBuffer,
-            Staging.VBuffer.Buffer,
-            Meshes[i].VertexBuffer,
-            1,
-            &CopyRegion
+            Queue
         );
-
-        CopyRegion.size = IndexDataSize;
-        vkCmdCopyBuffer(
-            CopyCommandBuffer,
-            Staging.IBuffer.Buffer,
-            Meshes[i].IndexBuffer,
-            1,
-            &CopyRegion
-        );
-
-        VK_CALL(vkEndCommandBuffer(CopyCommandBuffer));
-
-        VkSubmitInfo SubmitInfo {VK_STRUCTURE_TYPE_SUBMIT_INFO};
-        SubmitInfo.commandBufferCount=1;
-        SubmitInfo.pCommandBuffers = &CopyCommandBuffer;
-
-        VK_CALL(vkQueueSubmit(Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
-        VK_CALL(vkQueueWaitIdle(Queue));
-
-        vkDestroyBuffer(Device, Staging.VBuffer.Buffer, nullptr);
-        vkFreeMemory(Device, Staging.VBuffer.Memory, nullptr);
-        vkDestroyBuffer(Device, Staging.IBuffer.Buffer, nullptr);
-        vkFreeMemory(Device, Staging.IBuffer.Memory, nullptr);
-    }
-
-    size_t VertexDataSize = GVertices.size() * sizeof(vertex);
-    size_t IndexDataSize = GIndices.size() * sizeof(uint32_t);
-
-    VkMemoryAllocateInfo MemAlloc = vulkanTools::BuildMemoryAllocateInfo();
-    VkMemoryRequirements MemReqs;
-
-    void *Data;
-
-    struct
-    {
-        struct 
-        {
-            VkDeviceMemory Memory;
-            VkBuffer Buffer;
-        } VBuffer;
-        struct 
-        {
-            VkDeviceMemory Memory;
-            VkBuffer Buffer;
-        } IBuffer;
-    } Staging;
-
-    //Vertex
-    VkBufferCreateInfo VBufferInfo;
     
-    VBufferInfo = vulkanTools::BuildBufferCreateInfo(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VertexDataSize);
-    VK_CALL(vkCreateBuffer(Device, &VBufferInfo, nullptr, &Staging.VBuffer.Buffer));
-    vkGetBufferMemoryRequirements(Device, Staging.VBuffer.Buffer, &MemReqs);
-    MemAlloc.allocationSize = MemReqs.size;
-    MemAlloc.memoryTypeIndex = App->VulkanDevice->GetMemoryType(MemReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-    VK_CALL(vkAllocateMemory(Device, &MemAlloc, nullptr, &Staging.VBuffer.Memory));
-    VK_CALL(vkMapMemory(Device, Staging.VBuffer.Memory, 0, VK_WHOLE_SIZE, 0, &Data));
-    memcpy(Data, GVertices.data(), VertexDataSize);
-    vkUnmapMemory(Device, Staging.VBuffer.Memory);
-    VK_CALL(vkBindBufferMemory(Device, Staging.VBuffer.Buffer, Staging.VBuffer.Memory, 0));
-
-    VBufferInfo = vulkanTools::BuildBufferCreateInfo(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VertexDataSize);
-    VK_CALL(vkCreateBuffer(Device, &VBufferInfo, nullptr, &VertexBuffer.Buffer));
-    vkGetBufferMemoryRequirements(Device, VertexBuffer.Buffer, &MemReqs);
-    MemAlloc.allocationSize=MemReqs.size;
-    MemAlloc.memoryTypeIndex = App->VulkanDevice->GetMemoryType(MemReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    VK_CALL(vkAllocateMemory(Device, &MemAlloc, nullptr, &VertexBuffer.Memory));
-    VK_CALL(vkBindBufferMemory(Device, VertexBuffer.Buffer, VertexBuffer.Memory, 0));
-
-    //Index
-    VkBufferCreateInfo IBufferInfo;
-
-    IBufferInfo = vulkanTools::BuildBufferCreateInfo(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, IndexDataSize);
-    VK_CALL(vkCreateBuffer(Device, &IBufferInfo, nullptr, &Staging.IBuffer.Buffer));
-    vkGetBufferMemoryRequirements(Device, Staging.IBuffer.Buffer, &MemReqs);
-    MemAlloc.allocationSize = MemReqs.size;
-    MemAlloc.memoryTypeIndex = App->VulkanDevice->GetMemoryType(MemReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-    VK_CALL(vkAllocateMemory(Device, &MemAlloc, nullptr, &Staging.IBuffer.Memory));
-    VK_CALL(vkMapMemory(Device, Staging.IBuffer.Memory, 0, VK_WHOLE_SIZE, 0, &Data));
-    memcpy(Data, GIndices.data(), IndexDataSize);
-    vkUnmapMemory(Device, Staging.IBuffer.Memory);
-    VK_CALL(vkBindBufferMemory(Device, Staging.IBuffer.Buffer, Staging.IBuffer.Memory, 0));
-
-    IBufferInfo = vulkanTools::BuildBufferCreateInfo(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, IndexDataSize);
-    VK_CALL(vkCreateBuffer(Device, &IBufferInfo, nullptr, &IndexBuffer.Buffer));
-    vkGetBufferMemoryRequirements(Device, IndexBuffer.Buffer, &MemReqs);
-    MemAlloc.allocationSize=MemReqs.size;
-    MemAlloc.memoryTypeIndex = App->VulkanDevice->GetMemoryType(MemReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    VK_CALL(vkAllocateMemory(Device, &MemAlloc, nullptr, &IndexBuffer.Memory));
-    VK_CALL(vkBindBufferMemory(Device, IndexBuffer.Buffer, IndexBuffer.Memory, 0));
-
-    //Copy
-    VkCommandBufferBeginInfo CommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
-    VK_CALL(vkBeginCommandBuffer(CopyCommandBuffer, &CommandBufferBeginInfo));
-
-    VkBufferCopy CopyRegion = {};
-
-    CopyRegion.size = VertexDataSize;
-    vkCmdCopyBuffer(
+        //Index
+        uint32_t IndexDataSize = (uint32_t)Indices.size() * sizeof(uint32_t);
+        vulkanTools::CreateAndFillBuffer(
+            App->VulkanDevice,
+            Indices.data(),
+            IndexDataSize,
+            &Meshes[i].IndexBuffer,
+            &Meshes[i].IndexMemory,
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            CopyCommandBuffer,
+            Queue
+        );       
+    }
+    //Global buffers
+    size_t VertexDataSize = GVertices.size() * sizeof(vertex);
+    vulkanTools::CreateAndFillBuffer(
+        App->VulkanDevice,
+        GVertices.data(),
+        VertexDataSize,
+        &VertexBuffer,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         CopyCommandBuffer,
-        Staging.VBuffer.Buffer,
-        VertexBuffer.Buffer,
-        1,
-        &CopyRegion
+        Queue
     );
-
-    CopyRegion.size = IndexDataSize;
-    vkCmdCopyBuffer(
+    size_t IndexDataSize = GIndices.size() * sizeof(uint32_t);
+    vulkanTools::CreateAndFillBuffer(
+        App->VulkanDevice,
+        GIndices.data(),
+        IndexDataSize,
+        &IndexBuffer,
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         CopyCommandBuffer,
-        Staging.IBuffer.Buffer,
-        IndexBuffer.Buffer,
-        1,
-        &CopyRegion
-    );
+        Queue
+    );        
+    
 
-    VK_CALL(vkEndCommandBuffer(CopyCommandBuffer));
-
-    VkSubmitInfo SubmitInfo {VK_STRUCTURE_TYPE_SUBMIT_INFO};
-    SubmitInfo.commandBufferCount=1;
-    SubmitInfo.pCommandBuffers = &CopyCommandBuffer;
-
-    VK_CALL(vkQueueSubmit(Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
-    VK_CALL(vkQueueWaitIdle(Queue));
-
-    vkDestroyBuffer(Device, Staging.VBuffer.Buffer, nullptr);
-    vkFreeMemory(Device, Staging.VBuffer.Memory, nullptr);
-    vkDestroyBuffer(Device, Staging.IBuffer.Buffer, nullptr);
-    vkFreeMemory(Device, Staging.IBuffer.Memory, nullptr);
-
-
-
-    //Descriptor sets
-    std::vector<VkDescriptorPoolSize> PoolSizes;
-    PoolSizes.push_back(vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (uint32_t)Meshes.size()));
-    PoolSizes.push_back(vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32_t)Meshes.size() * 3));
-
+    //Descriptor sets : each mesh has its own descriptor set
+    
+    //Create descriptor pool
+    std::vector<VkDescriptorPoolSize> PoolSizes = 
+    {
+        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (uint32_t)Meshes.size()),
+        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32_t)Meshes.size() * 3)
+    };
     VkDescriptorPoolCreateInfo DescriptorPoolInfo = vulkanTools::BuildDescriptorPoolCreateInfo(
         (uint32_t)PoolSizes.size(),
         PoolSizes.data(),
@@ -361,82 +202,34 @@ void scene::LoadMeshes(VkCommandBuffer CopyCommandBuffer)
     );
     VK_CALL(vkCreateDescriptorPool(Device, &DescriptorPoolInfo, nullptr, &DescriptorPool));
 
-    std::vector<VkDescriptorSetLayoutBinding> SetLayoutBindings;
 
-    SetLayoutBindings.push_back(
-        vulkanTools::BuildDescriptorSetLayoutBinding(
-            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            VK_SHADER_STAGE_VERTEX_BIT,
-            0
-        )
-    );
-
-    SetLayoutBindings.push_back(
-        vulkanTools::BuildDescriptorSetLayoutBinding(
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            VK_SHADER_STAGE_FRAGMENT_BIT,
-            1
-        )
-    );
-
-    SetLayoutBindings.push_back(
-        vulkanTools::BuildDescriptorSetLayoutBinding(
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            VK_SHADER_STAGE_FRAGMENT_BIT,
-            2
-        )
-    );
-
-    SetLayoutBindings.push_back(
-        vulkanTools::BuildDescriptorSetLayoutBinding(
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            VK_SHADER_STAGE_FRAGMENT_BIT,
-            3
-        )
-    );
-
+    //Create descriptor set layout and pipeline layout
+    std::vector<VkDescriptorSetLayoutBinding> SetLayoutBindings = {
+        vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0 ),
+        vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ),
+        vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2 ),
+        vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 3 ),
+    };
     VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), (uint32_t)SetLayoutBindings.size());
     VK_CALL(vkCreateDescriptorSetLayout(Device, &DescriptorLayoutCreateInfo, nullptr, &DescriptorSetLayout));
-
     VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(&DescriptorSetLayout, 1);
     VK_CALL(vkCreatePipelineLayout(Device, &pPipelineLayoutCreateInfo, nullptr, &PipelineLayout));
 
+    //Write descriptor sets
     for(uint32_t i=0; i<Meshes.size(); i++)
     {
         VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &DescriptorSetLayout, 1);
         VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &Meshes[i].DescriptorSet));
 
-        std::vector<VkWriteDescriptorSet> WriteDescriptorSets;
-        WriteDescriptorSets.push_back(vulkanTools::BuildWriteDescriptorSet(
-            Meshes[i].DescriptorSet,
-            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            0,
-            &DefaultUBO->Descriptor
-        ));
-        WriteDescriptorSets.push_back(vulkanTools::BuildWriteDescriptorSet(
-            Meshes[i].DescriptorSet,
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            1,
-            &Meshes[i].Material->Diffuse.Descriptor
-        ));
-        WriteDescriptorSets.push_back(vulkanTools::BuildWriteDescriptorSet(
-            Meshes[i].DescriptorSet,
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            2,
-            &Meshes[i].Material->Specular.Descriptor
-        ));
-        WriteDescriptorSets.push_back(vulkanTools::BuildWriteDescriptorSet(
-            Meshes[i].DescriptorSet,
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            3,
-            &Meshes[i].Material->Bump.Descriptor
-        ));
+        std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
+        {
+            vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &DefaultUBO->Descriptor),
+            vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &Meshes[i].Material->Diffuse.Descriptor),
+            vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &Meshes[i].Material->Specular.Descriptor),
+            vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &Meshes[i].Material->Bump.Descriptor)
+        };
         vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
     }
-
-
-
-
 }
 
 void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)

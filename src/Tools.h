@@ -124,4 +124,7 @@ namespace vulkanTools
 
 
     void CreateAttachment(vulkanDevice *Device, VkFormat Format, VkImageUsageFlagBits Usage, framebufferAttachment *Attachment, VkCommandBuffer LayoutCommand, uint32_t Width, uint32_t Height);
+
+    void CreateAndFillBuffer(vulkanDevice *Device, void *Data, size_t DataSize, VkBuffer *Buffer, VkDeviceMemory *Memory, VkBufferUsageFlags Flags, VkCommandBuffer CommandBuffer, VkQueue Queue);
+    void CreateAndFillBuffer(vulkanDevice *Device, void *Data, size_t DataSize, buffer *Buffer, VkBufferUsageFlags Flags, VkCommandBuffer CommandBuffer, VkQueue Queue);
 }

@@ -710,4 +710,73 @@ namespace vulkanTools
             vkFreeCommandBuffers(Device, CommandPool, 1, &CommandBuffer);
         }
     }
+
+    
+    void CreateAndFillBuffer(vulkanDevice *Device, void *DataToCopy, size_t DataSize, VkBuffer *Buffer, VkDeviceMemory *Memory, VkBufferUsageFlags Flags, VkCommandBuffer CommandBuffer, VkQueue Queue)
+    {
+        void *Data;
+        struct 
+        {
+            VkDeviceMemory Memory;
+            VkBuffer Buffer;
+        } Staging;
+        VkMemoryAllocateInfo MemAlloc = vulkanTools::BuildMemoryAllocateInfo();
+        VkMemoryRequirements MemoryRequirements;
+
+        VkBufferCreateInfo BufferInfo;
+        
+        BufferInfo = BuildBufferCreateInfo(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, DataSize);
+        VK_CALL(vkCreateBuffer(Device->Device, &BufferInfo, nullptr, &Staging.Buffer));
+        
+        vkGetBufferMemoryRequirements(Device->Device, Staging.Buffer, &MemoryRequirements);
+        MemAlloc.allocationSize = MemoryRequirements.size;
+        MemAlloc.memoryTypeIndex = Device->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        VK_CALL(vkAllocateMemory(Device->Device, &MemAlloc, nullptr, &Staging.Memory));
+        
+        VK_CALL(vkMapMemory(Device->Device, Staging.Memory, 0, VK_WHOLE_SIZE, 0, &Data));
+        memcpy(Data, DataToCopy, DataSize);
+        vkUnmapMemory(Device->Device, Staging.Memory);
+        VK_CALL(vkBindBufferMemory(Device->Device, Staging.Buffer, Staging.Memory, 0));
+
+        BufferInfo = vulkanTools::BuildBufferCreateInfo(Flags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, DataSize);
+        VK_CALL(vkCreateBuffer(Device->Device, &BufferInfo, nullptr, Buffer));
+        vkGetBufferMemoryRequirements(Device->Device, *Buffer, &MemoryRequirements);
+        MemAlloc.allocationSize=MemoryRequirements.size;
+        MemAlloc.memoryTypeIndex = Device->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VK_CALL(vkAllocateMemory(Device->Device, &MemAlloc, nullptr, Memory));
+        VK_CALL(vkBindBufferMemory(Device->Device, *Buffer, *Memory, 0));      
+
+
+        VkCommandBufferBeginInfo CommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
+        VK_CALL(vkBeginCommandBuffer(CommandBuffer, &CommandBufferBeginInfo));
+
+        VkBufferCopy CopyRegion = {};
+
+        CopyRegion.size = DataSize;
+        vkCmdCopyBuffer(
+            CommandBuffer,
+            Staging.Buffer,
+            *Buffer,
+            1,
+            &CopyRegion
+        );
+
+        VK_CALL(vkEndCommandBuffer(CommandBuffer));
+
+        VkSubmitInfo SubmitInfo {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        SubmitInfo.commandBufferCount=1;
+        SubmitInfo.pCommandBuffers = &CommandBuffer;
+
+        VK_CALL(vkQueueSubmit(Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+        VK_CALL(vkQueueWaitIdle(Queue));
+
+        vkDestroyBuffer(Device->Device, Staging.Buffer, nullptr);
+        vkFreeMemory(Device->Device, Staging.Memory, nullptr);
+    }
+
+    void CreateAndFillBuffer(vulkanDevice *Device, void *Data, size_t DataSize, buffer *Buffer, VkBufferUsageFlags Flags, VkCommandBuffer CommandBuffer, VkQueue Queue)
+    {
+        CreateAndFillBuffer(Device, Data, DataSize, &Buffer->Buffer, &Buffer->Memory, Flags, CommandBuffer, Queue);
+    }
+
 }

@@ -530,6 +530,9 @@ void vulkanApp::BuildPipelines()
         0
     );
 
+    // VkGraphicsPipelineCreateInfo PipelineCreateInfo = vulkanTools::BuildDefaultGraphicsPipelineCreateInfo();
+    
+
     //Shader Stages
     std::array<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
     VkGraphicsPipelineCreateInfo PipelineCreateInfo = vulkanTools::BuildGraphicsPipelineCreateInfo();
@@ -576,17 +579,6 @@ void vulkanApp::BuildPipelines()
         SpecializationData.EnableSSAO = 0;
         Resources.Pipelines->Add("Composition.SSAO.Enabled", PipelineCreateInfo, PipelineCache);
     }
-
-    PipelineCreateInfo.flags = VK_PIPELINE_CREATE_DERIVATIVE_BIT;
-    PipelineCreateInfo.basePipelineIndex=-1;
-    PipelineCreateInfo.basePipelineHandle = Resources.Pipelines->Get("Composition.SSAO.Enabled");
-
-    //Debug
-    ShaderStages[0] = LoadShader(VulkanDevice->Device, "resources/shaders/Debug.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-    ShaderStages[1] = LoadShader(VulkanDevice->Device, "resources/shaders/Debug.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-    ShaderModules.push_back(ShaderStages[0].module);
-    ShaderModules.push_back(ShaderStages[1].module);
-    Resources.Pipelines->Add("DebugDisplay", PipelineCreateInfo, PipelineCache);
 
     // Fill G buffer
     {
