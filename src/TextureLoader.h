@@ -150,7 +150,7 @@ public:
         vkCmdCopyBufferToImage(CommandBuffer, StagingBuffer, Texture->Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(BufferCopyRegions.size()), BufferCopyRegions.data());
         
         //Transition to shader read
-        Texture->ImageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        Texture->ImageLayout = VK_IMAGE_LAYOUT_GENERAL;
         vulkanTools::TransitionImageLayout(CommandBuffer, 
                                     Texture->Image, 
                                     VK_IMAGE_ASPECT_COLOR_BIT, 
