@@ -1,7 +1,7 @@
 #include "Tools.h"
 #include "Framebuffer.h"
 #include "Buffer.h"
-
+#include <iostream>
 namespace vulkanTools
 {
     VkBool32 CheckDeviceExtensionPresent(VkPhysicalDevice PhysicalDevice, const char *ExtensionName)
@@ -13,7 +13,7 @@ namespace vulkanTools
         vkEnumerateDeviceExtensionProperties(PhysicalDevice, nullptr, &ExtensionCount, Extensions.data());
         for(auto &Extension : Extensions)
         {
-            if(!strcmp(ExtensionName, Extension.extensionName))
+			if(!strcmp(ExtensionName, Extension.extensionName))
             {
                 return true;
             }
@@ -447,7 +447,7 @@ namespace vulkanTools
     
     VkViewport BuildViewport(float Width, float Height, float MinDepth, float MaxDepth)
     {
-        VkViewport Result;
+		VkViewport Result = {};
         Result.width = Width;
         Result.height = Height;
         Result.minDepth = MinDepth;
@@ -457,7 +457,7 @@ namespace vulkanTools
     
     VkRect2D BuildRect2D(int32_t Width, int32_t Height, int32_t OffsetX, int32_t OffsetY)
     {
-        VkRect2D Result;
+		VkRect2D Result = {};
         Result.extent.width = Width;
         Result.extent.height = Height;
         Result.offset.x = OffsetX;

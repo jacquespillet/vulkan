@@ -319,7 +319,7 @@ public:
         );
 
         // Change texture image layout to shader read after all mip levels have been copied
-        Texture->ImageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        Texture->ImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
          vulkanTools::TransitionImageLayout(
             CommandBuffer,
             Texture->Image,
@@ -379,7 +379,7 @@ public:
         VK_CALL(vkCreateImageView(VulkanDevice->Device, &view, nullptr, &Texture->View));
 
         // Fill descriptor image info that can be used for setting up descriptor sets
-        Texture->Descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        Texture->Descriptor.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         Texture->Descriptor.imageView = Texture->View;
         Texture->Descriptor.sampler = Texture->Sampler;
     }

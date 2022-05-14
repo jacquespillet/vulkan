@@ -1,6 +1,6 @@
 #include "Camera.h"
 #include <algorithm>
-
+#include <iostream>
 void camera::RecalculateLookat() {
     worldPosition = target + sphericalPosition * distance;
     invModelMatrix = glm::lookAt(worldPosition, target, up);
@@ -10,6 +10,7 @@ void camera::RecalculateLookat() {
 
 void camera::mousePressEvent(int button) {
     if(locked) return;
+    std::cout << button << std::endl;
     if(button==0) {
         IsLeftMousePressed=true;
     } else if(button==1) {
@@ -33,7 +34,7 @@ bool camera::mouseMoveEvent(float x, float y) {
             glm::vec2 diff = currentPos - prevPos;
             
             phi += (float)diff.x * 0.005f;
-            theta -= (float)diff.y * 0.005f;
+            theta += (float)diff.y * 0.005f;
             
             phi = (phi>2*PI)? phi - 2.0f * PI : phi;
             phi = (phi<0) ? 2.0f * PI + phi : phi;
@@ -51,10 +52,9 @@ bool camera::mouseMoveEvent(float x, float y) {
         if(prevPos.x >0) {
             glm::ivec2 diff = currentPos - prevPos;
             target -= (float)diff.x * 0.005 * distance * glm::vec3(modelMatrix[0]);
-            target += (float)diff.y * 0.005 * distance *  glm::vec3(modelMatrix[1]);
+            target -= (float)diff.y * 0.005 * distance *  glm::vec3(modelMatrix[1]);
             RecalculateLookat();
             changed=true;  
-            
         }
     }
     prevPos = currentPos;

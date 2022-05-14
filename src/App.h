@@ -203,6 +203,7 @@ public:
     //App
     uint32_t Width, Height;
     
+    float t=0;
     
     camera Camera;
     void InitVulkan();

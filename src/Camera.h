@@ -38,7 +38,7 @@ public:
         RecalculateLookat();
     }
     void RecalculateProjectionMatrix() {
-        projectionMatrix = glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
+        projectionMatrix = glm::perspectiveRH(glm::radians(fov), aspectRatio, nearPlane, farPlane);
     }
 
     glm::mat4 GetProjectionMatrix() const{return projectionMatrix;}

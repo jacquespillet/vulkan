@@ -12,6 +12,7 @@ layout (binding = 0) uniform UBO
 	mat4 projection;
 	mat4 model;
 	mat4 view;
+	vec2 viewport;
 } ubo;
 
 layout (location = 0) out vec3 outNormal;
@@ -23,7 +24,8 @@ layout (location = 5) out vec3 outBitangent;
 
 void main() 
 {
-	gl_Position = ubo.projection * ubo.view * ubo.model * inPos;
+	vec4 pos = inPos;
+	gl_Position = ubo.projection * ubo.view * ubo.model * pos;
 	
 	outUV = inUV;
 	outUV.t = 1.0 - outUV.t;
