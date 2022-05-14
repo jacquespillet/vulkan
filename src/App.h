@@ -52,6 +52,35 @@
 
 #include "Camera.h"
 
+struct descriptor
+{
+    VkShaderStageFlags Stage;
+    enum type
+    {
+        Image,
+        Uniform
+    } Type;
+    VkImageView ImageView;
+    VkSampler Sampler;
+    VkDescriptorImageInfo DescriptorImageInfo;
+    VkDescriptorBufferInfo DescriptorBufferInfo;
+    VkDescriptorType DescriptorType;
+
+    descriptor(VkShaderStageFlags Stage, VkImageView ImageView, VkSampler Sampler) :
+                Stage(Stage), ImageView(ImageView), DescriptorImageInfo(DescriptorImageInfo), Sampler(Sampler)
+    {
+        Type = Image;
+        DescriptorImageInfo = vulkanTools::BuildDescriptorImageInfo(Sampler, ImageView, VK_IMAGE_LAYOUT_GENERAL);
+        DescriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    }
+    
+    descriptor(VkShaderStageFlags Stage, VkDescriptorBufferInfo DescriptorBufferInfo) : 
+                Stage(Stage), DescriptorBufferInfo(DescriptorBufferInfo)
+    {
+        Type = Uniform;
+        DescriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    }    
+};
 
 class vulkanApp
 {
@@ -110,9 +139,9 @@ public:
     VkDescriptorPool DescriptorPool;
     struct resources
     {
+        descriptorSetLayoutList *DescriptorSetLayouts;
         pipelineLayoutList *PipelineLayouts;
         pipelineList *Pipelines;
-        descriptorSetLayoutList *DescriptorSetLayouts;
         descriptorSetList *DescriptorSets;
         textureList *Textures;
     } Resources;
@@ -192,6 +221,8 @@ public:
     {
         vulkanTexture SSAONoise;
     } Textures;
+
+
 
     std::vector<VkShaderModule> ShaderModules;
 

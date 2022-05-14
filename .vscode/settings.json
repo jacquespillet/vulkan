@@ -74,6 +74,13 @@
         "xloctime": "cpp",
         "bitset": "cpp",
         "regex": "cpp",
-        "stack": "cpp"
+        "stack": "cpp",
+        "forward_list": "cpp",
+        "fstream": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp",
+        "map": "cpp",
+        "numeric": "cpp",
+        "unordered_set": "cpp"
     }
 }
