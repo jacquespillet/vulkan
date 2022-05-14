@@ -212,7 +212,7 @@ public:
         Texture->Descriptor.sampler = Texture->Sampler;
     }
 
-    void CreateTexture(void *Buffer, VkDeviceSize BufferSize, VkFormat Format, uint32_t Width, uint32_t Height, vulkanTexture *Texture, VkFilter Filter = VK_FILTER_LINEAR, VkImageUsageFlags ImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT)
+    void CreateTexture(void *Buffer, VkDeviceSize BufferSize, VkFormat Format, uint32_t Width, uint32_t Height, vulkanTexture *Texture, VkFilter Filter = VK_FILTER_LINEAR, VkImageUsageFlags ImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
     {
         assert(Buffer);
 
@@ -319,7 +319,7 @@ public:
         );
 
         // Change texture image layout to shader read after all mip levels have been copied
-        Texture->ImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        Texture->ImageLayout = VK_IMAGE_LAYOUT_GENERAL;
          vulkanTools::TransitionImageLayout(
             CommandBuffer,
             Texture->Image,
@@ -379,7 +379,7 @@ public:
         VK_CALL(vkCreateImageView(VulkanDevice->Device, &view, nullptr, &Texture->View));
 
         // Fill descriptor image info that can be used for setting up descriptor sets
-        Texture->Descriptor.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        Texture->Descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
         Texture->Descriptor.imageView = Texture->View;
         Texture->Descriptor.sampler = Texture->Sampler;
     }

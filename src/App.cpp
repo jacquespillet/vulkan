@@ -1107,6 +1107,9 @@ void vulkanApp::BuildDeferredCommandBuffers()
 
     VkCommandBufferBeginInfo CommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
     VK_CALL(vkBeginCommandBuffer(OffscreenCommandBuffer, &CommandBufferBeginInfo));
+
+
+
     
     //First pass
     std::array<VkClearValue, 4> ClearValues = {};
@@ -1185,6 +1188,20 @@ void vulkanApp::BuildDeferredCommandBuffers()
         vkCmdEndRenderPass(OffscreenCommandBuffer);
         
         //ssao blur
+        VkImageSubresourceRange SubresourceRange = {};
+        SubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        SubresourceRange.baseMipLevel = 0;
+        SubresourceRange.levelCount = 1;
+        SubresourceRange.layerCount = 1;
+        vulkanTools::TransitionImageLayout(
+            OffscreenCommandBuffer,
+            Framebuffers.SSAOBlur.Attachments[0].Image,
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_GENERAL,
+            SubresourceRange
+        );
+                
         RenderPassBeginInfo.framebuffer = Framebuffers.SSAO.Framebuffer;
         RenderPassBeginInfo.renderPass = Framebuffers.SSAO.RenderPass;
         RenderPassBeginInfo.renderArea.extent.width = Framebuffers.SSAO.Width;
