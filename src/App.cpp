@@ -729,7 +729,7 @@ void vulkanApp::BuildCommandBuffers()
 
         VkDeviceSize Offsets[1] = {0};
         vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 0, 1, Resources.DescriptorSets->GetPtr("Composition"), 0, nullptr);
-
+        
         vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Composition.SSAO.Enabled"));
         vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Meshes.Quad.Vertices.Buffer, Offsets);
         vkCmdBindIndexBuffer(DrawCommandBuffers[i], Meshes.Quad.Indices.Buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -877,21 +877,10 @@ void vulkanApp::BuildDeferredCommandBuffers()
 
 void vulkanApp::CreateDeferredRendererResources()
 {
-
-    
     BuildUniformBuffers();
-    // vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0 ),
-    // vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ),
-    // vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2 ),
-    // vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 3 ),
-    VkImageView DummyImageView; //Will be filled with mesh infos
-    VkSampler DummySampler; //Will be filled with mesh infos
     std::vector<descriptor> MeshDescriptors = 
     {
-        descriptor(VK_SHADER_STAGE_VERTEX_BIT, UniformBuffers.SceneMatrices.Descriptor),
-        descriptor(VK_SHADER_STAGE_VERTEX_BIT, DummyImageView, DummySampler),
-        descriptor(VK_SHADER_STAGE_VERTEX_BIT, DummyImageView, DummySampler),
-        descriptor(VK_SHADER_STAGE_VERTEX_BIT, DummyImageView, DummySampler),
+        descriptor(VK_SHADER_STAGE_VERTEX_BIT, UniformBuffers.SceneMatrices.Descriptor)
     };
     Scene->CreateDescriptorSets(MeshDescriptors);
 
