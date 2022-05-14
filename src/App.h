@@ -134,12 +134,12 @@ public:
     struct 
     {
         struct offscreen : public framebuffer {
-            std::array<framebufferAttachment, 3> Attachments;
         } Offscreen;
         struct SSAO : public framebuffer {
-            std::array<framebufferAttachment, 1> Attachments;
         } SSAO, SSAOBlur;
     } Framebuffers;
+
+
 
     VkSampler ColorSampler;
     VkCommandBuffer OffscreenCommandBuffer = VK_NULL_HANDLE;

@@ -286,266 +286,40 @@ void vulkanApp::BuildQuads()
     );
 }
 
- void vulkanApp::BuildOffscreenBuffers()
+
+void vulkanApp::BuildOffscreenBuffers()
 {
     VkCommandBuffer LayoutCommand = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
 
-    uint32_t SSAOWidth = Width;
-    uint32_t SSAOHeight = Height;
-
-    Framebuffers.Offscreen.SetSize(Width, Height);
-    Framebuffers.SSAO.SetSize(Width, Height);
-    Framebuffers.SSAOBlur.SetSize(Width, Height);
-
-    //Create G buffer attachments
-    vulkanTools::CreateAttachment(VulkanDevice,
-                                    VK_FORMAT_R32G32B32A32_SFLOAT,
-                                    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                    &Framebuffers.Offscreen.Attachments[0],
-                                    LayoutCommand,
-                                    Width,
-                                    Height);
-                                    
-    vulkanTools::CreateAttachment(VulkanDevice,
-                                    VK_FORMAT_R8G8B8A8_UNORM,
-                                    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                    &Framebuffers.Offscreen.Attachments[1],
-                                    LayoutCommand,
-                                    Width,
-                                    Height);
-
-    vulkanTools::CreateAttachment(VulkanDevice,
-                                    VK_FORMAT_R32G32B32A32_UINT,
-                                    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                    &Framebuffers.Offscreen.Attachments[2],
-                                    LayoutCommand,
-                                    Width,
-                                    Height);
-
-    VkFormat AttDepthFormat;
-    VkBool32 ValidDepthFormat = vulkanTools::GetSupportedDepthFormat(PhysicalDevice, &AttDepthFormat);
-    assert(ValidDepthFormat);
-
-    vulkanTools::CreateAttachment(VulkanDevice,
-                                    AttDepthFormat,
-                                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                    &Framebuffers.Offscreen.Depth,
-                                    LayoutCommand,
-                                    Width,
-                                    Height);
-    
-    //Create SSAO attachments
-    vulkanTools::CreateAttachment(VulkanDevice,
-                                    VK_FORMAT_R8_UNORM, 
-                                    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                    &Framebuffers.SSAO.Attachments[0],
-                                    LayoutCommand,
-                                    SSAOWidth,
-                                    SSAOHeight);
-    vulkanTools::CreateAttachment(VulkanDevice,
-                                    VK_FORMAT_R8_UNORM, 
-                                    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                    &Framebuffers.SSAOBlur.Attachments[0],
-                                    LayoutCommand,
-                                    Width,
-                                    Height);
-
-    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, CommandPool, LayoutCommand, Queue, true);
-
+                                
     //G buffer
     {
-        //Attachment descriptions
-        //3 colour buffers + depth
-        std::array<VkAttachmentDescription, 4> AttachmentDescriptions = {};
-        
-        for(uint32_t i=0; i<static_cast<uint32_t>(AttachmentDescriptions.size()); i++)
-        {
-            AttachmentDescriptions[i].samples = VK_SAMPLE_COUNT_1_BIT;
-            AttachmentDescriptions[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-            AttachmentDescriptions[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            AttachmentDescriptions[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            AttachmentDescriptions[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            AttachmentDescriptions[i].finalLayout = (i==3) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
-        }
-        AttachmentDescriptions[0].format = Framebuffers.Offscreen.Attachments[0].Format;
-        AttachmentDescriptions[1].format = Framebuffers.Offscreen.Attachments[1].Format;
-        AttachmentDescriptions[2].format = Framebuffers.Offscreen.Attachments[2].Format;
-        AttachmentDescriptions[3].format = Framebuffers.Offscreen.Depth.Format;
-
-        //Attachment references
-        std::vector<VkAttachmentReference> ColorReferences;
-        ColorReferences.push_back({0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
-        ColorReferences.push_back({1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
-        ColorReferences.push_back({2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
-        VkAttachmentReference DepthReference = {};
-        DepthReference.attachment=3;
-        DepthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-        //Subpass
-        VkSubpassDescription Subpass = {};
-        Subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        Subpass.pColorAttachments = ColorReferences.data();
-        Subpass.colorAttachmentCount = (uint32_t)ColorReferences.size();
-        Subpass.pDepthStencilAttachment = &DepthReference;
-
-        //Subpass dependencies to transition the attachments from memory read to write, and then back from write to read
-        std::array<VkSubpassDependency, 2> Dependencies;
-
-        Dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-        Dependencies[0].dstSubpass=0;
-        Dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        Dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        Dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-        Dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        Dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-
-        Dependencies[1].srcSubpass=0;
-        Dependencies[1].dstSubpass=VK_SUBPASS_EXTERNAL;
-        Dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        Dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        Dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        Dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-        Dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-        VkRenderPassCreateInfo RenderPassInfo {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-        RenderPassInfo.attachmentCount = static_cast<uint32_t>(AttachmentDescriptions.size());
-        RenderPassInfo.pAttachments = AttachmentDescriptions.data();
-        RenderPassInfo.subpassCount=1;
-        RenderPassInfo.pSubpasses = &Subpass;
-        RenderPassInfo.dependencyCount=2;
-        RenderPassInfo.pDependencies = Dependencies.data();
-        VK_CALL(vkCreateRenderPass(Device, &RenderPassInfo, nullptr, &Framebuffers.Offscreen.RenderPass));
-
-        //Create framebuffer objects
-        std::array<VkImageView, 4> Attachments;
-        Attachments[0] = Framebuffers.Offscreen.Attachments[0].ImageView;
-        Attachments[1] = Framebuffers.Offscreen.Attachments[1].ImageView;
-        Attachments[2] = Framebuffers.Offscreen.Attachments[2].ImageView;
-        Attachments[3] = Framebuffers.Offscreen.Depth.ImageView;
-
-        VkFramebufferCreateInfo FramebufferCreateInfo  = vulkanTools::BuildFramebufferCreateInfo();
-        FramebufferCreateInfo.renderPass = Framebuffers.Offscreen.RenderPass;
-        FramebufferCreateInfo.pAttachments = Attachments.data();
-        FramebufferCreateInfo.attachmentCount = static_cast<uint32_t>(Attachments.size());
-        FramebufferCreateInfo.width = Framebuffers.Offscreen.Width;
-        FramebufferCreateInfo.height = Framebuffers.Offscreen.Height;
-        FramebufferCreateInfo.layers=1;
-        VK_CALL(vkCreateFramebuffer(Device, &FramebufferCreateInfo, nullptr, &Framebuffers.Offscreen.Framebuffer));
-    }
-
+        Framebuffers.Offscreen.SetSize(Width, Height)
+                              .SetAttachmentCount(3)
+                              .SetAttachmentFormat(0, VK_FORMAT_R32G32B32A32_SFLOAT)
+                              .SetAttachmentFormat(1, VK_FORMAT_R8G8B8A8_UNORM)
+                              .SetAttachmentFormat(2, VK_FORMAT_R32G32B32A32_UINT);
+        Framebuffers.Offscreen.BuildBuffers(VulkanDevice,LayoutCommand);        
+    }    
     //SSAO
     {
-        VkAttachmentDescription AttachmentDescription {};
-        AttachmentDescription.format = Framebuffers.SSAO.Attachments[0].Format;
-        AttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
-        AttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        AttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        AttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        AttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        AttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        AttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-        VkAttachmentReference ColorReference = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-
-        //Subpass
-        VkSubpassDescription SubpassDescription = {};
-        SubpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        SubpassDescription.pColorAttachments = &ColorReference;
-        SubpassDescription.colorAttachmentCount = 1;
-
-        std::array<VkSubpassDependency, 2> Dependencies;
-
-        Dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-        Dependencies[0].dstSubpass=0;
-        Dependencies[0].srcStageMask=VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        Dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        Dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-        Dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        Dependencies[0].dependencyFlags=VK_DEPENDENCY_BY_REGION_BIT;
-        
-        Dependencies[1].srcSubpass = 0;
-        Dependencies[1].dstSubpass=VK_SUBPASS_EXTERNAL;
-        Dependencies[1].srcStageMask=VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        Dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        Dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        Dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-        Dependencies[1].dependencyFlags=VK_DEPENDENCY_BY_REGION_BIT;
-
-        VkRenderPassCreateInfo RenderPassCreateInfo {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-        RenderPassCreateInfo.pAttachments = &AttachmentDescription;
-        RenderPassCreateInfo.attachmentCount=1;
-        RenderPassCreateInfo.subpassCount=1;
-        RenderPassCreateInfo.pSubpasses = &SubpassDescription;
-        RenderPassCreateInfo.dependencyCount=2;
-        RenderPassCreateInfo.pDependencies = Dependencies.data();
-        VK_CALL(vkCreateRenderPass(Device, &RenderPassCreateInfo, nullptr, &Framebuffers.SSAO.RenderPass));
-
-        VkFramebufferCreateInfo FramebufferCreateInfo = vulkanTools::BuildFramebufferCreateInfo();
-        FramebufferCreateInfo.renderPass = Framebuffers.SSAO.RenderPass;
-        FramebufferCreateInfo.pAttachments = &Framebuffers.SSAO.Attachments[0].ImageView;
-        FramebufferCreateInfo.attachmentCount=1;
-        FramebufferCreateInfo.width = Framebuffers.SSAO.Width;
-        FramebufferCreateInfo.height = Framebuffers.SSAO.Height;
-        FramebufferCreateInfo.layers=1;
-        VK_CALL(vkCreateFramebuffer(Device, &FramebufferCreateInfo, nullptr, &Framebuffers.SSAO.Framebuffer));
+        uint32_t SSAOWidth = Width;
+        uint32_t SSAOHeight = Height;
+        Framebuffers.SSAO.SetSize(SSAOWidth, SSAOHeight)
+                         .SetAttachmentCount(1)
+                         .SetAttachmentFormat(0, VK_FORMAT_R8_UNORM)
+                         .HasDepth=false;
+        Framebuffers.SSAO.BuildBuffers(VulkanDevice,LayoutCommand);        
     }
+
 
     //SSAO Blur
     {
-        VkAttachmentDescription AttachmentDescription {};
-        AttachmentDescription.format = Framebuffers.SSAOBlur.Attachments[0].Format;
-        AttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
-        AttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        AttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        AttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        AttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        AttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
-        AttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-        VkAttachmentReference ColorReference = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-
-        //Subpass
-        VkSubpassDescription SubpassDescription = {};
-        SubpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        SubpassDescription.pColorAttachments = &ColorReference;
-        SubpassDescription.colorAttachmentCount = 1;
-
-        std::array<VkSubpassDependency, 2> Dependencies;
-
-        Dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-        Dependencies[0].dstSubpass=0;
-        Dependencies[0].srcStageMask=VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        Dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        Dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-        Dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        Dependencies[0].dependencyFlags=VK_DEPENDENCY_BY_REGION_BIT;
-        
-        Dependencies[1].srcSubpass = 0;
-        Dependencies[1].dstSubpass=VK_SUBPASS_EXTERNAL;
-        Dependencies[1].srcStageMask=VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        Dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        Dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        Dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-        Dependencies[1].dependencyFlags=VK_DEPENDENCY_BY_REGION_BIT;
-
-        VkRenderPassCreateInfo RenderPassCreateInfo {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-        RenderPassCreateInfo.pAttachments = &AttachmentDescription;
-        RenderPassCreateInfo.attachmentCount=1;
-        RenderPassCreateInfo.subpassCount=1;
-        RenderPassCreateInfo.pSubpasses =&SubpassDescription;
-        RenderPassCreateInfo.dependencyCount=2;
-        RenderPassCreateInfo.pDependencies = Dependencies.data();
-        VK_CALL(vkCreateRenderPass(Device, &RenderPassCreateInfo, nullptr, &Framebuffers.SSAOBlur.RenderPass));
-
-        VkFramebufferCreateInfo FramebufferCreateInfo = vulkanTools::BuildFramebufferCreateInfo();
-        FramebufferCreateInfo.renderPass = Framebuffers.SSAOBlur.RenderPass;
-        FramebufferCreateInfo.pAttachments = &Framebuffers.SSAOBlur.Attachments[0].ImageView;
-        FramebufferCreateInfo.attachmentCount=1;
-        FramebufferCreateInfo.width = Framebuffers.SSAOBlur.Width;
-        FramebufferCreateInfo.height = Framebuffers.SSAOBlur.Height;
-        FramebufferCreateInfo.layers=1;
-        VK_CALL(vkCreateFramebuffer(Device, &FramebufferCreateInfo, nullptr, &Framebuffers.SSAOBlur.Framebuffer));
+        Framebuffers.SSAOBlur.SetSize(Width, Height)
+                             .SetAttachmentCount(1)
+                             .SetAttachmentFormat(0, VK_FORMAT_R8_UNORM)
+                             .HasDepth=false;
+        Framebuffers.SSAOBlur.BuildBuffers(VulkanDevice,LayoutCommand);  
     }
 
     VkSamplerCreateInfo SamplerCreateInfo = vulkanTools::BuildSamplerCreateInfo();
@@ -563,6 +337,8 @@ void vulkanApp::BuildQuads()
     SamplerCreateInfo.compareEnable=VK_TRUE;
     VK_CALL(vkCreateSampler(Device, &SamplerCreateInfo, nullptr, &ColorSampler));
 
+    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, CommandPool, LayoutCommand, Queue, true);
+    
 }
 
  void vulkanApp::UpdateUniformBufferScreen()
@@ -698,10 +474,10 @@ void vulkanApp::BuildLayoutsAndDescriptors()
     TargetDescriptorSet = Resources.DescriptorSets->Add("Composition", DescriptorAllocateInfo);
 
     ImageDescriptors = {
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen.Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen.Attachments[1].ImageView, VK_IMAGE_LAYOUT_GENERAL),
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen.Attachments[2].ImageView, VK_IMAGE_LAYOUT_GENERAL),
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.SSAOBlur.Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
+        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen._Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
+        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen._Attachments[1].ImageView, VK_IMAGE_LAYOUT_GENERAL),
+        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen._Attachments[2].ImageView, VK_IMAGE_LAYOUT_GENERAL),
+        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.SSAOBlur._Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
     };
     WriteDescriptorSets = 
     {
@@ -731,8 +507,8 @@ void vulkanApp::BuildLayoutsAndDescriptors()
     TargetDescriptorSet = Resources.DescriptorSets->Add("SSAO.Generate", DescriptorAllocateInfo);      
     ImageDescriptors = 
     {
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen.Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen.Attachments[1].ImageView, VK_IMAGE_LAYOUT_GENERAL)
+        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen._Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
+        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.Offscreen._Attachments[1].ImageView, VK_IMAGE_LAYOUT_GENERAL)
     };
     WriteDescriptorSets = 
     {
@@ -757,7 +533,7 @@ void vulkanApp::BuildLayoutsAndDescriptors()
     TargetDescriptorSet = Resources.DescriptorSets->Add("SSAO.Blur", DescriptorAllocateInfo);    
     ImageDescriptors = 
     {
-        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.SSAO.Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
+        vulkanTools::BuildDescriptorImageInfo(ColorSampler, Framebuffers.SSAO._Attachments[0].ImageView, VK_IMAGE_LAYOUT_GENERAL),
     };
     WriteDescriptorSets = 
     {
@@ -1162,7 +938,7 @@ void vulkanApp::BuildDeferredCommandBuffers()
         SubresourceRange.layerCount = 1;
         vulkanTools::TransitionImageLayout(
             OffscreenCommandBuffer,
-            Framebuffers.SSAOBlur.Attachments[0].Image,
+            Framebuffers.SSAOBlur._Attachments[0].Image,
             VK_IMAGE_ASPECT_COLOR_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED,
             VK_IMAGE_LAYOUT_GENERAL,
