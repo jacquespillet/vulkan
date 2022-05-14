@@ -778,6 +778,7 @@ namespace vulkanTools
     void CreateAndFillBuffer(vulkanDevice *Device, void *Data, size_t DataSize, buffer *Buffer, VkBufferUsageFlags Flags, VkCommandBuffer CommandBuffer, VkQueue Queue)
     {
         CreateAndFillBuffer(Device, Data, DataSize, &Buffer->Buffer, &Buffer->Memory, Flags, CommandBuffer, Queue);
+        
     }
 
 }

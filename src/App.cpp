@@ -248,15 +248,6 @@ void vulkanApp::CreateGeneralResources()
 
 void vulkanApp::BuildQuads()
 {
-    struct vertex
-    {
-        float pos[3];
-        float uv[2];
-        float col[3];
-        float normal[3];
-        float tangent[3];
-        float bitangent[3];
-    };
     std::vector<vertex> VertexBuffer;
     VertexBuffer.push_back({ { 1.0f, 1.0f, 0.0f },{ 1.0f, 1.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });
     VertexBuffer.push_back({ { 0,      1.0f, 0.0f },{ 0.0f, 1.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });
@@ -289,9 +280,7 @@ void vulkanApp::BuildQuads()
 
 void vulkanApp::BuildOffscreenBuffers()
 {
-    VkCommandBuffer LayoutCommand = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-
-                                
+    VkCommandBuffer LayoutCommand = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);                   
     //G buffer
     {
         Framebuffers.Offscreen.SetSize(Width, Height)
@@ -321,9 +310,7 @@ void vulkanApp::BuildOffscreenBuffers()
                              .HasDepth=false;
         Framebuffers.SSAOBlur.BuildBuffers(VulkanDevice,LayoutCommand);  
     }
-
     vulkanTools::FlushCommandBuffer(VulkanDevice->Device, CommandPool, LayoutCommand, Queue, true);
-    
 }
 
  void vulkanApp::UpdateUniformBufferScreen()
@@ -769,7 +756,7 @@ void vulkanApp::BuildDeferredCommandBuffers()
 
 
     
-    //First pass
+    //G-buffer pass
     std::array<VkClearValue, 4> ClearValues = {};
     ClearValues[0].color = {{0.0f,0.0f,0.0f,0.0f}};
     ClearValues[1].color = {{0.0f,0.0f,0.0f,0.0f}};
@@ -795,6 +782,7 @@ void vulkanApp::BuildDeferredCommandBuffers()
     VkDeviceSize Offset[1] = {0};
 
     vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Scene.Solid"));
+
     vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Scene->VertexBuffer.Buffer, Offset);
     vkCmdBindIndexBuffer(OffscreenCommandBuffer, Scene->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -808,6 +796,7 @@ void vulkanApp::BuildDeferredCommandBuffers()
         vkCmdDrawIndexed(OffscreenCommandBuffer, Mesh.IndexCount, 1, 0, Mesh.IndexBase, 0);
     }
 
+    vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Scene.Blend"));
     for(auto Mesh : Scene->Meshes)
     {
         if(Mesh.Material->HasAlpha)
@@ -883,26 +872,15 @@ void vulkanApp::BuildDeferredCommandBuffers()
 
 void vulkanApp::CreateDeferredRendererResources()
 {
-
-    Resources.PipelineLayouts = new pipelineLayoutList(VulkanDevice->Device);
-    Resources.Pipelines = new pipelineList(VulkanDevice->Device);
-    Resources.DescriptorSetLayouts = new descriptorSetLayoutList(VulkanDevice->Device);
-    Resources.DescriptorSets = new descriptorSetList(VulkanDevice->Device, DescriptorPool);
-    Resources.Textures = new textureList(VulkanDevice->Device, TextureLoader);
-
+    Resources.Init(VulkanDevice, DescriptorPool, TextureLoader);
     BuildQuads();
     BuildVertexDescriptions();
-    
     BuildOffscreenBuffers();
-    
     BuildUniformBuffers();
-
     SetupDescriptorPool();
     BuildScene();
     BuildLayoutsAndDescriptors();
-    
     BuildPipelines();
-
     BuildCommandBuffers();
     BuildDeferredCommandBuffers();
 }
