@@ -50,6 +50,7 @@
 
 #include "Scene.h"
 
+#include "Camera.h"
 
 
 class vulkanApp
@@ -201,10 +202,9 @@ public:
 
     //App
     uint32_t Width, Height;
-    GLFWwindow *Window;
-
     
-
+    
+    camera Camera;
     void InitVulkan();
 
     void SetupWindow();
@@ -240,6 +240,8 @@ public:
 
     void UpdateUniformBufferSSAOParams();
 
+    void UpdateCamera();
+
     inline float Lerp(float a, float b, float f);
 
     void BuildUniformBuffers();
@@ -256,8 +258,13 @@ public:
 
     void CreateDeferredRendererResources();
 
-    void RenderLoop();
     void Render();
 
-    vulkanApp();
+    void Initialize(HWND Window);
+
+    void Destroy();
+
+    void MouseMove(float XPosition, float YPosition);
+    void MouseAction(int Button, int Action, int Mods);
+    void Scroll(float YOffset);
 };

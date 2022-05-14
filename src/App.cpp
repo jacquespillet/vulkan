@@ -54,12 +54,7 @@ void vulkanApp::InitVulkan()
 
 void vulkanApp::SetupWindow()
 {
-    int rc = glfwInit();
-    assert(rc);
-    glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
     
-    Window = glfwCreateWindow(Width, Height, "Gralib", 0, 0);
-    assert(Window);
 }
 
 void vulkanApp::CreateCommandBuffers()
@@ -599,11 +594,10 @@ void vulkanApp::BuildQuads()
 
 void vulkanApp::UpdateUniformBufferDeferredMatrices()
 {
-    UBOSceneMatrices.Projection = glm::perspective(glm::radians(50.0f), 1.0f, 0.01f, 100.0f);
-    UBOSceneMatrices.View = glm::mat4(1.0f);
-    UBOSceneMatrices.Model = glm::mat4(1.0f);
+    UBOSceneMatrices.Projection = Camera.GetProjectionMatrix();
+    UBOSceneMatrices.View = Camera.GetViewMatrix();
+    UBOSceneMatrices.Model = Camera.GetModelMatrix();
     UBOSceneMatrices.ViewportDim = glm::vec2((float)Width,(float)Height);
-
     VK_CALL(UniformBuffers.SceneMatrices.Map());
     UniformBuffers.SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
     UniformBuffers.SceneMatrices.Unmap();
@@ -1234,13 +1228,13 @@ void vulkanApp::CreateDeferredRendererResources()
     BuildDeferredCommandBuffers();
 }
 
-vulkanApp::vulkanApp()
+void vulkanApp::Initialize(HWND Window)
 {
     Width = 1920;
     Height = 1080;
 
     InitVulkan();
-        SetupWindow();
+    SetupWindow();
     Swapchain.InitSurface(Window);
 
     CreateGeneralResources();
@@ -1248,8 +1242,17 @@ vulkanApp::vulkanApp()
 
 }
 
+void vulkanApp::UpdateCamera()
+{
+
+    UpdateUniformBufferDeferredMatrices();
+    UpdateUniformBufferSSAOParams();
+}
+
 void vulkanApp::Render()
 {
+    UpdateCamera();
+
     VK_CALL(Swapchain.AcquireNextImage(Semaphores.PresentComplete, &CurrentBuffer));
     
     SubmitInfo.pWaitSemaphores = &Semaphores.PresentComplete;
@@ -1267,14 +1270,23 @@ void vulkanApp::Render()
     VK_CALL(vkQueueWaitIdle(Queue));
 }
 
-void vulkanApp::RenderLoop()
+void vulkanApp::MouseMove(float XPosition, float YPosition)
 {
-    while (!glfwWindowShouldClose(Window))
-    {
-        glfwPollEvents();
+    Camera.mouseMoveEvent(XPosition, YPosition);
+}
 
-        Render();
+void vulkanApp::MouseAction(int Button, int Action, int Mods)
+{
+    Camera.mousePressEvent(Button);
+}
 
-        glfwSwapBuffers(Window);
-    }
+void vulkanApp::Scroll(float YOffset)
+{
+    Camera.Scroll(YOffset);
+}
+
+
+void vulkanApp::Destroy()
+{
+
 }

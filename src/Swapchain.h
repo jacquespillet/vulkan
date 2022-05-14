@@ -58,12 +58,12 @@ struct swapchain
         QueuePresentKHR= (PFN_vkQueuePresentKHR)vkGetDeviceProcAddr(Device, "vkQueuePresentKHR") ; 
     }
 
-    void InitSurface(GLFWwindow *Window)
+    void InitSurface(HWND Window)
     {
         VkWin32SurfaceCreateInfoKHR SurfaceCreateInfo = {};
         SurfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
         SurfaceCreateInfo.hinstance = GetModuleHandle(nullptr);
-        SurfaceCreateInfo.hwnd = glfwGetWin32Window(Window);
+        SurfaceCreateInfo.hwnd = Window;
         VkResult Error = vkCreateWin32SurfaceKHR(Instance, &SurfaceCreateInfo, nullptr, &Surface);
 
         uint32_t QueueCount;
