@@ -35,13 +35,10 @@ void vulkanApp::InitVulkan()
     VkBool32 ValidDepthFormat = vulkanTools::GetSupportedDepthFormat(PhysicalDevice, &DepthFormat);
     assert(ValidDepthFormat);
 
-    Swapchain.Connect(Instance, PhysicalDevice, Device);
-
     //Build main semaphores
     VkSemaphoreCreateInfo SemaphoreCreateInfo = vulkanTools::BuildSemaphoreCreateInfo();
     VK_CALL(vkCreateSemaphore(Device, &SemaphoreCreateInfo, nullptr, &Semaphores.PresentComplete));
     VK_CALL(vkCreateSemaphore(Device, &SemaphoreCreateInfo, nullptr, &Semaphores.RenderComplete));
-    VK_CALL(vkCreateSemaphore(Device, &SemaphoreCreateInfo, nullptr, &Semaphores.TextOverlayComplete));
 
     //Before color output stage, wait for present semaphore to be complete, and signal Render semaphore to be completed
     SubmitInfo = vulkanTools::BuildSubmitInfo();
@@ -50,6 +47,8 @@ void vulkanApp::InitVulkan()
     SubmitInfo.pWaitSemaphores = &Semaphores.PresentComplete;
     SubmitInfo.signalSemaphoreCount=1;
     SubmitInfo.pSignalSemaphores = &Semaphores.RenderComplete;    
+    
+    Swapchain.Initialize(Instance, PhysicalDevice, Device);
 }
 
 void vulkanApp::SetupWindow()
@@ -221,9 +220,12 @@ void vulkanApp::CreateGeneralResources()
 {
     CommandPool = vulkanTools::CreateCommandPool(Device, Swapchain.QueueNodeIndex);
     Swapchain.Create(&Width, &Height, EnableVSync);
+    
+    //Create 1 command buffer for each swapchain image
     CreateCommandBuffers();
 
     SetupDepthStencil();
+    
     SetupRenderPass();
     CreatePipelineCache();
     SetupFramebuffer();
@@ -783,24 +785,8 @@ void vulkanApp::BuildLayoutsAndDescriptors()
     vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
 
     //Render scene (Gbuffer)
-    SetLayoutBindings = 
-    {
-        vulkanTools::DescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0), //uniforms
-        vulkanTools::DescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1), //diffuse map
-        vulkanTools::DescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2), //specular map
-        vulkanTools::DescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 3), //normal map
-    };
-    SetLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), static_cast<uint32_t>(SetLayoutBindings.size()));
-    Resources.DescriptorSetLayouts->Add("Offscreen", SetLayoutCreateInfo);
-    PipelineLayoutCreateInfo.pSetLayouts=Resources.DescriptorSetLayouts->GetPtr("Offscreen");
+    PipelineLayoutCreateInfo.pSetLayouts=&Scene->DescriptorSetLayout;
     Resources.PipelineLayouts->Add("Offscreen", PipelineLayoutCreateInfo);
-    DescriptorAllocateInfo.pSetLayouts=Resources.DescriptorSetLayouts->GetPtr("Offscreen");
-    TargetDescriptorSet = Resources.DescriptorSets->Add("Offscreen", DescriptorAllocateInfo);    
-    WriteDescriptorSets = 
-    {
-        vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &UniformBuffers.SceneMatrices.Descriptor),
-    };
-    vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
 }
 
 
@@ -1225,7 +1211,6 @@ void vulkanApp::BuildDeferredCommandBuffers()
 
 void vulkanApp::CreateDeferredRendererResources()
 {
-    SetupDescriptorPool();
 
     Resources.PipelineLayouts = new pipelineLayoutList(VulkanDevice->Device);
     Resources.Pipelines = new pipelineList(VulkanDevice->Device);
@@ -1235,29 +1220,33 @@ void vulkanApp::CreateDeferredRendererResources()
 
     BuildQuads();
     BuildVertexDescriptions();
+    
     BuildOffscreenBuffers();
+    
     BuildUniformBuffers();
 
+    SetupDescriptorPool();
+    BuildScene();
     BuildLayoutsAndDescriptors();
+    
     BuildPipelines();
 
-    BuildScene();
     BuildCommandBuffers();
     BuildDeferredCommandBuffers();
 }
 
 void vulkanApp::Initialize(HWND Window)
 {
+    //Common for any app
     Width = 1920;
     Height = 1080;
-
     InitVulkan();
     SetupWindow();
     Swapchain.InitSurface(Window);
-
     CreateGeneralResources();
+    
+    //App specific :
     CreateDeferredRendererResources();
-
 }
 
 void vulkanApp::UpdateCamera()

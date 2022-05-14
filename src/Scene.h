@@ -66,12 +66,12 @@ private:
     
 
     VkDescriptorPool DescriptorPool;
-    VkDescriptorSetLayout DescriptorSetLayout;
 
     void LoadMaterials();
     void LoadMeshes(VkCommandBuffer CommandBuffer);
 
 public:
+    VkDescriptorSetLayout DescriptorSetLayout;
     buffer VertexBuffer;
     buffer IndexBuffer;
     std::vector<sceneMaterial> Materials;

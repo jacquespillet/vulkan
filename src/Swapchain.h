@@ -39,12 +39,11 @@ struct swapchain
     std::vector<swapchainBuffer> Buffers;
     std::vector<VkImage> Images;
 
-    void Connect(VkInstance _Instance, VkPhysicalDevice _PhysicalDevice, VkDevice _Device)
+    void Initialize(VkInstance _Instance, VkPhysicalDevice _PhysicalDevice, VkDevice _Device)
     {
         this->Instance = _Instance;
         this->PhysicalDevice = _PhysicalDevice;
         this->Device = _Device;
-
         
         GetPhysicalDeviceSurfaceSupportKHR = (PFN_vkGetPhysicalDeviceSurfaceSupportKHR)vkGetInstanceProcAddr(Instance, "vkGetPhysicalDeviceSurfaceSupportKHR");
         GetPhysicalDeviceSurfaceCapabilitiesKHR = (PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR)vkGetInstanceProcAddr(Instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");

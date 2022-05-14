@@ -71,7 +71,6 @@ public:
     struct {
         VkSemaphore PresentComplete;
         VkSemaphore RenderComplete;
-        VkSemaphore TextOverlayComplete;
     } Semaphores;
     VkSubmitInfo SubmitInfo;
     VkPipelineStageFlags SubmitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
