@@ -1,6 +1,18 @@
 #pragma once
 
 #include <unordered_map>
+#include <assert.h>
+#include<vulkan/vulkan.h>
+#include "TextureLoader.h"
+
+#define VK_CALL(f)\
+{\
+    VkResult Res = (f); \
+    if(Res != VK_SUCCESS) \
+    { \
+        assert(0); \
+    } \
+} \
 
 template<typename T>
 class vulkanResourceList
@@ -155,4 +167,48 @@ public:
         Resources[Name] = Texture;
         return Texture;
     }
+};
+
+
+struct descriptor
+{
+    VkShaderStageFlags Stage;
+    enum type
+    {
+        Image,
+        Uniform
+    } Type;
+    VkImageView ImageView;
+    VkSampler Sampler;
+    VkDescriptorImageInfo DescriptorImageInfo;
+    VkDescriptorBufferInfo DescriptorBufferInfo;
+    VkDescriptorType DescriptorType;
+
+    descriptor(VkShaderStageFlags Stage, VkImageView ImageView, VkSampler Sampler) :
+                Stage(Stage), ImageView(ImageView), DescriptorImageInfo(DescriptorImageInfo), Sampler(Sampler)
+    {
+        Type = Image;
+        DescriptorImageInfo = vulkanTools::BuildDescriptorImageInfo(Sampler, ImageView, VK_IMAGE_LAYOUT_GENERAL);
+        DescriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    }
+    
+    descriptor(VkShaderStageFlags Stage, VkDescriptorBufferInfo DescriptorBufferInfo) : 
+                Stage(Stage), DescriptorBufferInfo(DescriptorBufferInfo)
+    {
+        Type = Uniform;
+        DescriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    }    
+};
+
+
+
+struct resources
+{
+    descriptorSetLayoutList *DescriptorSetLayouts;
+    pipelineLayoutList *PipelineLayouts;
+    pipelineList *Pipelines;
+    descriptorSetList *DescriptorSets;
+    textureList *Textures;
+
+    void AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, std::vector<descriptor> &Descriptors, VkDescriptorPool DescriptorPool);
 };

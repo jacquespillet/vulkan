@@ -431,41 +431,6 @@ void vulkanApp::BuildUniformBuffers()
     TextureLoader->CreateTexture(SSAONoise.data(), SSAONoise.size() * sizeof(glm::vec4), VK_FORMAT_R32G32B32A32_SFLOAT, SSAO_NOISE_DIM, SSAO_NOISE_DIM, &Textures.SSAONoise, VK_FILTER_NEAREST);        
 }
 
-void BuildDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, std::vector<descriptor> &Descriptors, VkDescriptorPool DescriptorPool, resources &Resources)
-{   
-    //TODO: Store together descriptor set layout and pipeline layout
-
-    //Create descriptor set layout
-    std::vector<VkDescriptorSetLayoutBinding> SetLayoutBindings(Descriptors.size());
-    for(uint32_t i=0; i<Descriptors.size(); i++)
-    {
-        SetLayoutBindings[i] = vulkanTools::DescriptorSetLayoutBinding(Descriptors[i].DescriptorType, Descriptors[i].Stage, i);
-    }  
-    VkDescriptorSetLayoutCreateInfo SetLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), static_cast<uint32_t>(SetLayoutBindings.size()));
-    Resources.DescriptorSetLayouts->Add(Name, SetLayoutCreateInfo);
-    
-    //Create pipeline layout associated with it
-    VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo();
-    PipelineLayoutCreateInfo.pSetLayouts=Resources.DescriptorSetLayouts->GetPtr(Name);
-    Resources.PipelineLayouts->Add(Name, PipelineLayoutCreateInfo);
-    
-    
-    //Allocate descriptor set
-    VkDescriptorSetAllocateInfo DescriptorAllocateInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, nullptr, 1);
-    DescriptorAllocateInfo.pSetLayouts=Resources.DescriptorSetLayouts->GetPtr(Name);
-    VkDescriptorSet TargetDescriptorSet = Resources.DescriptorSets->Add(Name, DescriptorAllocateInfo);
-
-    //Write descriptor set
-    std::vector<VkWriteDescriptorSet> WriteDescriptorSets(Descriptors.size()); 
-    for(uint32_t i=0; i<Descriptors.size(); i++)
-    {
-        descriptor::type Type = Descriptors[i].Type;
-        if(Type == descriptor::Image) { WriteDescriptorSets[i] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[i].DescriptorType, i, &Descriptors[i].DescriptorImageInfo); }
-        else 
-        if(Type == descriptor::Uniform) { WriteDescriptorSets[i] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[i].DescriptorType, i, &Descriptors[i].DescriptorBufferInfo);}
-    }
-    vkUpdateDescriptorSets(VulkanDevice->Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
-}
 
 void vulkanApp::BuildLayoutsAndDescriptors()
 {
@@ -488,7 +453,7 @@ void vulkanApp::BuildLayoutsAndDescriptors()
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, UniformBuffers.SceneLights.Descriptor)
         };
         
-        BuildDescriptorSet(VulkanDevice, "Composition", Descriptors, DescriptorPool, Resources);
+        Resources.AddDescriptorSet(VulkanDevice, "Composition", Descriptors, DescriptorPool);
     }
 
     //SSAO Pass
@@ -501,7 +466,7 @@ void vulkanApp::BuildLayoutsAndDescriptors()
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, UniformBuffers.SSAOKernel.Descriptor),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, UniformBuffers.SSAOParams.Descriptor),
         };
-        BuildDescriptorSet(VulkanDevice, "SSAO.Generate", Descriptors, DescriptorPool, Resources);
+        Resources.AddDescriptorSet(VulkanDevice, "SSAO.Generate", Descriptors, DescriptorPool);
     }
 
     //SSAO Blur
@@ -510,7 +475,7 @@ void vulkanApp::BuildLayoutsAndDescriptors()
         {
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.SSAO._Attachments[0].ImageView, Framebuffers.SSAO.Sampler)
         };
-        BuildDescriptorSet(VulkanDevice, "SSAO.Blur", Descriptors, DescriptorPool, Resources);            
+        Resources.AddDescriptorSet(VulkanDevice, "SSAO.Blur", Descriptors, DescriptorPool);            
     }
 }
 

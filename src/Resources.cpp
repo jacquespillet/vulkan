@@ -1,4 +1,4 @@
-#include "Resources.h
+#include "Resources.h"
 
 void resources::AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, std::vector<descriptor> &Descriptors, VkDescriptorPool DescriptorPool)
 {
