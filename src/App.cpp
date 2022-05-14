@@ -258,23 +258,11 @@ void vulkanApp::BuildQuads()
         float bitangent[3];
     };
     std::vector<vertex> VertexBuffer;
-    float x=0;
-    float y=0;
-    for(uint32_t i=0; i<3; i++)
-    {
-        VertexBuffer.push_back({ { x + 1.0f, y + 1.0f, 0.0f },{ 1.0f, 1.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, (float)i } });
-        VertexBuffer.push_back({ { x,      y + 1.0f, 0.0f },{ 0.0f, 1.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, (float)i } });
-        VertexBuffer.push_back({ { x,      y,      0.0f },{ 0.0f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, (float)i } });
-        VertexBuffer.push_back({ { x + 1.0f, y,      0.0f },{ 1.0f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, (float)i } });    
-
-        x += 1.0f;
-        if(x > 1.0f)
-        {
-            x = 0.0f;
-            y += 1.0f;
-        }  
-    }
-
+    VertexBuffer.push_back({ { 1.0f, 1.0f, 0.0f },{ 1.0f, 1.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });
+    VertexBuffer.push_back({ { 0,      1.0f, 0.0f },{ 0.0f, 1.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });
+    VertexBuffer.push_back({ { 0,      0,      0.0f },{ 0.0f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });
+    VertexBuffer.push_back({ { 1.0f, 0,      0.0f },{ 1.0f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });    
+    
     vulkanTools::CreateBuffer(VulkanDevice,
                     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
@@ -283,15 +271,8 @@ void vulkanApp::BuildQuads()
                     &Meshes.Quad.Vertices.Buffer,
                     &Meshes.Quad.Vertices.DeviceMemory); 
 
+    
     std::vector<uint32_t> IndicesBuffer = {0,1,2,  2,3,0};
-    for(uint32_t i=0; i<3; i++)
-    {
-        uint32_t Indices[6] = {0,1,2,  2,3,0};
-        for(auto Index : Indices)
-        {
-            IndicesBuffer.push_back(i * 4 + Index);
-        }
-    }
     Meshes.Quad.IndexCount = (uint32_t)IndicesBuffer.size();
 
     vulkanTools::CreateBuffer(
