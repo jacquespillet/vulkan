@@ -143,20 +143,10 @@ public:
     {
         buffer FullScreen;
         buffer SceneMatrices;
-        buffer SceneLights;
         buffer SSAOKernel;
         buffer SSAOParams;
     } UniformBuffers;
 
-    struct light
-    {
-        glm::vec4 Position;
-        glm::vec4 Color;
-        float radius;
-        float QuadraticFalloff;
-        float LinearFalloff;
-        float pad;
-    };
     struct 
     {
         glm::mat4 Projection;
@@ -164,15 +154,7 @@ public:
         glm::mat4 View;
         glm::vec2 ViewportDim;
     } UBOVS, UBOSceneMatrices;
-
-    struct
-    {
-        light Lights[17];
-        glm::vec4 viewPos;
-        glm::mat4 View;
-        glm::mat4 Model;
-    } UBOFragmentLights;
-
+    
     struct
     {
         glm::mat4 Projection;

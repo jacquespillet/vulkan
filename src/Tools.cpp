@@ -409,6 +409,7 @@ namespace vulkanTools
         return Result;
     }
 
+
     VkSpecializationMapEntry BuildSpecializationMapEntry(uint32_t ConstantID, uint32_t Offset, size_t Size)
     {
         VkSpecializationMapEntry Result = {};

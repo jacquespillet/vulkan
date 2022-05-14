@@ -100,6 +100,7 @@ namespace vulkanTools
     VkPipelineDynamicStateCreateInfo BuildPipelineDynamicStateCreateInfo(const VkDynamicState *PDynamicStates, uint32_t DynamicStateCount, VkPipelineDynamicStateCreateFlags);
 
     VkGraphicsPipelineCreateInfo BuildGraphicsPipelineCreateInfo(VkPipelineLayout Layout = VK_NULL_HANDLE, VkRenderPass RenderPass = VK_NULL_HANDLE, VkPipelineCreateFlags Flags =0);
+    
 
     VkSpecializationMapEntry BuildSpecializationMapEntry(uint32_t ConstantID, uint32_t Offset, size_t Size);
 

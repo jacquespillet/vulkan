@@ -15,24 +15,6 @@ layout (location = 0) in vec2 inUV;
 
 layout (location = 0) out vec4 outFragcolor;
 
-struct Light {
-	vec4 position;
-	vec4 color;
-	float radius;
-	float quadraticFalloff;
-	float linearFalloff;
-	float _pad;
-};
-
-#define NUM_LIGHTS 17
-
-layout (binding = 5) uniform UBO 
-{
-	Light lights[NUM_LIGHTS];
-	vec4 viewPos;
-	mat4 view;
-	mat4 model;
-} ubo;
 
 
 void main() 
@@ -55,47 +37,7 @@ void main()
 	vec3 ambient = color.rgb * AMBIENT_FACTOR;	
 	vec3 fragcolor  = ambient;
 	
-	if (length(fragPos) == 0.0)
-	{
-		fragcolor = color.rgb;
-	}
-	else
-	{	
-		for(int i = 0; i < NUM_LIGHTS; ++i)
-		{
-			// Light to fragment
-			vec3 lightPos = vec3(ubo.view * ubo.model * vec4(ubo.lights[i].position.xyz, 1.0));
-			vec3 L = lightPos - fragPos;
-			float dist = length(L);
-			L = normalize(L);
+	fragcolor = color.rgb;
 
-			// Viewer to fragment
-			vec3 viewPos = vec3(ubo.view * ubo.model * vec4(ubo.viewPos.xyz, 1.0));
-			vec3 V = viewPos - fragPos;
-			V = normalize(V);
-
-			// Attenuation
-			float atten = ubo.lights[i].radius / (pow(dist, 2.0) + 1.0);
-
-			// Diffuse part
-			vec3 N = normalize(normal);
-			float NdotL = max(0.0, dot(N, L));
-			vec3 diff = ubo.lights[i].color.rgb * color.rgb * NdotL * atten;
-
-			// Specular part
-			vec3 R = reflect(-L, N);
-			float NdotR = max(0.0, dot(R, V));
-			vec3 spec = ubo.lights[i].color.rgb * spec.r * pow(NdotR, 16.0) * (atten * 1.5);
-
-			fragcolor += diff + spec;				
-		}    	
-
-		if (SSAO_ENABLED == 1)
-		{
-			float ao = texture(samplerSSAO, inUV).r;
-			fragcolor *= ao.rrr;
-		}
-	}
-   
 	outFragcolor = vec4(fragcolor, 1.0);	
 }

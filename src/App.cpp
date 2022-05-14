@@ -380,13 +380,6 @@ void vulkanApp::BuildUniformBuffers()
                                 sizeof(UBOSceneMatrices)
     );
 
-    //Deferred Frag Shader
-    vulkanTools::CreateBuffer(VulkanDevice, 
-                                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                &UniformBuffers.SceneLights,
-                                sizeof(UBOFragmentLights)
-    );
 
     UpdateUniformBufferScreen();
     UpdateUniformBufferDeferredMatrices();
@@ -449,8 +442,7 @@ void vulkanApp::BuildLayoutsAndDescriptors()
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[2].ImageView, Framebuffers.Offscreen.Sampler),
-            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.SSAOBlur._Attachments[0].ImageView, Framebuffers.SSAOBlur.Sampler),
-            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, UniformBuffers.SceneLights.Descriptor)
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.SSAOBlur._Attachments[0].ImageView, Framebuffers.SSAOBlur.Sampler)
         };
         
         Resources.AddDescriptorSet(VulkanDevice, "Composition", Descriptors, DescriptorPool);
@@ -530,8 +522,6 @@ void vulkanApp::BuildPipelines()
         0
     );
 
-    // VkGraphicsPipelineCreateInfo PipelineCreateInfo = vulkanTools::BuildDefaultGraphicsPipelineCreateInfo();
-    
 
     //Shader Stages
     std::array<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
