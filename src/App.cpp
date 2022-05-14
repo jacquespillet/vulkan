@@ -231,6 +231,11 @@ void vulkanApp::CreateGeneralResources()
     SetupFramebuffer();
 
     TextureLoader = new textureLoader(VulkanDevice, Queue, CommandPool);
+    
+    Resources.Init(VulkanDevice, DescriptorPool, TextureLoader);
+    
+    BuildScene();
+    BuildVertexDescriptions();
 }
 
  void vulkanApp::SetupDescriptorPool()
@@ -872,13 +877,27 @@ void vulkanApp::BuildDeferredCommandBuffers()
 
 void vulkanApp::CreateDeferredRendererResources()
 {
-    Resources.Init(VulkanDevice, DescriptorPool, TextureLoader);
-    BuildQuads();
-    BuildVertexDescriptions();
-    BuildOffscreenBuffers();
+
+    
     BuildUniformBuffers();
+    // vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0 ),
+    // vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ),
+    // vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2 ),
+    // vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 3 ),
+    VkImageView DummyImageView; //Will be filled with mesh infos
+    VkSampler DummySampler; //Will be filled with mesh infos
+    std::vector<descriptor> MeshDescriptors = 
+    {
+        descriptor(VK_SHADER_STAGE_VERTEX_BIT, UniformBuffers.SceneMatrices.Descriptor),
+        descriptor(VK_SHADER_STAGE_VERTEX_BIT, DummyImageView, DummySampler),
+        descriptor(VK_SHADER_STAGE_VERTEX_BIT, DummyImageView, DummySampler),
+        descriptor(VK_SHADER_STAGE_VERTEX_BIT, DummyImageView, DummySampler),
+    };
+    Scene->CreateDescriptorSets(MeshDescriptors);
+
+    BuildQuads();
+    BuildOffscreenBuffers();
     SetupDescriptorPool();
-    BuildScene();
     BuildLayoutsAndDescriptors();
     BuildPipelines();
     BuildCommandBuffers();

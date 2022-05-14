@@ -187,8 +187,34 @@ void scene::LoadMeshes(VkCommandBuffer CopyCommandBuffer)
     );        
     
 
-    //Descriptor sets : each mesh has its own descriptor set
-    
+}
+
+void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
+{
+    Assimp::Importer Importer;
+    int Flags = aiProcess_FlipWindingOrder | aiProcess_Triangulate | aiProcess_PreTransformVertices | aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals;
+
+    AScene = Importer.ReadFile(FileName.c_str(), Flags);
+    if(AScene)
+    {
+        LoadMaterials();
+        LoadMeshes(CopyCommand);
+    }
+}
+
+void scene::CreateDescriptorSets(std::vector<descriptor>& Descriptors)
+{
+    // TODO : 
+    //The renderer calls this function
+    //It is going to pass all the uniform informations needed to render.
+    //These uniform have to be completer with the meshes material uniforms.
+
+    //--> pass in a vector of descriptor to describe the renderer uniform needs
+    //this vector is then completed with mesh specific information
+
+    // uint32_t NumUniforms = ;
+    // uint32_t NumTextures = ;
+
     //Create descriptor pool
     std::vector<VkDescriptorPoolSize> PoolSizes = 
     {
@@ -229,18 +255,5 @@ void scene::LoadMeshes(VkCommandBuffer CopyCommandBuffer)
             vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &Meshes[i].Material->Bump.Descriptor)
         };
         vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
-    }
-}
-
-void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
-{
-    Assimp::Importer Importer;
-    int Flags = aiProcess_FlipWindingOrder | aiProcess_Triangulate | aiProcess_PreTransformVertices | aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals;
-
-    AScene = Importer.ReadFile(FileName.c_str(), Flags);
-    if(AScene)
-    {
-        LoadMaterials();
-        LoadMeshes(CopyCommand);
     }
 }

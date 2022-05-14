@@ -51,7 +51,7 @@
 #include "Scene.h"
 
 #include "Camera.h"
-
+#include "Renderer.h"
 
 class vulkanApp
 {
@@ -180,6 +180,9 @@ public:
     float t=0;
     
     camera Camera;
+
+    renderer *Renderer;
+
     void InitVulkan();
 
     void SetupWindow();

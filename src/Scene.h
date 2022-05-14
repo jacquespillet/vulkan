@@ -13,6 +13,7 @@
 #include <assimp/material.h>
 
 class vulkanApp;
+struct descriptor;
 
 struct sceneMaterial
 {
@@ -81,4 +82,5 @@ public:
     scene(vulkanApp *App);
     
     void Load(std::string FileName, VkCommandBuffer CopyCommand);
+    void CreateDescriptorSets(std::vector<descriptor>& Descriptors);
 };
