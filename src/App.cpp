@@ -419,9 +419,11 @@ void vulkanApp::BuildUniformBuffers()
 
 void vulkanApp::BuildLayoutsAndDescriptors()
 {
-    //Render scene (Gbuffer)
+    //Render scene (Gbuffer) : the pipeline layout contains 2 descriptor sets :
+    //- 1 for all the material data (Textures, properties...)
+    //- 1 for the global scene variables : Matrices, lights...
     {
-        //Create the meshes descriptor sets
+        //Create the materials descriptor sets
         Scene->CreateDescriptorSets();
 
         //Create the scene descriptor set layout
@@ -429,16 +431,18 @@ void vulkanApp::BuildLayoutsAndDescriptors()
         VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(&SetLayoutBindings, 1);
         VkDescriptorSetLayout RendererDescriptorSetLayout = Resources.DescriptorSetLayouts->Add("Offscreen", DescriptorLayoutCreateInfo);
 
-        //Allocate and write descriptor wts
+        //Allocate and write descriptor sets
         VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &RendererDescriptorSetLayout, 1);
         VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Add("Offscreen", AllocInfo);
-
         VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( RendererDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &UniformBuffers.SceneMatrices.Descriptor);
         vkUpdateDescriptorSets(Device, 1, &WriteDescriptorSets, 0, nullptr);
 
-        //Build pipeline layout        
-        RendererSetLayouts.push_back(RendererDescriptorSetLayout);
-        RendererSetLayouts.push_back(Scene->DescriptorSetLayout);
+        //Build pipeline layout
+        std::vector<VkDescriptorSetLayout> RendererSetLayouts = 
+        {
+            RendererDescriptorSetLayout,
+            Scene->DescriptorSetLayout
+        };
         VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(RendererSetLayouts.data(), (uint32_t)RendererSetLayouts.size());
         Resources.PipelineLayouts->Add("Offscreen", pPipelineLayoutCreateInfo);
     }    

@@ -174,7 +174,7 @@ public:
 
     scene *Scene;
 
-    std::vector<VkDescriptorSetLayout> RendererSetLayouts;
+    
 
     //App
     uint32_t Width, Height;
