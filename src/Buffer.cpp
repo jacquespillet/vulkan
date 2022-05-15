@@ -31,3 +31,25 @@ void buffer::CopyTo(void *Data, VkDeviceSize CopySize)
     assert(Mapped);
     memcpy(Mapped, Data, CopySize);
 }
+
+void buffer::Destroy()
+{
+    if (Buffer)
+    {
+        vkDestroyBuffer(Device, Buffer, nullptr);
+    }
+    if (Memory)
+    {
+        vkFreeMemory(Device, Memory, nullptr);
+    }    
+}
+
+VkResult buffer::Flush(VkDeviceSize FlushSize, VkDeviceSize Offset)
+{
+    VkMappedMemoryRange mappedRange = {};
+    mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+    mappedRange.memory = Memory;
+    mappedRange.offset = Offset;
+    mappedRange.size = FlushSize;
+    return vkFlushMappedMemoryRanges(Device, 1, &mappedRange);
+}

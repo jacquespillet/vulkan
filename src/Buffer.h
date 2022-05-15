@@ -9,7 +9,8 @@ class buffer
 {
 public:
     VkDevice Device;
-    VkBuffer Buffer;
+    VkBuffer Buffer=VK_NULL_HANDLE;
+    VkDeviceMemory Memory=VK_NULL_HANDLE;
     
     VkDeviceSize Allignment=0;
     VkDeviceSize Size=0;
@@ -17,7 +18,6 @@ public:
     VkMemoryPropertyFlags MemoryPropertyFlags;
     VkDescriptorBufferInfo Descriptor;
 
-    VkDeviceMemory Memory;
     void *Mapped = nullptr;
 
     VkResult Map(VkDeviceSize _Size = VK_WHOLE_SIZE, VkDeviceSize Offset=0);
@@ -29,4 +29,9 @@ public:
     VkResult Bind(VkDeviceSize Offset=0);
 
     void CopyTo(void *Data, VkDeviceSize CopySize);
+
+    void Destroy();
+
+    
+	VkResult Flush(VkDeviceSize Size = VK_WHOLE_SIZE, VkDeviceSize Offset=0);
 };

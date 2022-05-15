@@ -51,12 +51,22 @@
 #include "Scene.h"
 
 #include "Camera.h"
+#include "ImguiHelper.h"
+
 class renderer;
 class vulkanApp
 {
 public:
     bool EnableValidation=true;
     bool EnableVSync=true;
+
+    struct 
+    {
+        bool Left=false;
+        bool Right=false;
+        float PosX;
+        float PosY;
+    } Mouse;
 
     //High level objects
     VkInstance Instance;
@@ -101,6 +111,8 @@ public:
     scene *Scene;
     uint32_t Width, Height;
     renderer *Renderer;
+
+    ImGUI *ImGuiHelper;
 
     void InitVulkan();
 

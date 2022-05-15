@@ -39,6 +39,7 @@ namespace vulkanTools
     VkDescriptorPoolSize BuildDescriptorPoolSize(VkDescriptorType Type, uint32_t DescriptorCount);
 
     VkDescriptorPoolCreateInfo BuildDescriptorPoolCreateInfo(uint32_t PoolSizeCount, VkDescriptorPoolSize *PoolSizes, uint32_t MaxSets);
+    VkDescriptorPoolCreateInfo BuildDescriptorPoolCreateInfo(const std::vector<VkDescriptorPoolSize> &PoolSizes, uint32_t MaxSets);
 
     VkMemoryAllocateInfo BuildMemoryAllocateInfo();
 
@@ -76,6 +77,7 @@ namespace vulkanTools
     VkDescriptorSetLayoutBinding DescriptorSetLayoutBinding(VkDescriptorType Type, VkShaderStageFlags StageFlags, uint32_t Binding, uint32_t Count=1);
     
     VkDescriptorSetLayoutCreateInfo BuildDescriptorSetLayoutCreateInfo(const VkDescriptorSetLayoutBinding *pBindings, uint32_t BindingCount);
+    VkDescriptorSetLayoutCreateInfo BuildDescriptorSetLayoutCreateInfo(const std::vector<VkDescriptorSetLayoutBinding> & Bindings);
 
     VkDescriptorImageInfo BuildDescriptorImageInfo(VkSampler Sampler, VkImageView ImageView, VkImageLayout ImageLayout);
 
@@ -85,7 +87,7 @@ namespace vulkanTools
 
     VkPipelineInputAssemblyStateCreateInfo BuildPipelineInputAssemblyStateCreateInfo(VkPrimitiveTopology Topology, VkPipelineInputAssemblyStateCreateFlags Flags, VkBool32 PrimitiveRestartEnable);
 
-    VkPipelineRasterizationStateCreateInfo BuildPipelineRasterizationStateCreateInfo(VkPolygonMode PolygonMode, VkCullModeFlags CullMode, VkFrontFace FrontFace, VkPipelineRasterizationStateCreateFlags Flags);
+    VkPipelineRasterizationStateCreateInfo BuildPipelineRasterizationStateCreateInfo(VkPolygonMode PolygonMode, VkCullModeFlags CullMode, VkFrontFace FrontFace, VkPipelineRasterizationStateCreateFlags Flags=0);
 
     VkPipelineColorBlendAttachmentState BuildPipelineColorBlendAttachmentState(VkColorComponentFlags ColorWriteMask, VkBool32 BlendEnable);
 
@@ -95,13 +97,14 @@ namespace vulkanTools
 
     VkPipelineViewportStateCreateInfo BuildPipelineViewportStateCreateInfo(uint32_t ViewportCount, uint32_t ScissorCount, VkPipelineViewportStateCreateFlags Flags);
 
-    VkPipelineMultisampleStateCreateInfo BuildPipelineMultisampleStateCreateInfo(VkSampleCountFlagBits RasterizationSamples, VkPipelineMultisampleStateCreateFlags Flags);
+    VkPipelineMultisampleStateCreateInfo BuildPipelineMultisampleStateCreateInfo(VkSampleCountFlagBits RasterizationSamples, VkPipelineMultisampleStateCreateFlags Flags=0);
 
-    VkPipelineDynamicStateCreateInfo BuildPipelineDynamicStateCreateInfo(const VkDynamicState *PDynamicStates, uint32_t DynamicStateCount, VkPipelineDynamicStateCreateFlags);
+    VkPipelineDynamicStateCreateInfo BuildPipelineDynamicStateCreateInfo(const VkDynamicState *PDynamicStates, uint32_t DynamicStateCount, VkPipelineDynamicStateCreateFlags=0);
+
+    VkPipelineDynamicStateCreateInfo BuildPipelineDynamicStateCreateInfo(const std::vector<VkDynamicState> &DynamicStates, VkPipelineDynamicStateCreateFlags Flags=0);
 
     VkGraphicsPipelineCreateInfo BuildGraphicsPipelineCreateInfo(VkPipelineLayout Layout = VK_NULL_HANDLE, VkRenderPass RenderPass = VK_NULL_HANDLE, VkPipelineCreateFlags Flags =0);
     
-
     VkSpecializationMapEntry BuildSpecializationMapEntry(uint32_t ConstantID, uint32_t Offset, size_t Size);
 
     VkSpecializationInfo BuildSpecializationInfo(uint32_t MapEntryCount, const VkSpecializationMapEntry *MapEntries, size_t DataSize, const void *Data);
@@ -114,9 +117,12 @@ namespace vulkanTools
     
     VkRect2D BuildRect2D(int32_t Width, int32_t Height, int32_t OffsetX, int32_t OffsetY);
 
+    VkPushConstantRange BuildPushConstantRange(VkShaderStageFlags StageFlags, uint32_t Size, uint32_t Offset);
+
     void FlushCommandBuffer(VkDevice Device, VkCommandPool CommandPool, VkCommandBuffer CommandBuffer, VkQueue Queue, bool Free);
 
     void TransitionImageLayout(VkCommandBuffer CommandBuffer, VkImage Image, VkImageAspectFlags AspectMask, VkImageLayout OldImageLayout, VkImageLayout NewImageLayout, VkImageSubresourceRange SubresourceRange);
+    void TransitionImageLayout(VkCommandBuffer CommandBuffer, VkImage Image, VkImageAspectFlags AspectMask, VkImageLayout OldImageLayout, VkImageLayout NewImageLayout, VkPipelineStageFlags SrcStage,  VkPipelineStageFlags DstStage);
 
     VkBool32 CreateBuffer(vulkanDevice *VulkanDevice, VkBufferUsageFlags UsageFlags, VkMemoryPropertyFlags MemoryPropertyFlags, VkDeviceSize Size, void *Data, VkBuffer *Buffer, VkDeviceMemory *DeviceMemory);
     VkResult CreateBuffer(vulkanDevice *VulkanDevice, VkBufferUsageFlags UsageFlags, VkMemoryPropertyFlags MemoryPropertyFlags, buffer *Buffer, VkDeviceSize Size, void *Data=nullptr);

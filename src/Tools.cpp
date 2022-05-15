@@ -131,6 +131,14 @@ namespace vulkanTools
         DescriptorPoolSize.descriptorCount = DescriptorCount;
         return DescriptorPoolSize;
     }
+    VkDescriptorPoolCreateInfo BuildDescriptorPoolCreateInfo(const std::vector<VkDescriptorPoolSize> &PoolSizes, uint32_t MaxSets)
+    {
+        VkDescriptorPoolCreateInfo result{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        result.poolSizeCount = static_cast<uint32_t>(PoolSizes.size());
+        result.pPoolSizes = PoolSizes.data();
+        result.maxSets = MaxSets;
+        return result;        
+    }
 
     VkDescriptorPoolCreateInfo BuildDescriptorPoolCreateInfo(uint32_t PoolSizeCount, VkDescriptorPoolSize *PoolSizes, uint32_t MaxSets)
     {
@@ -293,6 +301,15 @@ namespace vulkanTools
         return DescriptorSetLayoutCreateInfo;
     }
 
+    VkDescriptorSetLayoutCreateInfo BuildDescriptorSetLayoutCreateInfo(const std::vector<VkDescriptorSetLayoutBinding> & Bindings)
+    {
+        VkDescriptorSetLayoutCreateInfo Result{};
+        Result.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        Result.pBindings = Bindings.data();
+        Result.bindingCount = static_cast<uint32_t>(Bindings.size());
+        return Result;        
+    }
+
     VkDescriptorImageInfo BuildDescriptorImageInfo(VkSampler Sampler, VkImageView ImageView, VkImageLayout ImageLayout)
     {
         VkDescriptorImageInfo DescriptorImageInfo = {};
@@ -391,11 +408,19 @@ namespace vulkanTools
         return Result;
     }
 
-    VkPipelineDynamicStateCreateInfo BuildPipelineDynamicStateCreateInfo(const VkDynamicState *PDynamicStates, uint32_t DynamicStateCount, VkPipelineDynamicStateCreateFlags)
+    VkPipelineDynamicStateCreateInfo BuildPipelineDynamicStateCreateInfo(const VkDynamicState *PDynamicStates, uint32_t DynamicStateCount, VkPipelineDynamicStateCreateFlags Flags)
     {
         VkPipelineDynamicStateCreateInfo Result {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
         Result.pDynamicStates = PDynamicStates;
         Result.dynamicStateCount = DynamicStateCount;
+        return Result;
+    }
+
+    VkPipelineDynamicStateCreateInfo BuildPipelineDynamicStateCreateInfo(const std::vector<VkDynamicState> &DynamicStates, VkPipelineDynamicStateCreateFlags Flags)
+    {
+        VkPipelineDynamicStateCreateInfo Result {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+        Result.pDynamicStates = DynamicStates.data();
+        Result.dynamicStateCount = (uint32_t)DynamicStates.size();
         return Result;
     }
 
@@ -464,6 +489,15 @@ namespace vulkanTools
         Result.offset.x = OffsetX;
         Result.offset.y = OffsetY;
         return Result;
+    }
+
+    VkPushConstantRange BuildPushConstantRange(VkShaderStageFlags StageFlags, uint32_t Size, uint32_t Offset)
+    {
+        VkPushConstantRange pushConstantRange {};
+        pushConstantRange.stageFlags = StageFlags;
+        pushConstantRange.offset = Offset;
+        pushConstantRange.size = Size;
+        return pushConstantRange;        
     }
 
     void TransitionImageLayout(VkCommandBuffer CommandBuffer, VkImage Image, VkImageAspectFlags AspectMask, VkImageLayout OldImageLayout, VkImageLayout NewImageLayout, VkImageSubresourceRange SubresourceRange)
@@ -549,6 +583,89 @@ namespace vulkanTools
                              0, nullptr,
                              1, &ImageMemoryBarrier);
     }
+
+    void TransitionImageLayout(VkCommandBuffer CommandBuffer, VkImage Image, VkImageAspectFlags AspectMask, VkImageLayout OldImageLayout, VkImageLayout NewImageLayout, VkPipelineStageFlags SrcStage,  VkPipelineStageFlags DstStage)
+    {
+        VkImageSubresourceRange SubresourceRange = {};
+        SubresourceRange.aspectMask = AspectMask;
+        SubresourceRange.baseMipLevel = 0;
+        SubresourceRange.levelCount = 1;
+        SubresourceRange.layerCount = 1;
+
+        VkImageMemoryBarrier ImageMemoryBarrier = BuildImageMemoryBarrier();
+        ImageMemoryBarrier.oldLayout = OldImageLayout;
+        ImageMemoryBarrier.newLayout = NewImageLayout;
+        ImageMemoryBarrier.image = Image;
+        ImageMemoryBarrier.subresourceRange = SubresourceRange;
+        
+        //Defines actions that need to be finished on the old layout before the image is transitionned to new layout.
+        switch (OldImageLayout)
+        {
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+            ImageMemoryBarrier.srcAccessMask=0;
+            break;
+        case VK_IMAGE_LAYOUT_PREINITIALIZED:
+            //Pre init stage - make sure host finished writing in
+            ImageMemoryBarrier.srcAccessMask=VK_ACCESS_HOST_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            //Make sure writes have finished
+            ImageMemoryBarrier.srcAccessMask=VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            //Make sure writes have finished
+            ImageMemoryBarrier.srcAccessMask=VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            //Image is a source of transfer --> make sure reading is finished
+            ImageMemoryBarrier.srcAccessMask=VK_ACCESS_TRANSFER_READ_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            //Image is a dest of transfer --> make sure write is finished
+            ImageMemoryBarrier.srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;
+			break;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            //Image is read in shaders --> make sure shaders finished reading.
+            ImageMemoryBarrier.srcAccessMask=VK_ACCESS_SHADER_READ_BIT;
+            break;
+        }
+
+        //Defines actions that need to be finished on the old layout before the image is transitionned to new layout.
+        switch (NewImageLayout)
+        {
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            ImageMemoryBarrier.dstAccessMask =VK_ACCESS_TRANSFER_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            //Image will be used as a source of transfers --> make sure any read / write have finished on the image
+            ImageMemoryBarrier.srcAccessMask = ImageMemoryBarrier.srcAccessMask | VK_ACCESS_TRANSFER_READ_BIT;
+            ImageMemoryBarrier.dstAccessMask =VK_ACCESS_TRANSFER_READ_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            ImageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            ImageMemoryBarrier.dstAccessMask =VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            ImageMemoryBarrier.dstAccessMask =ImageMemoryBarrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            if(ImageMemoryBarrier.srcAccessMask==0)
+            {
+                ImageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+            }
+            ImageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			break;
+        }
+
+
+        vkCmdPipelineBarrier(CommandBuffer, 
+                             SrcStage, 
+                             DstStage,
+                             0,
+                             0, nullptr,
+                             0, nullptr,
+                             1, &ImageMemoryBarrier);
+    }    
 
     VkBool32 CreateBuffer(vulkanDevice *VulkanDevice, VkBufferUsageFlags UsageFlags, VkMemoryPropertyFlags MemoryPropertyFlags, VkDeviceSize Size, void *Data, VkBuffer *Buffer, VkDeviceMemory *DeviceMemory)
     {

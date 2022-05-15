@@ -1,6 +1,7 @@
 #include "App.h"
 #include "Renderers/ForwardRenderer.h"
 #include "Renderers/DeferredRenderer.h"
+#include "imgui.h"
 
 void vulkanApp::InitVulkan()
 {
@@ -243,8 +244,15 @@ void vulkanApp::CreateGeneralResources()
     BuildScene(); //Shared
     BuildVertexDescriptions(); //Shared
 
+
+	ImGuiHelper = new ImGUI(this);
+	ImGuiHelper->Init((float)Width, (float)Height);
+	ImGuiHelper->InitResources(RenderPass, Queue);
+
     Renderer = new forwardRenderer(this);
     Renderer->Setup();
+
+
 }
 
 void vulkanApp::Initialize(HWND Window)
@@ -260,22 +268,34 @@ void vulkanApp::Initialize(HWND Window)
 
 void vulkanApp::Render()
 {
+    ImGuiIO& io = ImGui::GetIO();
+    io.DisplaySize = ImVec2((float)Width, (float)Height);
+    io.MousePos = ImVec2(Mouse.PosX, Mouse.PosY);
+    io.MouseDown[0] = Mouse.Left;
+    io.MouseDown[1] = Mouse.Right;    
+
     Renderer->Render();
 }
 
 void vulkanApp::MouseMove(float XPosition, float YPosition)
 {
     Renderer->Camera.mouseMoveEvent(XPosition, YPosition);
+    Mouse.PosX = XPosition;
+    Mouse.PosY = YPosition;
 }
 
 void vulkanApp::MouseAction(int Button, int Action, int Mods)
 {
     if(Action == GLFW_PRESS)
     {
+        if(Button==0) Mouse.Left=true;
+        if(Button==1) Mouse.Right=true;
         Renderer->Camera.mousePressEvent(Button);
     }
     else if(Action == GLFW_RELEASE)
     {
+        if(Button==0) Mouse.Left=false;
+        if(Button==1) Mouse.Right=false;
         Renderer->Camera.mouseReleaseEvent(Button);
     }
 }
@@ -290,6 +310,7 @@ void vulkanApp::Destroy()
 {
     delete Renderer;
     delete TextureLoader;
+    delete ImGuiHelper;
     // Resources.Cleanup();
     // Scene.Cleanup();
 }

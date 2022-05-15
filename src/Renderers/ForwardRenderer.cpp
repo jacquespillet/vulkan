@@ -5,6 +5,7 @@ forwardRenderer::forwardRenderer(vulkanApp *App) : renderer(App) {}
 
 void forwardRenderer::Render()
 {
+    BuildCommandBuffers();
     UpdateCamera();
 
     VK_CALL(App->Swapchain.AcquireNextImage(App->Semaphores.PresentComplete, &App->CurrentBuffer));
@@ -255,6 +256,11 @@ void forwardRenderer::BuildCommandBuffers()
     RenderPassBeginInfo.renderArea.extent.height = App->Height;
     RenderPassBeginInfo.clearValueCount=(uint32_t)ClearValues.size();
     RenderPassBeginInfo.pClearValues=ClearValues.data();
+
+    
+    App->ImGuiHelper->NewFrame(App, (App->CurrentBuffer == 0));
+    App->ImGuiHelper->UpdateBuffers();
+
         
     for(uint32_t i=0; i<DrawCommandBuffers.size(); i++)
     {
@@ -300,6 +306,7 @@ void forwardRenderer::BuildCommandBuffers()
             }
         }
 
+        App->ImGuiHelper->DrawFrame(DrawCommandBuffers[i]);
         vkCmdEndRenderPass(DrawCommandBuffers[i]);
         VK_CALL(vkEndCommandBuffer(DrawCommandBuffers[i]));
     }
