@@ -101,73 +101,9 @@ public:
     } VerticesDescription;
     scene *Scene;
     uint32_t Width, Height;
-    
-
-    //app specific
-    VkSubmitInfo SubmitInfo;
-    std::vector<VkCommandBuffer> DrawCommandBuffers;
-    bool EnableSSAO=true;
-    VkDescriptorPool DescriptorPool;
-    resources Resources;
-    struct 
-    {
-        meshBuffer Quad;
-        meshBuffer SkySphere;
-    } Meshes;
-    struct 
-    {
-        struct offscreen : public framebuffer {
-        } Offscreen;
-        struct SSAO : public framebuffer {
-        } SSAO, SSAOBlur;
-    } Framebuffers;
-    VkCommandBuffer OffscreenCommandBuffer = VK_NULL_HANDLE;
-    bool Rebuild=false;
-    VkSemaphore OffscreenSemaphore;
-    struct
-    {
-        buffer FullScreen;
-        buffer SceneMatrices;
-        buffer SSAOKernel;
-        buffer SSAOParams;
-    } UniformBuffers;
-    struct 
-    {
-        glm::mat4 Projection;
-        glm::mat4 Model;
-        glm::mat4 View;
-        glm::vec2 ViewportDim;
-    } UBOVS, UBOSceneMatrices;
-    
-    struct
-    {
-        glm::mat4 Projection;
-        uint32_t SSAO=true;
-        uint32_t SSAOOnly=false;
-        uint32_t SSAOBlur=true;
-    } UBOSSAOParams;
-    struct 
-    {
-        vulkanTexture SSAONoise;
-    } Textures;
-    std::vector<VkShaderModule> ShaderModules;
-    camera Camera;
-
-    
-    
-
-    //App
-    
-
     renderer *Renderer;
 
     void InitVulkan();
-
-    void SetupWindow();
-
-    //
-    
-    void CreateCommandBuffers();
 
     void SetupDepthStencil();
 
@@ -177,43 +113,12 @@ public:
 
     void SetupFramebuffer();
 
-
     void CreateGeneralResources();
-
-
-    //
-    void SetupDescriptorPool();
-
-    void BuildQuads();
 
     void BuildVertexDescriptions();
 
-    void BuildOffscreenBuffers();
-
-    void UpdateUniformBufferScreen();
-
-    void UpdateUniformBufferDeferredMatrices();
-
-    void UpdateUniformBufferSSAOParams();
-
-    void UpdateCamera();
-
-    inline float Lerp(float a, float b, float f);
-
-    void BuildUniformBuffers();
-
-    void BuildLayoutsAndDescriptors();
-
-    void BuildPipelines();
-
     void BuildScene();
     
-    void BuildCommandBuffers();
-    
-    void BuildDeferredCommandBuffers();
-
-    void CreateDeferredRendererResources();
-
     void Render();
 
     void Initialize(HWND Window);

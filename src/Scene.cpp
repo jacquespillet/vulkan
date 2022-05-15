@@ -4,8 +4,7 @@
 
 scene::scene(vulkanApp *App) :
             App(App), Device(App->Device), 
-            Queue(App->Queue), TextureLoader(App->TextureLoader), 
-            DefaultUBO(&App->UniformBuffers.SceneMatrices) 
+            Queue(App->Queue), TextureLoader(App->TextureLoader)
 {
     this->Textures = new textureList(Device, TextureLoader);
 }

@@ -59,7 +59,6 @@ private:
     VkDevice Device;
     VkQueue Queue;
     textureLoader *TextureLoader;
-    buffer *DefaultUBO;
     vulkanApp *App;
 
     const aiScene *AScene;
