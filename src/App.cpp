@@ -1,4 +1,5 @@
 #include "App.h"
+#include "Renderers/DeferredRenderer.h"
 
 void vulkanApp::InitVulkan()
 {

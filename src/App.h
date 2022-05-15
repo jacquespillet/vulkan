@@ -51,8 +51,7 @@
 #include "Scene.h"
 
 #include "Camera.h"
-#include "Renderer.h"
-
+class renderer;
 class vulkanApp
 {
 public:
