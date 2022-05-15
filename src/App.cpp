@@ -1,4 +1,5 @@
 #include "App.h"
+#include "Renderers/ForwardRenderer.h"
 #include "Renderers/DeferredRenderer.h"
 
 void vulkanApp::InitVulkan()
@@ -242,7 +243,7 @@ void vulkanApp::CreateGeneralResources()
     BuildScene(); //Shared
     BuildVertexDescriptions(); //Shared
 
-    Renderer = new deferredRenderer(this);
+    Renderer = new forwardRenderer(this);
     Renderer->Setup();
 }
 
@@ -287,5 +288,8 @@ void vulkanApp::Scroll(float YOffset)
 
 void vulkanApp::Destroy()
 {
-
+    delete Renderer;
+    delete TextureLoader;
+    // Resources.Cleanup();
+    // Scene.Cleanup();
 }
