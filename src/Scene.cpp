@@ -202,114 +202,46 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
     }
 }
 
-void scene::CreateDescriptorSets(std::vector<descriptor>& Descriptors)
+void scene::CreateDescriptorSets()
 {
-    //We can have multiple descriptor sets in a pipeline layout. 
-    //Have one descriptor set for the renderer (Matrices, lights..)
-    //Have one descriptor set for each material
-    
-    //We create the material descriptor sets
-    //The renderer already has created its descriptor
-    //In here, we create a pipeline layout that specifies all the descriptor sets needed for rendering the scene.
-    //To create the pipeline Layout, we only need the descriptorSetLayout of the renderer descriptor set.
-    //--> Pass it as a parameter should be ok
-
-
-    //WE NEED ONLY 1 PIPELINE LAYOUT.
-    //then we do that :
-    //vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, UniquePipelineLayout, 0, 1, DescriptorSet0, 0, nullptr);
-    //vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, UniquePipelineLayout, 1, 1, DescriptorSet1, 0, nullptr);
-    //vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, UniquePipelineLayout, 2, 1, DescriptorSet2, 0, nullptr);
-
-    //
-    // TODO :
-    //Use one descriptor set per material instead of mesh
-    //Create a descriptor set in the renderer, pass its layout in here
-    //create the pipelineLayout using it
-    //Bind the 2 descriptor sets at render time 
-
-    uint32_t UniformsCount = 0;
-    uint32_t ImagesCount = 0;
-    for(size_t i=0; i<Descriptors.size(); i++)
-    {
-        if(Descriptors[i].Type == descriptor::Uniform) UniformsCount++;
-        if(Descriptors[i].Type == descriptor::Image) ImagesCount++;
-    }
-
     //Create descriptor pool
     std::vector<VkDescriptorPoolSize> PoolSizes = 
     {
-        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, UniformsCount * (uint32_t)Meshes.size()),
-        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  (uint32_t)Meshes.size() * (3 + ImagesCount))
+        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  (uint32_t)Materials.size() * (3))
     };
     VkDescriptorPoolCreateInfo DescriptorPoolInfo = vulkanTools::BuildDescriptorPoolCreateInfo(
         (uint32_t)PoolSizes.size(),
         PoolSizes.data(),
-        (uint32_t)Meshes.size()
+        (uint32_t)Materials.size()
     );
     VK_CALL(vkCreateDescriptorPool(Device, &DescriptorPoolInfo, nullptr, &DescriptorPool));
 
 
-    //Create descriptor set layout and pipeline layout
+    //Create descriptor set layout
     std::vector<VkDescriptorSetLayoutBinding> SetLayoutBindings;
-    uint32_t Index=0;
-    for(size_t i=0; i<Descriptors.size(); i++)
-    {
-        SetLayoutBindings.push_back(
-            vulkanTools::BuildDescriptorSetLayoutBinding(Descriptors[i].DescriptorType, Descriptors[i].Stage, Index++)
-        );
-    }
-    SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, Index++ ));
-    SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, Index++ ));
-    SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, Index++ ));
+    SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ));
+    SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ));
+    SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2 ));
     VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), (uint32_t)SetLayoutBindings.size());
     VK_CALL(vkCreateDescriptorSetLayout(Device, &DescriptorLayoutCreateInfo, nullptr, &DescriptorSetLayout));
-    
-    //Creates the scene pipeline layout, going to be used by the renderer to render the scene.
-    //Here, we can pass multiple descriptor sets.
-    //So we pass this one, and another one for the global uniforms
-    VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(&DescriptorSetLayout, 1);
-    VK_CALL(vkCreatePipelineLayout(Device, &pPipelineLayoutCreateInfo, nullptr, &PipelineLayout));
-    
 
     //Write descriptor sets
-    for(uint32_t i=0; i<Meshes.size(); i++)
+    for(uint32_t i=0; i<Materials.size(); i++)
     {
         VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &DescriptorSetLayout, 1);
-        VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &Meshes[i].DescriptorSet));
+        VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &Materials[i].DescriptorSet));
 
         std::vector<VkWriteDescriptorSet> WriteDescriptorSets;
-        Index=0;
-        for(uint32_t j=0; j<Descriptors.size(); j++)
-        {
-            if(Descriptors[j].Type == descriptor::Uniform)
-            {
-                WriteDescriptorSets.push_back(
-                    vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, Descriptors[j].DescriptorType, Index++, &Descriptors[j].DescriptorBufferInfo)
-                );
-            }
-            else if(Descriptors[j].Type == descriptor::Image)
-            {
-                WriteDescriptorSets.push_back(
-                    vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, Descriptors[j].DescriptorType, Index++, &Descriptors[j].DescriptorImageInfo)
-                );
-            }
-        } 
         WriteDescriptorSets.push_back(
-            vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, Index++, &Meshes[i].Material->Diffuse.Descriptor)
+        vulkanTools::BuildWriteDescriptorSet( Materials[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &Materials[i].Diffuse.Descriptor)
         );
         WriteDescriptorSets.push_back(
-            vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, Index++, &Meshes[i].Material->Specular.Descriptor)
+            vulkanTools::BuildWriteDescriptorSet( Materials[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &Materials[i].Specular.Descriptor)
         );
         WriteDescriptorSets.push_back(
-            vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, Index++, &Meshes[i].Material->Bump.Descriptor)
+            vulkanTools::BuildWriteDescriptorSet( Materials[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &Materials[i].Bump.Descriptor)
         );
-        // {
-        //     vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &DefaultUBO->Descriptor),
-        //     vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &Meshes[i].Material->Diffuse.Descriptor),
-        //     vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &Meshes[i].Material->Specular.Descriptor),
-        //     vulkanTools::BuildWriteDescriptorSet( Meshes[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &Meshes[i].Material->Bump.Descriptor)
-        // };
+        
         vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
     }
 }

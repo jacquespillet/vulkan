@@ -7,7 +7,7 @@ layout (location = 3) in vec3 inNormal;
 layout (location = 4) in vec3 inTangent;
 layout (location = 5) in vec3 inBitangent;
 
-layout (binding = 0) uniform UBO 
+layout (set=0, binding = 0) uniform UBO 
 {
 	mat4 projection;
 	mat4 model;

@@ -25,6 +25,8 @@ struct sceneMaterial
     bool HasBump=false;
     bool HasSpecular=false;
     VkPipeline Pipeline;
+
+    VkDescriptorSet DescriptorSet;
 };
 
 struct sceneMesh
@@ -37,8 +39,6 @@ struct sceneMesh
 
     uint32_t IndexCount;
     uint32_t IndexBase;
-
-    VkDescriptorSet DescriptorSet;
 
     sceneMaterial *Material;
 };
@@ -77,10 +77,9 @@ public:
     buffer IndexBuffer;
     std::vector<sceneMaterial> Materials;
     std::vector<sceneMesh> Meshes;
-    VkPipelineLayout PipelineLayout;
     
     scene(vulkanApp *App);
     
     void Load(std::string FileName, VkCommandBuffer CopyCommand);
-    void CreateDescriptorSets(std::vector<descriptor>& Descriptors);
+    void CreateDescriptorSets();
 };

@@ -58,6 +58,12 @@ public:
         Resources[Name] = PipelineLayout;
         return PipelineLayout;
     }
+    
+    VkPipelineLayout Add(std::string Name, VkPipelineLayout &PipelineLayout)
+    {
+        Resources[Name] = PipelineLayout;
+        return PipelineLayout;
+    }
 };
 
 class pipelineList : public vulkanResourceList<VkPipeline>

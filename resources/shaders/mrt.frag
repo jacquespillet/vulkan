@@ -1,8 +1,8 @@
 #version 450
 
-layout (binding = 1) uniform sampler2D samplerColor;
-layout (binding = 2) uniform sampler2D samplerSpecular;
-layout (binding = 3) uniform sampler2D samplerNormal;
+layout (set=1, binding = 0) uniform sampler2D samplerColor;
+layout (set=1, binding = 1) uniform sampler2D samplerSpecular;
+layout (set=1, binding = 2) uniform sampler2D samplerNormal;
 
 layout (location = 0) in vec3 inNormal;
 layout (location = 1) in vec2 inUV;

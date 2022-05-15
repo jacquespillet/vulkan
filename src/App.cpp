@@ -421,9 +421,26 @@ void vulkanApp::BuildLayoutsAndDescriptors()
 {
     //Render scene (Gbuffer)
     {
-        VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo();
-        PipelineLayoutCreateInfo.pSetLayouts=&Scene->DescriptorSetLayout;
-        Resources.PipelineLayouts->Add("Offscreen", PipelineLayoutCreateInfo);
+        //Create the meshes descriptor sets
+        Scene->CreateDescriptorSets();
+
+        //Create the scene descriptor set layout
+        VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0 );
+        VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(&SetLayoutBindings, 1);
+        VkDescriptorSetLayout RendererDescriptorSetLayout = Resources.DescriptorSetLayouts->Add("Offscreen", DescriptorLayoutCreateInfo);
+
+        //Allocate and write descriptor wts
+        VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &RendererDescriptorSetLayout, 1);
+        VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Add("Offscreen", AllocInfo);
+
+        VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( RendererDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &UniformBuffers.SceneMatrices.Descriptor);
+        vkUpdateDescriptorSets(Device, 1, &WriteDescriptorSets, 0, nullptr);
+
+        //Build pipeline layout        
+        RendererSetLayouts.push_back(RendererDescriptorSetLayout);
+        RendererSetLayouts.push_back(Scene->DescriptorSetLayout);
+        VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(RendererSetLayouts.data(), (uint32_t)RendererSetLayouts.size());
+        Resources.PipelineLayouts->Add("Offscreen", pPipelineLayoutCreateInfo);
     }    
 
     //Composition
@@ -791,13 +808,16 @@ void vulkanApp::BuildDeferredCommandBuffers()
     vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Scene->VertexBuffer.Buffer, Offset);
     vkCmdBindIndexBuffer(OffscreenCommandBuffer, Scene->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
+    VkPipelineLayout RendererPipelineLayout =  Resources.PipelineLayouts->Get("Offscreen");
+    VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Get("Offscreen");
     for(auto Mesh : Scene->Meshes)
     {
         if(Mesh.Material->HasAlpha)
         {
             continue;
         }
-        vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Scene->PipelineLayout, 0, 1, &Mesh.DescriptorSet, 0, nullptr);
+        vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
+        vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Mesh.Material->DescriptorSet, 0, nullptr);
         vkCmdDrawIndexed(OffscreenCommandBuffer, Mesh.IndexCount, 1, 0, Mesh.IndexBase, 0);
     }
 
@@ -806,7 +826,8 @@ void vulkanApp::BuildDeferredCommandBuffers()
     {
         if(Mesh.Material->HasAlpha)
         {
-            vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Scene->PipelineLayout, 0, 1, &Mesh.DescriptorSet, 0, nullptr);
+            vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
+            vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Mesh.Material->DescriptorSet, 0, nullptr);
             vkCmdDrawIndexed(OffscreenCommandBuffer, Mesh.IndexCount, 1, 0, Mesh.IndexBase, 0);
         }
     }
@@ -877,16 +898,11 @@ void vulkanApp::BuildDeferredCommandBuffers()
 
 void vulkanApp::CreateDeferredRendererResources()
 {
+    SetupDescriptorPool();
     BuildUniformBuffers();
-    std::vector<descriptor> MeshDescriptors = 
-    {
-        descriptor(VK_SHADER_STAGE_VERTEX_BIT, UniformBuffers.SceneMatrices.Descriptor)
-    };
-    Scene->CreateDescriptorSets(MeshDescriptors);
 
     BuildQuads();
     BuildOffscreenBuffers();
-    SetupDescriptorPool();
     BuildLayoutsAndDescriptors();
     BuildPipelines();
     BuildCommandBuffers();
