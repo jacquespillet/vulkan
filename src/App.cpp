@@ -216,27 +216,6 @@ void vulkanApp::SetupFramebuffer()
 }
 
 
-void vulkanApp::CreateGeneralResources()
-{
-    CommandPool = vulkanTools::CreateCommandPool(Device, Swapchain.QueueNodeIndex);
-    Swapchain.Create(&Width, &Height, EnableVSync);
-    
-    //Create 1 command buffer for each swapchain image
-    CreateCommandBuffers();
-
-    SetupDepthStencil();
-    
-    SetupRenderPass();
-    CreatePipelineCache();
-    SetupFramebuffer();
-
-    TextureLoader = new textureLoader(VulkanDevice, Queue, CommandPool);
-    
-    Resources.Init(VulkanDevice, DescriptorPool, TextureLoader);
-    
-    BuildScene();
-    BuildVertexDescriptions();
-}
 
  void vulkanApp::SetupDescriptorPool()
 {
@@ -334,7 +313,7 @@ void vulkanApp::UpdateUniformBufferDeferredMatrices()
     UBOSceneMatrices.View = Camera.GetViewMatrix();
     UBOSceneMatrices.Model = glm::mat4(1);
     
-    UBOSceneMatrices.ViewportDim = glm::vec2(t,(float)Height);
+    UBOSceneMatrices.ViewportDim = glm::vec2((float)Width,(float)Height);
     VK_CALL(UniformBuffers.SceneMatrices.Map());
     UniformBuffers.SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
     UniformBuffers.SceneMatrices.Unmap();
@@ -900,9 +879,30 @@ void vulkanApp::BuildDeferredCommandBuffers()
     VK_CALL(vkEndCommandBuffer(OffscreenCommandBuffer));
 }
 
+
+void vulkanApp::CreateGeneralResources()
+{
+    CommandPool = vulkanTools::CreateCommandPool(Device, Swapchain.QueueNodeIndex); //Shared
+    Swapchain.Create(&Width, &Height, EnableVSync); //Shared
+    
+    CreateCommandBuffers(); //Shared
+
+    SetupDepthStencil(); //Shared
+    
+    SetupRenderPass(); //Shared
+    CreatePipelineCache(); //Shared
+    SetupFramebuffer(); //Shared
+
+    TextureLoader = new textureLoader(VulkanDevice, Queue, CommandPool); //Shared
+    
+    BuildScene(); //Shared
+    BuildVertexDescriptions(); //Shared
+}
+
 void vulkanApp::CreateDeferredRendererResources()
 {
     SetupDescriptorPool();
+    Resources.Init(VulkanDevice, DescriptorPool, TextureLoader);
     BuildUniformBuffers();
 
     BuildQuads();
@@ -922,8 +922,6 @@ void vulkanApp::Initialize(HWND Window)
     SetupWindow();
     Swapchain.InitSurface(Window);
     CreateGeneralResources();
-    
-    //App specific :
     CreateDeferredRendererResources();
 }
 
@@ -936,7 +934,6 @@ void vulkanApp::UpdateCamera()
 
 void vulkanApp::Render()
 {
-    t += 0.1f;
     UpdateCamera();
 
     VK_CALL(Swapchain.AcquireNextImage(Semaphores.PresentComplete, &CurrentBuffer));

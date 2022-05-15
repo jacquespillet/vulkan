@@ -17,7 +17,8 @@ VkShaderModule LoadShaderModule(std::string FileName, VkDevice Device, VkShaderS
 {
     size_t Size;
 
-    FILE *FP = fopen(FileName.c_str(), "rb");
+    FILE *FP;
+    fopen_s(&FP, FileName.c_str(), "rb");
     assert(FP);
 
     fseek(FP, 0L, SEEK_END);

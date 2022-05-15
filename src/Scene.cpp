@@ -1,15 +1,20 @@
 #include "Scene.h"
 #include "App.h"
-
+#include "Resources.h"
 
 scene::scene(vulkanApp *App) :
-App(App), Device(App->Device), Queue(App->Queue), TextureLoader(App->TextureLoader), DefaultUBO(&App->UniformBuffers.SceneMatrices) {}
+            App(App), Device(App->Device), 
+            Queue(App->Queue), TextureLoader(App->TextureLoader), 
+            DefaultUBO(&App->UniformBuffers.SceneMatrices) 
+{
+    this->Textures = new textureList(Device, TextureLoader);
+}
 
 void scene::LoadMaterials()
 {
-    App->Resources.Textures->AddTexture2D("Dummy.Diffuse", "resources/models/sponza/dummy.dds", VK_FORMAT_BC2_UNORM_BLOCK);
-    App->Resources.Textures->AddTexture2D("Dummy.Specular", "resources/models/sponza/dummy_specular.dds", VK_FORMAT_BC2_UNORM_BLOCK);
-    App->Resources.Textures->AddTexture2D("Dummy.Bump", "resources/models/sponza/dummy_ddn.dds", VK_FORMAT_BC2_UNORM_BLOCK);
+    Textures->AddTexture2D("Dummy.Diffuse", "resources/models/sponza/dummy.dds", VK_FORMAT_BC2_UNORM_BLOCK);
+    Textures->AddTexture2D("Dummy.Specular", "resources/models/sponza/dummy_specular.dds", VK_FORMAT_BC2_UNORM_BLOCK);
+    Textures->AddTexture2D("Dummy.Bump", "resources/models/sponza/dummy_ddn.dds", VK_FORMAT_BC2_UNORM_BLOCK);
 
     Materials.resize(AScene->mNumMaterials);
     for(uint32_t i=0; i<Materials.size(); i++)
@@ -29,18 +34,18 @@ void scene::LoadMaterials()
             std::string FileName = std::string(TextureFile.C_Str());
             DiffuseMapFile = FileName;
             std::replace(FileName.begin(), FileName.end(), '\\', '/');
-            if(!App->Resources.Textures->Present(FileName))
+            if(!Textures->Present(FileName))
             {
-                Materials[i].Diffuse = App->Resources.Textures->AddTexture2D(FileName, "resources/models/sponza/" + FileName, VK_FORMAT_BC2_UNORM_BLOCK);
+                Materials[i].Diffuse = Textures->AddTexture2D(FileName, "resources/models/sponza/" + FileName, VK_FORMAT_BC2_UNORM_BLOCK);
             }
             else
             {
-                Materials[i].Diffuse = App->Resources.Textures->Get(FileName);
+                Materials[i].Diffuse = Textures->Get(FileName);
             }
         }
         else
         {
-            Materials[i].Diffuse = App->Resources.Textures->Get("Dummy.Diffuse");
+            Materials[i].Diffuse = Textures->Get("Dummy.Diffuse");
         }
 
 
@@ -49,18 +54,18 @@ void scene::LoadMaterials()
             AScene->mMaterials[i]->GetTexture(aiTextureType_SPECULAR, 0, &TextureFile);
             std::string FileName = std::string(TextureFile.C_Str());
             std::replace(FileName.begin(), FileName.end(), '\\', '/');
-            if(!App->Resources.Textures->Present(FileName))
+            if(!Textures->Present(FileName))
             {
-                Materials[i].Specular = App->Resources.Textures->AddTexture2D(FileName, "resources/models/sponza/" + FileName, VK_FORMAT_BC2_UNORM_BLOCK);
+                Materials[i].Specular = Textures->AddTexture2D(FileName, "resources/models/sponza/" + FileName, VK_FORMAT_BC2_UNORM_BLOCK);
             }
             else
             {
-                Materials[i].Specular = App->Resources.Textures->Get(FileName);
+                Materials[i].Specular = Textures->Get(FileName);
             }
         }
         else
         {
-            Materials[i].Specular = App->Resources.Textures->Get("Dummy.Specular");
+            Materials[i].Specular = Textures->Get("Dummy.Specular");
         }
 
         if(AScene->mMaterials[i]->GetTextureCount(aiTextureType_NORMALS) > 0)
@@ -68,26 +73,24 @@ void scene::LoadMaterials()
             AScene->mMaterials[i]->GetTexture(aiTextureType_NORMALS, 0, &TextureFile);
             std::string FileName = std::string(TextureFile.C_Str());
             std::replace(FileName.begin(), FileName.end(), '\\', '/');
-            if(!App->Resources.Textures->Present(FileName))
+            if(!Textures->Present(FileName))
             {
-                Materials[i].Bump = App->Resources.Textures->AddTexture2D(FileName, "resources/models/sponza/" + FileName, VK_FORMAT_BC2_UNORM_BLOCK);
+                Materials[i].Bump = Textures->AddTexture2D(FileName, "resources/models/sponza/" + FileName, VK_FORMAT_BC2_UNORM_BLOCK);
             }
             else
             {
-                Materials[i].Bump = App->Resources.Textures->Get(FileName);
+                Materials[i].Bump = Textures->Get(FileName);
             }
         }
         else
         {
-            Materials[i].Bump = App->Resources.Textures->Get("Dummy.Bump");
+            Materials[i].Bump = Textures->Get("Dummy.Bump");
         }
 
         if(AScene->mMaterials[i]->GetTextureCount(aiTextureType_OPACITY)>0)
         {
             Materials[i].HasAlpha=true;
         }
-
-        Materials[i].Pipeline = App->Resources.Pipelines->Get("Scene.Solid");
     }
 }   
 

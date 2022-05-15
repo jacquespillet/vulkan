@@ -14,6 +14,7 @@
 
 class vulkanApp;
 struct descriptor;
+class textureList;
 
 struct sceneMaterial
 {
@@ -24,7 +25,6 @@ struct sceneMaterial
     bool HasAlpha=false;
     bool HasBump=false;
     bool HasSpecular=false;
-    VkPipeline Pipeline;
 
     VkDescriptorSet DescriptorSet;
 };
@@ -77,6 +77,8 @@ public:
     buffer IndexBuffer;
     std::vector<sceneMaterial> Materials;
     std::vector<sceneMesh> Meshes;
+    
+    textureList *Textures;
     
     scene(vulkanApp *App);
     

@@ -72,31 +72,18 @@ public:
         VkSemaphore PresentComplete;
         VkSemaphore RenderComplete;
     } Semaphores;
-    VkSubmitInfo SubmitInfo;
     VkPipelineStageFlags SubmitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-    //General Vulkan resources
     VkCommandPool CommandPool;
-    VkCommandBuffer SetupCommandBuffer = VK_NULL_HANDLE;
-    std::vector<VkCommandBuffer> DrawCommandBuffers;
     std::vector<VkFramebuffer> AppFramebuffers;
-
     struct {
         VkImage Image;
         VkDeviceMemory Memory;
         VkImageView View;
     } DepthStencil;
-
     VkRenderPass RenderPass;
     VkPipelineCache PipelineCache;
-
     textureLoader *TextureLoader;
-
     uint32_t CurrentBuffer=0;
-
-    bool EnableSSAO=true;
-
-    //Deferred Renderer resources
     struct vertex
     {
         glm::vec3 Position;
@@ -106,24 +93,27 @@ public:
         glm::vec3 Tangent;
         glm::vec3 Bitangent;
     };
-
-    VkDescriptorPool DescriptorPool;
-    resources Resources;
-
-    struct 
-    {
-        meshBuffer Quad;
-        meshBuffer SkySphere;
-    } Meshes;
-
     struct 
     {
         VkPipelineVertexInputStateCreateInfo InputState;
         std::vector<VkVertexInputBindingDescription> BindingDescription;
         std::vector<VkVertexInputAttributeDescription> AttributeDescription;
     } VerticesDescription;
+    scene *Scene;
+    uint32_t Width, Height;
+    
 
-
+    //app specific
+    VkSubmitInfo SubmitInfo;
+    std::vector<VkCommandBuffer> DrawCommandBuffers;
+    bool EnableSSAO=true;
+    VkDescriptorPool DescriptorPool;
+    resources Resources;
+    struct 
+    {
+        meshBuffer Quad;
+        meshBuffer SkySphere;
+    } Meshes;
     struct 
     {
         struct offscreen : public framebuffer {
@@ -131,14 +121,9 @@ public:
         struct SSAO : public framebuffer {
         } SSAO, SSAOBlur;
     } Framebuffers;
-
-
     VkCommandBuffer OffscreenCommandBuffer = VK_NULL_HANDLE;
     bool Rebuild=false;
-
     VkSemaphore OffscreenSemaphore;
-
-    //Uniforms
     struct
     {
         buffer FullScreen;
@@ -146,7 +131,6 @@ public:
         buffer SSAOKernel;
         buffer SSAOParams;
     } UniformBuffers;
-
     struct 
     {
         glm::mat4 Projection;
@@ -162,26 +146,18 @@ public:
         uint32_t SSAOOnly=false;
         uint32_t SSAOBlur=true;
     } UBOSSAOParams;
-
     struct 
     {
         vulkanTexture SSAONoise;
     } Textures;
-
-
-
     std::vector<VkShaderModule> ShaderModules;
+    camera Camera;
 
-    scene *Scene;
-
+    
     
 
     //App
-    uint32_t Width, Height;
     
-    float t=0;
-    
-    camera Camera;
 
     renderer *Renderer;
 
