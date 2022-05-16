@@ -17,6 +17,7 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
     std::vector<vertex> GVertices;
     std::vector<uint32_t> GIndices;
     assimpImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Textures);    
+    // GLTFImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Textures);    
 
     for (size_t i = 0; i < Materials.size(); i++)
     {

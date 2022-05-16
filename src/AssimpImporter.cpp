@@ -145,7 +145,6 @@ void Load(std::string FileName, std::vector<instance> &Instances, std::vector<sc
             for(size_t j=0; j<Vertices.size(); j++)
             {
                 Vertices[j].Position = glm::make_vec3(&AMesh->mVertices[j].x);
-                Vertices[j].Position.y = -Vertices[j].Position.y;
                 Vertices[j].UV = (HasUV) ? glm::make_vec2(&AMesh->mTextureCoords[0][j].x) : glm::vec2(0);
                 Vertices[j].Normal = glm::make_vec3(&AMesh->mNormals[j].x);
                 Vertices[j].Color = glm::vec3(1.0f);
@@ -161,8 +160,8 @@ void Load(std::string FileName, std::vector<instance> &Instances, std::vector<sc
             for(uint32_t j=0; j<AMesh->mNumFaces; j++)
             {
                 Indices[j * 3 + 0] = AMesh->mFaces[j].mIndices[0];
-                Indices[j * 3 + 1] = AMesh->mFaces[j].mIndices[1];
-                Indices[j * 3 + 2] = AMesh->mFaces[j].mIndices[2];
+                Indices[j * 3 + 2] = AMesh->mFaces[j].mIndices[1];
+                Indices[j * 3 + 1] = AMesh->mFaces[j].mIndices[2];
                 GIndices.push_back(Indices[j*3+0] + VertexBase);
                 GIndices.push_back(Indices[j*3+1] + VertexBase);
                 GIndices.push_back(Indices[j*3+2] + VertexBase);

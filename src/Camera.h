@@ -9,7 +9,7 @@
 
 class camera {
 public:
-    camera(glm::vec3 position, float fov=80.0f, float nearPlane=0.01f, float farPlane=150.0f, float aspectRatio=1.7778f) : fov(fov), nearPlane(nearPlane), farPlane(farPlane), aspectRatio(aspectRatio), sphericalPosition(glm::vec3(0, 0, 1)), target(position), up(glm::vec3(0,1,0)){ 
+    camera(glm::vec3 position, float fov=80.0f, float nearPlane=0.01f, float farPlane=1500.0f, float aspectRatio=1.7778f) : fov(fov), nearPlane(nearPlane), farPlane(farPlane), aspectRatio(aspectRatio), sphericalPosition(glm::vec3(0, 0, 1)), target(position), up(glm::vec3(0,1,0)){ 
         worldPosition = target + sphericalPosition * distance;
         theta =  atan2(sqrt(sphericalPosition.x * sphericalPosition.x  + sphericalPosition.z * sphericalPosition.z), sphericalPosition.y);
         phi = atan2(sphericalPosition.z, sphericalPosition.x); 
@@ -17,7 +17,7 @@ public:
         RecalculateProjectionMatrix();
         RecalculateLookat();
     }
-    camera() : fov(80.0f), nearPlane(0.01f), farPlane(150.0f), aspectRatio(1.0f), sphericalPosition(glm::vec3(0, 0, 1)), target(glm::vec3(0,0,0)), up(glm::vec3(0,1,0)){
+    camera() : fov(80.0f), nearPlane(0.01f), farPlane(1500.0f), aspectRatio(1.0f), sphericalPosition(glm::vec3(0, 0, 1)), target(glm::vec3(0,0,0)), up(glm::vec3(0,1,0)){
         worldPosition = target + sphericalPosition * distance;
         theta =  atan2(sqrt(sphericalPosition.x * sphericalPosition.x  + sphericalPosition.z * sphericalPosition.z), sphericalPosition.y);
         phi = atan2(sphericalPosition.z, sphericalPosition.x); 
@@ -39,6 +39,7 @@ public:
     }
     void RecalculateProjectionMatrix() {
         projectionMatrix = glm::perspectiveRH(glm::radians(fov), aspectRatio, nearPlane, farPlane);
+        projectionMatrix[1][1] *= -1;
     }
 
     glm::mat4 GetProjectionMatrix() const{return projectionMatrix;}
