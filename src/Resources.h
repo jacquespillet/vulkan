@@ -158,6 +158,14 @@ public:
         return Texture;
     }
 
+    vulkanTexture AddTexture2D(std::string Name, void* Data, size_t Size, uint32_t Width, uint32_t Height, VkFormat Format)
+    {
+        vulkanTexture Texture;
+        Loader->CreateTexture(Data, Size, Format, Width, Height, &Texture);
+        Resources[Name] = Texture;
+        return Texture;
+    }
+
     vulkanTexture AddTextureArray(std::string Name, std::string FileName, VkFormat Format)
     {
         vulkanTexture Texture;

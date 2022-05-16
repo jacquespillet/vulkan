@@ -7,11 +7,6 @@
 #include "Buffer.h"
 #include "TextureLoader.h"
 
-#include <assimp/Importer.hpp>      // C++ importer interface
-#include <assimp/scene.h>           // Output data structure
-#include <assimp/postprocess.h>     // Post processing flags
-#include <assimp/material.h>
-
 class vulkanApp;
 struct descriptor;
 class textureList;
@@ -103,9 +98,6 @@ private:
     VkQueue Queue;
     textureLoader *TextureLoader;
     vulkanApp *App;
-
-    const aiScene *AScene;
-
     
 
     VkDescriptorPool DescriptorPool;

@@ -4,6 +4,11 @@
 #include <glm/ext.hpp>
 #include "Resources.h"
 
+#include <assimp/Importer.hpp>      // C++ importer interface
+#include <assimp/scene.h>           // Output data structure
+#include <assimp/postprocess.h>     // Post processing flags
+#include <assimp/material.h>
+
 
 namespace assimpImporter
 {

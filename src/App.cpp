@@ -203,6 +203,7 @@ void vulkanApp::BuildScene()
     VkCommandBuffer CopyCommand = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
     Scene = new scene(this);
     Scene->Load("resources/models/sponza/sponza.dae", CopyCommand);
+    // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
     vkFreeCommandBuffers(VulkanDevice->Device, CommandPool, 1, &CopyCommand);
 }
 

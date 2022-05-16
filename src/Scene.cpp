@@ -2,6 +2,7 @@
 #include "App.h"
 #include "Resources.h"
 #include "AssimpImporter.h"
+#include "GLTFImporter.h"
 
 scene::scene(vulkanApp *App) :
             App(App), Device(App->Device), 
