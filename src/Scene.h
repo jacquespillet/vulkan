@@ -81,6 +81,18 @@ struct sceneMesh
     sceneMaterial *Material;
 };
 
+struct instance
+{
+    sceneMesh *Mesh;
+    struct 
+    {
+        glm::mat4 Transform;
+    } InstanceData;
+    
+    buffer UniformBuffer;
+    VkDescriptorSet DescriptorSet;
+};
+
 struct vertex
 {
     glm::vec3 Position;
@@ -100,17 +112,20 @@ private:
     vulkanApp *App;
     
 
-    VkDescriptorPool DescriptorPool;
+    VkDescriptorPool MaterialDescriptorPool;
+    VkDescriptorPool InstanceDescriptorPool;
 
     void LoadMaterials(VkCommandBuffer CommandBuffer);
     void LoadMeshes(VkCommandBuffer CommandBuffer);
 
 public:
-    VkDescriptorSetLayout DescriptorSetLayout;
+    VkDescriptorSetLayout MaterialDescriptorSetLayout;
+    VkDescriptorSetLayout InstanceDescriptorSetLayout;
     buffer VertexBuffer;
     buffer IndexBuffer;
     std::vector<sceneMaterial> Materials;
     std::vector<sceneMesh> Meshes;
+    std::vector<instance> Instances;
     
     textureList *Textures;
     

@@ -250,7 +250,7 @@ void vulkanApp::CreateGeneralResources()
 	ImGuiHelper->Init((float)Width, (float)Height);
 	ImGuiHelper->InitResources(RenderPass, Queue);
 
-    Renderer = new deferredRenderer(this);
+    Renderer = new forwardRenderer(this);
     Renderer->Setup();
 }
 

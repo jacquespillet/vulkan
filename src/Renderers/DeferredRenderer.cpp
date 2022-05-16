@@ -270,7 +270,8 @@ void deferredRenderer::BuildLayoutsAndDescriptors()
         std::vector<VkDescriptorSetLayout> RendererSetLayouts = 
         {
             RendererDescriptorSetLayout,
-            App->Scene->DescriptorSetLayout
+            App->Scene->MaterialDescriptorSetLayout,
+            App->Scene->InstanceDescriptorSetLayout
         };
         VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(RendererSetLayouts.data(), (uint32_t)RendererSetLayouts.size());
         Resources.PipelineLayouts->Add("Offscreen", pPipelineLayoutCreateInfo);
@@ -614,25 +615,27 @@ void deferredRenderer::BuildDeferredCommandBuffers()
 
     VkPipelineLayout RendererPipelineLayout =  Resources.PipelineLayouts->Get("Offscreen");
     VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Get("Offscreen");
-    for(auto Mesh : App->Scene->Meshes)
+    for(auto Instance : App->Scene->Instances)
     {
-        if(Mesh.Material->HasAlpha)
+        if(Instance.Mesh->Material->HasAlpha)
         {
             continue;
         }
         vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
-        vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Mesh.Material->DescriptorSet, 0, nullptr);
-        vkCmdDrawIndexed(OffscreenCommandBuffer, Mesh.IndexCount, 1, 0, Mesh.IndexBase, 0);
+        vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
+        vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
+        vkCmdDrawIndexed(OffscreenCommandBuffer, Instance.Mesh->IndexCount, 1, 0, Instance.Mesh->IndexBase, 0);
     }
 
     vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Scene.Blend"));
-    for(auto Mesh : App->Scene->Meshes)
+    for(auto Instance : App->Scene->Instances)
     {
-        if(Mesh.Material->HasAlpha)
+        if(Instance.Mesh->Material->HasAlpha)
         {
             vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
-            vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Mesh.Material->DescriptorSet, 0, nullptr);
-            vkCmdDrawIndexed(OffscreenCommandBuffer, Mesh.IndexCount, 1, 0, Mesh.IndexBase, 0);
+            vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
+            vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
+            vkCmdDrawIndexed(OffscreenCommandBuffer, Instance.Mesh->IndexCount, 1, 0, Instance.Mesh->IndexBase, 0);
         }
     }
 

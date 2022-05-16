@@ -12,11 +12,11 @@
 
 namespace assimpImporter
 {
-void Load(std::string FileName,  std::vector<sceneMesh> &Meshes, std::vector<sceneMaterial> &Materials,std::vector<vertex> &GVertices, 
+void Load(std::string FileName, std::vector<instance> &Instances, std::vector<sceneMesh> &Meshes, std::vector<sceneMaterial> &Materials,std::vector<vertex> &GVertices, 
             std::vector<uint32_t> &GIndices, textureList *Textures)
 {
     Assimp::Importer Importer;
-    int Flags = aiProcess_FlipWindingOrder | aiProcess_Triangulate | aiProcess_PreTransformVertices | aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals;
+    int Flags = aiProcess_FlipWindingOrder | aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals;
 
     const aiScene *AScene = Importer.ReadFile(FileName.c_str(), Flags);
     
@@ -168,6 +168,11 @@ void Load(std::string FileName,  std::vector<sceneMesh> &Meshes, std::vector<sce
                 GIndices.push_back(Indices[j*3+2] + VertexBase);
                 GIndexBase+=3;
             }
+			
+			instance Instance = {};
+			Instance.InstanceData.Transform = glm::mat4(1.0f);
+			Instance.Mesh = &Meshes[i];
+			Instances.push_back(Instance);
         }    
     }
 }
