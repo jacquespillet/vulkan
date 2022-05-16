@@ -40,7 +40,7 @@ set linkerFlags=  -opt:ref Gdi32.lib Shell32.lib User32.lib opengl32.lib %glfwLi
 set srcFiles= ..\src\App.cpp ..\src\Resources.cpp ..\src\Device.cpp ..\src\Tools.cpp 
 set srcFiles= %srcFiles%  ..\src\Scene.cpp ..\src\Debug.cpp ..\src\Buffer.cpp ..\src\Shader.cpp 
 set srcFiles= %srcFiles%  ..\src\Camera.cpp ..\src\Renderer.cpp  ..\src\Renderers\DeferredRenderer.cpp  ..\src\Renderers\ForwardRenderer.cpp 
-set srcFiles= %srcFiles%  %imguiSrc% ..\src\ImGuiHelper.cpp
+set srcFiles= %srcFiles%  %imguiSrc% ..\src\ImGuiHelper.cpp ..\src\AssimpImporter.cpp
 
 IF NOT EXIST .\build mkdir .\build
 pushd .\build
