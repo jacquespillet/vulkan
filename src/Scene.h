@@ -16,6 +16,46 @@ class vulkanApp;
 struct descriptor;
 class textureList;
 
+enum alphaMode
+{
+    Opaque, Blend, Mask
+};
+
+enum mediumType
+{
+    None,
+    Absorb,
+    Scatter,
+    Emissive
+};
+
+struct materialData
+{
+    int BaseColorTextureID = -1;
+    int MetallicRoughnessTextureID = -1;
+    int NormalMapTextureID = -1;
+    int EmissionMapTextureID = -1;
+    int OcclusionMapTextureID = -1;
+
+    int UseBaseColor;
+    int UseMetallicRoughness;
+    int UseNormalMap;
+    int UseEmissionMap;
+    int UseOcclusionMap;
+    float Roughness;
+    float AlphaCutoff;
+    float Metallic;
+    float OcclusionStrength;
+    float EmissiveStrength;
+    float ClearcoatFactor;
+    float ClearcoatRoughness;
+    float Exposure;
+    float Opacity;
+    alphaMode AlphaMode;
+    glm::vec3 BaseColor;
+    glm::vec3 Emission;    
+};
+
 struct sceneMaterial
 {
     std::string Name;
@@ -25,6 +65,9 @@ struct sceneMaterial
     bool HasAlpha=false;
     bool HasBump=false;
     bool HasSpecular=false;
+
+    materialData MaterialData;
+    buffer UniformBuffer;
 
     VkDescriptorSet DescriptorSet;
 };
@@ -67,7 +110,7 @@ private:
 
     VkDescriptorPool DescriptorPool;
 
-    void LoadMaterials();
+    void LoadMaterials(VkCommandBuffer CommandBuffer);
     void LoadMeshes(VkCommandBuffer CommandBuffer);
 
 public:

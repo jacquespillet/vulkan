@@ -9,7 +9,7 @@ scene::scene(vulkanApp *App) :
     this->Textures = new textureList(Device, TextureLoader);
 }
 
-void scene::LoadMaterials()
+void scene::LoadMaterials(VkCommandBuffer CopyCommandBuffer)
 {
     Textures->AddTexture2D("Dummy.Diffuse", "resources/models/sponza/dummy.dds", VK_FORMAT_BC2_UNORM_BLOCK);
     Textures->AddTexture2D("Dummy.Specular", "resources/models/sponza/dummy_specular.dds", VK_FORMAT_BC2_UNORM_BLOCK);
@@ -36,6 +36,7 @@ void scene::LoadMaterials()
             if(!Textures->Present(FileName))
             {
                 Materials[i].Diffuse = Textures->AddTexture2D(FileName, "resources/models/sponza/" + FileName, VK_FORMAT_BC2_UNORM_BLOCK);
+                AScene->mMaterials[i]->Get(AI_MATKEY_TEXTURE_DIFFUSE(0), Materials[i].MaterialData.BaseColorTextureID);
             }
             else
             {
@@ -56,6 +57,7 @@ void scene::LoadMaterials()
             if(!Textures->Present(FileName))
             {
                 Materials[i].Specular = Textures->AddTexture2D(FileName, "resources/models/sponza/" + FileName, VK_FORMAT_BC2_UNORM_BLOCK);
+                AScene->mMaterials[i]->Get(AI_MATKEY_TEXTURE_SPECULAR(0), Materials[i].MaterialData.MetallicRoughnessTextureID);
             }
             else
             {
@@ -75,6 +77,7 @@ void scene::LoadMaterials()
             if(!Textures->Present(FileName))
             {
                 Materials[i].Bump = Textures->AddTexture2D(FileName, "resources/models/sponza/" + FileName, VK_FORMAT_BC2_UNORM_BLOCK);
+                AScene->mMaterials[i]->Get(AI_MATKEY_TEXTURE_NORMALS(0), Materials[i].MaterialData.NormalMapTextureID);
             }
             else
             {
@@ -90,6 +93,30 @@ void scene::LoadMaterials()
         {
             Materials[i].HasAlpha=true;
         }
+
+        AScene->mMaterials[i]->Get(AI_MATKEY_OPACITY, Materials[i].MaterialData.Opacity);
+        Materials[i].MaterialData.AlphaMode = alphaMode::Opaque;
+        
+        AScene->mMaterials[i]->Get(AI_MATKEY_ROUGHNESS_FACTOR, Materials[i].MaterialData.Roughness);
+        AScene->mMaterials[i]->Get(AI_MATKEY_METALLIC_FACTOR, Materials[i].MaterialData.Metallic);
+
+        aiColor3D Emission;
+        AScene->mMaterials[i]->Get(AI_MATKEY_COLOR_EMISSIVE, Emission);
+        Materials[i].MaterialData.Emission = glm::vec3(Emission.r, Emission.g, Emission.b);
+        
+        aiColor3D Color;
+        AScene->mMaterials[i]->Get(AI_MATKEY_COLOR_DIFFUSE, Color);
+        Materials[i].MaterialData.BaseColor = glm::vec3(Color.r, Color.g, Color.b);
+
+        vulkanTools::CreateAndFillBuffer(
+            App->VulkanDevice,
+            &Materials[i].MaterialData,
+            sizeof(materialData),
+            &Materials[i].UniformBuffer,
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            CopyCommandBuffer,
+            Queue
+        );        
     }
 }   
 
@@ -199,7 +226,7 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
     AScene = Importer.ReadFile(FileName.c_str(), Flags);
     if(AScene)
     {
-        LoadMaterials();
+        LoadMaterials(CopyCommand);
         LoadMeshes(CopyCommand);
     }
 }
@@ -209,7 +236,8 @@ void scene::CreateDescriptorSets()
     //Create descriptor pool
     std::vector<VkDescriptorPoolSize> PoolSizes = 
     {
-        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  (uint32_t)Materials.size() * (3))
+        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  (uint32_t)Materials.size() * 3),
+        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  (uint32_t)Materials.size())
     };
     VkDescriptorPoolCreateInfo DescriptorPoolInfo = vulkanTools::BuildDescriptorPoolCreateInfo(
         (uint32_t)PoolSizes.size(),
@@ -224,6 +252,7 @@ void scene::CreateDescriptorSets()
     SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ));
     SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ));
     SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2 ));
+    SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 3 ));
     VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), (uint32_t)SetLayoutBindings.size());
     VK_CALL(vkCreateDescriptorSetLayout(Device, &DescriptorLayoutCreateInfo, nullptr, &DescriptorSetLayout));
 
@@ -243,7 +272,9 @@ void scene::CreateDescriptorSets()
         WriteDescriptorSets.push_back(
             vulkanTools::BuildWriteDescriptorSet( Materials[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &Materials[i].Bump.Descriptor)
         );
-        
+        WriteDescriptorSets.push_back(
+            vulkanTools::BuildWriteDescriptorSet( Materials[i].DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3, &Materials[i].UniformBuffer.Descriptor)
+        );
         vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
     }
 }
