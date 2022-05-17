@@ -100,6 +100,14 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
         CopyCommand,
         Queue
     ); 
+
+
+    //gltfLoader::LoadMeshOnly(Cube.gltf, meshBuffer)
+    //textureLoader.loadCubemap(Cubemap.hdr);
+
+    //create a descriptor setlayout, descriptorSet, and pipelinelayout
+    //create a graphicspipeline
+    //Fill command buffers in the renderers to render it in last
 }
 
 void scene::CreateDescriptorSets()
