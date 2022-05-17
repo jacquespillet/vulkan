@@ -136,35 +136,34 @@ void Load(std::string FileName, std::vector<instance> &Instances, std::vector<sc
             Meshes[i].Material = &Materials[AMesh->mMaterialIndex];
             Meshes[i].IndexBase = GIndexBase;
             
-            std::vector<vertex> Vertices(AMesh->mNumVertices);
-
+            // std::vector<vertex> Vertices(AMesh->mNumVertices);
+			Meshes[i].Vertices.resize(AMesh->mNumVertices);
             bool HasUV = AMesh->HasTextureCoords(0);
             bool HasTangent = AMesh->HasTangentsAndBitangents();
             uint32_t VertexBase = (uint32_t)GVertices.size();
 
-            for(size_t j=0; j<Vertices.size(); j++)
+            for(size_t j=0; j<Meshes[i].Vertices.size(); j++)
             {
-                Vertices[j].Position = glm::make_vec3(&AMesh->mVertices[j].x);
-                Vertices[j].UV = (HasUV) ? glm::make_vec2(&AMesh->mTextureCoords[0][j].x) : glm::vec2(0);
-                Vertices[j].Normal = glm::make_vec3(&AMesh->mNormals[j].x);
-                Vertices[j].Color = glm::vec3(1.0f);
-                Vertices[j].Tangent = (HasTangent) ? glm::make_vec3(&AMesh->mTangents[j].x) : glm::vec3(0,1,0);
-                Vertices[j].Bitangent = (HasTangent) ? glm::make_vec3(&AMesh->mBitangents[j].x) : glm::vec3(0,1,0);
-                GVertices.push_back(Vertices[j]);
+                Meshes[i].Vertices[j].Position = glm::make_vec3(&AMesh->mVertices[j].x);
+                Meshes[i].Vertices[j].UV = (HasUV) ? glm::make_vec2(&AMesh->mTextureCoords[0][j].x) : glm::vec2(0);
+                Meshes[i].Vertices[j].Normal = glm::make_vec3(&AMesh->mNormals[j].x);
+                Meshes[i].Vertices[j].Color = glm::vec3(1.0f);
+                Meshes[i].Vertices[j].Tangent = (HasTangent) ? glm::make_vec3(&AMesh->mTangents[j].x) : glm::vec3(0,1,0);
+                Meshes[i].Vertices[j].Bitangent = (HasTangent) ? glm::make_vec3(&AMesh->mBitangents[j].x) : glm::vec3(0,1,0);
+                GVertices.push_back(Meshes[i].Vertices[j]);
             }
 
-            std::vector<uint32_t> Indices;
             Meshes[i].IndexCount = AMesh->mNumFaces * 3;
-            Indices.resize(AMesh->mNumFaces * 3);
+            Meshes[i].Indices.resize(AMesh->mNumFaces * 3);
 
             for(uint32_t j=0; j<AMesh->mNumFaces; j++)
             {
-                Indices[j * 3 + 0] = AMesh->mFaces[j].mIndices[0];
-                Indices[j * 3 + 2] = AMesh->mFaces[j].mIndices[1];
-                Indices[j * 3 + 1] = AMesh->mFaces[j].mIndices[2];
-                GIndices.push_back(Indices[j*3+0] + VertexBase);
-                GIndices.push_back(Indices[j*3+1] + VertexBase);
-                GIndices.push_back(Indices[j*3+2] + VertexBase);
+                Meshes[i].Indices[j * 3 + 0] = AMesh->mFaces[j].mIndices[0];
+                Meshes[i].Indices[j * 3 + 2] = AMesh->mFaces[j].mIndices[1];
+                Meshes[i].Indices[j * 3 + 1] = AMesh->mFaces[j].mIndices[2];
+                GIndices.push_back(Meshes[i].Indices[j*3+0] + VertexBase);
+                GIndices.push_back(Meshes[i].Indices[j*3+1] + VertexBase);
+                GIndices.push_back(Meshes[i].Indices[j*3+2] + VertexBase);
                 GIndexBase+=3;
             }
 			
