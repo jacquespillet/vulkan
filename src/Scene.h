@@ -68,16 +68,6 @@ struct sceneMaterial
 };
 
 
-struct vertex
-{
-    glm::vec3 Position;
-    glm::vec2 UV;
-    glm::vec3 Color;
-    glm::vec3 Normal;
-    glm::vec3 Tangent;
-    glm::vec3 Bitangent;
-};
-
 
 struct sceneMesh
 {
@@ -121,6 +111,9 @@ private:
     VkDescriptorPool MaterialDescriptorPool;
     VkDescriptorPool InstanceDescriptorPool;
 
+    sceneMesh CubeMesh;
+    vulkanTexture Cubemap;
+    
     void LoadMaterials(VkCommandBuffer CommandBuffer);
     void LoadMeshes(VkCommandBuffer CommandBuffer);
 

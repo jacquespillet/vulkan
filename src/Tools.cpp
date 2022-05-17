@@ -2,6 +2,8 @@
 #include "Framebuffer.h"
 #include "Buffer.h"
 #include <iostream>
+#include <mesh.h>
+
 namespace vulkanTools
 {
     VkBool32 CheckDeviceExtensionPresent(VkPhysicalDevice PhysicalDevice, const char *ExtensionName)
@@ -960,6 +962,41 @@ namespace vulkanTools
         // Buffer->MemoryPropertyFlags = MemoryPropertyFlags;
 
         Buffer->SetupDescriptor();
+    }
+
+    meshBuffer BuildQuad(vulkanDevice *VulkanDevice)
+    {
+        meshBuffer Quad;
+
+        std::vector<vertex> VertexBuffer;
+        VertexBuffer.push_back({ { 1.0f, 1.0f, 0.0f },{ 1.0f, 1.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });
+        VertexBuffer.push_back({ { 0,      1.0f, 0.0f },{ 0.0f, 1.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });
+        VertexBuffer.push_back({ { 0,      0,      0.0f },{ 0.0f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });
+        VertexBuffer.push_back({ { 1.0f, 0,      0.0f },{ 1.0f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });    
+        
+        vulkanTools::CreateBuffer(VulkanDevice,
+                        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                        VertexBuffer.size() * sizeof(vertex),
+                        VertexBuffer.data(),
+                        &Quad.Vertices.Buffer,
+                        &Quad.Vertices.DeviceMemory); 
+
+        
+        std::vector<uint32_t> IndicesBuffer = {0,1,2,  2,3,0};
+        Quad.IndexCount = (uint32_t)IndicesBuffer.size();
+
+        vulkanTools::CreateBuffer(
+            VulkanDevice,
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+            IndicesBuffer.size() * sizeof(uint32_t),
+            IndicesBuffer.data(),
+            &Quad.Indices.Buffer,
+            &Quad.Indices.DeviceMemory
+        );        
+
+        return Quad;
     }
 
 }

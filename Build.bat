@@ -41,6 +41,9 @@ REM --------------------
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/forward.vert -o resources/shaders/forward.vert.spv
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/forward.frag -o resources/shaders/forward.frag.spv
 
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/BuildCubemap.vert -o resources/shaders/BuildCubemap.vert.spv
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/BuildCubemap.frag -o resources/shaders/BuildCubemap.frag.spv
+
 set compilerFlags=  -MP -MT -nologo -EHa- -Od -Oi -W4 -Z7 -EHsc -wd4201 -wd4310 -wd4100  /I ../src /I ..\ext\glm /I ..\ext\gli  /I %glfwInclude% /I %vulkanInclude% /I %assimpIncludes% /I %imguiInclude% /I %stbInclude%  /I %tinygltfInclude%
 set linkerFlags=  -opt:ref Gdi32.lib Shell32.lib User32.lib opengl32.lib %glfwLib%  %vulkanLib% %assimpLib%
 
@@ -48,6 +51,7 @@ set srcFiles= ..\src\App.cpp ..\src\Resources.cpp ..\src\Device.cpp ..\src\Tools
 set srcFiles= %srcFiles%  ..\src\Scene.cpp ..\src\Debug.cpp ..\src\Buffer.cpp ..\src\Shader.cpp 
 set srcFiles= %srcFiles%  ..\src\Camera.cpp ..\src\Renderer.cpp  ..\src\Renderers\DeferredRenderer.cpp  ..\src\Renderers\ForwardRenderer.cpp 
 set srcFiles= %srcFiles%  %imguiSrc% ..\src\ImGuiHelper.cpp ..\src\AssimpImporter.cpp ..\src\GLTFImporter.cpp
+set srcFiles= %srcFiles%  ..\src\TextureLoader.cpp
 
 IF NOT EXIST .\build mkdir .\build
 pushd .\build

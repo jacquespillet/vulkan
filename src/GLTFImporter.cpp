@@ -391,6 +391,192 @@ namespace GLTFImporter
         }
     }    
 
+    void LoadMesh(tinygltf::Model &GLTFModel, sceneMesh &Mesh)
+    {
+        uint32_t MeshIndex=0;
+        {
+            tinygltf::Mesh gltfMesh = GLTFModel.meshes[MeshIndex];
+            for(int j=0; j<gltfMesh.primitives.size(); j++)
+            {
+                tinygltf::Primitive GLTFPrimitive = gltfMesh.primitives[j];
+
+                if(GLTFPrimitive.mode != TINYGLTF_MODE_TRIANGLES)
+                    continue;
+                
+                int IndicesIndex = GLTFPrimitive.indices;
+                int PositionIndex = -1;
+                int NormalIndex = -1;
+                int TangentIndex = -1;
+                int UVIndex=-1;
+
+                if(GLTFPrimitive.attributes.count("POSITION") >0)
+                    PositionIndex = GLTFPrimitive.attributes["POSITION"];
+                if(GLTFPrimitive.attributes.count("NORMAL") >0)
+                    NormalIndex = GLTFPrimitive.attributes["NORMAL"];
+                if(GLTFPrimitive.attributes.count("TANGENT") >0)
+                    TangentIndex = GLTFPrimitive.attributes["TANGENT"];
+                if(GLTFPrimitive.attributes.count("TEXCOORD_0") >0)
+                    UVIndex = GLTFPrimitive.attributes["TEXCOORD_0"];
+
+                //Positions
+                tinygltf::Accessor PositionAccessor = GLTFModel.accessors[PositionIndex];
+                tinygltf::BufferView PositionBufferView = GLTFModel.bufferViews[PositionAccessor.bufferView];
+                const tinygltf::Buffer &PositionBuffer = GLTFModel.buffers[PositionBufferView.buffer];
+                const uint8_t *PositionBufferAddress = PositionBuffer.data.data();
+                //3 * float
+                int PositionStride = tinygltf::GetComponentSizeInBytes(PositionAccessor.componentType) * tinygltf::GetNumComponentsInType(PositionAccessor.type);
+                if(PositionBufferView.byteStride > 0) PositionStride = (int)PositionBufferView.byteStride;
+
+                //Normals
+                tinygltf::Accessor NormalAccessor;
+                tinygltf::BufferView NormalBufferView;
+                const uint8_t *NormalBufferAddress=0;
+                int NormalStride=0;
+                if(NormalIndex > 0)
+                {
+                    NormalAccessor = GLTFModel.accessors[NormalIndex];
+                    NormalBufferView = GLTFModel.bufferViews[NormalAccessor.bufferView];
+                    const tinygltf::Buffer &normalBuffer = GLTFModel.buffers[NormalBufferView.buffer];
+                    NormalBufferAddress = normalBuffer.data.data();
+                    //3 * float
+                    NormalStride = tinygltf::GetComponentSizeInBytes(NormalAccessor.componentType) * tinygltf::GetNumComponentsInType(NormalAccessor.type);
+                    if(NormalBufferView.byteStride > 0) NormalStride =(int) NormalBufferView.byteStride;
+                }
+
+                //Tangents
+                tinygltf::Accessor TangentAccessor;
+                tinygltf::BufferView TangentBufferView;
+                const uint8_t *TangentBufferAddress=0;
+                int TangentStride=0;
+                if(TangentIndex > 0)
+                {
+                    TangentAccessor = GLTFModel.accessors[TangentIndex];
+                    TangentBufferView = GLTFModel.bufferViews[TangentAccessor.bufferView];
+                    const tinygltf::Buffer &TangentBuffer = GLTFModel.buffers[TangentBufferView.buffer];
+                    TangentBufferAddress = TangentBuffer.data.data();
+                    //3 * float
+                    TangentStride = tinygltf::GetComponentSizeInBytes(TangentAccessor.componentType) * tinygltf::GetNumComponentsInType(TangentAccessor.type);
+                    if(TangentBufferView.byteStride > 0) TangentStride =(int) TangentBufferView.byteStride;
+                }
+
+                //UV
+                tinygltf::Accessor UVAccessor;
+                tinygltf::BufferView UVBufferView;
+                const uint8_t *UVBufferAddress=0;
+                int UVStride=0;
+                if(UVIndex > 0)
+                {
+                    UVAccessor = GLTFModel.accessors[UVIndex];
+                    UVBufferView = GLTFModel.bufferViews[UVAccessor.bufferView];
+                    const tinygltf::Buffer &uvBuffer = GLTFModel.buffers[UVBufferView.buffer];
+                    UVBufferAddress = uvBuffer.data.data();
+                    //3 * float
+                    UVStride = tinygltf::GetComponentSizeInBytes(UVAccessor.componentType) * tinygltf::GetNumComponentsInType(UVAccessor.type);
+                    if(UVBufferView.byteStride > 0) UVStride = (int)UVBufferView.byteStride;
+                }
+
+                //Indices
+                tinygltf::Accessor IndicesAccessor = GLTFModel.accessors[IndicesIndex];
+                tinygltf::BufferView IndicesBufferView = GLTFModel.bufferViews[IndicesAccessor.bufferView];
+                const tinygltf::Buffer &IndicesBuffer = GLTFModel.buffers[IndicesBufferView.buffer];
+                const uint8_t *IndicesBufferAddress = IndicesBuffer.data.data();
+                int IndicesStride = tinygltf::GetComponentSizeInBytes(IndicesAccessor.componentType) * tinygltf::GetNumComponentsInType(IndicesAccessor.type); 
+
+                //Fill geometry buffers
+                std::vector<glm::vec3> Positions;
+                std::vector<glm::vec3> Normals;
+                std::vector<glm::vec3> Tangents;
+                std::vector<glm::vec2> UVs;
+                for (size_t k = 0; k < PositionAccessor.count; k++)
+                {
+                    glm::vec3 Position, Normal, Tangent;
+                    glm::vec2 UV;
+
+                    {
+                        const uint8_t *address = PositionBufferAddress + PositionBufferView.byteOffset + PositionAccessor.byteOffset + (k * PositionStride);
+                        memcpy(&Position, address, 12);
+                    }
+
+                    if(NormalIndex>0)
+                    {
+                        const uint8_t *address = NormalBufferAddress + NormalBufferView.byteOffset + NormalAccessor.byteOffset + (k * NormalStride);
+                        memcpy(&Normal, address, 12);
+                    }
+
+                    if(TangentIndex>0)
+                    {
+                        const uint8_t *address = TangentBufferAddress + TangentBufferView.byteOffset + TangentAccessor.byteOffset + (k * TangentStride);
+                        memcpy(&Tangent, address, 12);
+                    }
+
+                    if(UVIndex>0)
+                    {
+                        const uint8_t *address = UVBufferAddress + UVBufferView.byteOffset + UVAccessor.byteOffset + (k * UVStride);
+                        memcpy(&UV, address, 8);
+                    }
+
+                    Positions.push_back(Position);
+                    Normals.push_back(Normal);
+                    Tangents.push_back(Tangent);
+                    UVs.push_back(UV);
+                }
+
+                //Fill indices buffer
+                std::vector<int> indices(IndicesAccessor.count);
+                const uint8_t *baseAddress = IndicesBufferAddress + IndicesBufferView.byteOffset + IndicesAccessor.byteOffset;
+                if(IndicesStride == 1)
+                {
+                    std::vector<uint8_t> Quarter;
+                    Quarter.resize(IndicesAccessor.count);
+                    memcpy(Quarter.data(), baseAddress, (IndicesAccessor.count) * IndicesStride);
+                    for(size_t i=0; i<IndicesAccessor.count; i++)
+                    {
+                        indices[i] = Quarter[i];
+                    }
+                }
+                else if(IndicesStride == 2)
+                {
+                    std::vector<uint16_t> Half;
+                    Half.resize(IndicesAccessor.count);
+                    memcpy(Half.data(), baseAddress, (IndicesAccessor.count) * IndicesStride);
+                    for(size_t i=0; i<IndicesAccessor.count; i++)
+                    {
+                        indices[i] = Half[i];
+                    }
+                }
+                else
+                {
+                    memcpy(indices.data(), baseAddress, (IndicesAccessor.count) * IndicesStride);
+                }
+
+                Mesh.IndexBase = 0;
+                for (size_t k = 0; k < indices.size(); k++)
+                {
+                    glm::vec3 Position = Positions[indices[k]];
+                    glm::vec3 Normal = Normals[indices[k]];
+                    glm::vec3 Tangent = Tangents[indices[k]];
+                    glm::vec2 UV = UVs[indices[k]];
+                    UV.y *= -1;
+
+                    Mesh.Vertices.push_back({
+                        Position, 
+                        UV,
+                        glm::vec3(1,1,1),
+                        Normal, 
+                        Tangent,
+                        glm::vec3(0,0,1)
+                    });
+                }
+                
+                Mesh.IndexCount = (uint32_t)indices.size();
+                for(uint32_t k=0; k<indices.size(); k++)
+                {
+                    Mesh.Indices.push_back(k);
+                }
+            }
+        }
+    }    
+
     void TraverseNodes(tinygltf::Model &GLTFModel, uint32_t nodeIndex, glm::mat4 parentTransform, std::vector<sceneMesh> &Meshes, std::vector<instance> &Instances, std::vector<std::vector<sceneMesh*>> &InstanceMapping)
     {
         tinygltf::Node GLTFNode = GLTFModel.nodes[nodeIndex];
@@ -434,28 +620,13 @@ namespace GLTFImporter
         //Leaf node
         if(GLTFNode.children.size() == 0 && GLTFNode.mesh != -1)
         {
-
-            // std::vector<instance> Primitives = Meshes[GLTFNode.mesh];
-            // for(s32 i=0; i<Primitives.size(); i++)
-            // {
-            //     std::string Name = GLTFNode.name;
-            //     if(strcmp(Name.c_str(), "") == 0)
-            //     {
-            //         Name = "Mesh" + std::to_string(GLTFNode.mesh) + " Prim " + std::to_string(Primitives[i].primitiveId);
-            //     }
             tinygltf::Mesh Mesh = GLTFModel.meshes[GLTFNode.mesh];
             for(int i=0; i<Mesh.primitives.size(); i++)
             {
-                
                 instance Instance = {};
                 Instance.InstanceData.Transform = Transform;
                 Instance.Mesh = InstanceMapping[GLTFNode.mesh][i];
                 Instances.push_back(Instance);
-
-                //     meshInstance instance(Name, Primitives[i].primitiveId, Transform, Primitives[i].materialId < 0 ? 0 : Primitives[i].materialId);
-                //     // Scene->AddMeshInstance(instance);
-                //     Instances.push_back(instance);
-                // }
             }
             
         }
@@ -514,5 +685,38 @@ namespace GLTFImporter
         LoadInstances(GLTFModel, Meshes, Instances, InstanceMapping);
 
         return true;
+    }
+
+    bool LoadMesh(std::string FileName, sceneMesh &Mesh)
+    {
+        tinygltf::Model GLTFModel;
+        tinygltf::TinyGLTF ModelLoader;
+
+        std::string Error, Warning;
+
+        //TODO(Jacques): 
+        //  Handle binary gltf
+        std::string Extension = FileName.substr(FileName.find_last_of(".") + 1);
+        bool Result = false;
+        if(Extension == "gltf")
+        {
+            Result = ModelLoader.LoadASCIIFromFile(&GLTFModel, &Error, &Warning, FileName);
+        }
+        else if(Extension == "glb")
+        {
+            Result = ModelLoader.LoadBinaryFromFile(&GLTFModel, &Error, &Warning, FileName);
+        }
+        else Result=false;
+            
+        if(!Result) 
+        {
+            std::cout << "Could not load model " << FileName << std::endl;
+            return false;
+        }
+
+        // InstanceMap->clear();
+        std::vector<std::vector<sceneMesh*>> InstanceMapping;
+        LoadMesh(GLTFModel, Mesh);
+        return true;        
     }
 };
