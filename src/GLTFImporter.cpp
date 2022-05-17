@@ -41,7 +41,7 @@ namespace GLTFImporter
             VkFormat Format = VK_FORMAT_R8G8B8A8_SRGB;
             assert(GLTFImage.component==4);
             assert(GLTFImage.bits==8);
-            Textures->AddTexture2D(TexName, GLTFImage.image.data(), GLTFImage.image.size(), GLTFImage.width, GLTFImage.height, Format);
+            Textures->AddTexture2D(TexName, GLTFImage.image.data(), GLTFImage.image.size(), GLTFImage.width, GLTFImage.height, Format, true);
         }
     }
     void LoadMaterials(tinygltf::Model &GLTFModel, std::vector<sceneMaterial> &Materials, textureList *Textures)
@@ -359,6 +359,7 @@ namespace GLTFImporter
                     glm::vec3 Normal = Normals[indices[k]];
                     glm::vec3 Tangent = Tangents[indices[k]];
                     glm::vec2 UV = UVs[indices[k]];
+                    UV.y *= -1;
 
                     GVertices.push_back({
                         Position, 

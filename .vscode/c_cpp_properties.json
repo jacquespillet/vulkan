@@ -4,8 +4,7 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:\\VulkanSDK\\1.2.198.0\\Include",
-                "D:\\Boulot\\2022\\Gralib\\ext\\vma\\include",
+                "C:\\VulkanSDK\\1.3.211.0\\Include"
             ],
             "defines": [
                 "_DEBUG",

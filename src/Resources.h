@@ -158,10 +158,10 @@ public:
         return Texture;
     }
 
-    vulkanTexture AddTexture2D(std::string Name, void* Data, size_t Size, uint32_t Width, uint32_t Height, VkFormat Format)
+    vulkanTexture AddTexture2D(std::string Name, void* Data, size_t Size, uint32_t Width, uint32_t Height, VkFormat Format, bool GenerateMipmaps)
     {
         vulkanTexture Texture;
-        Loader->CreateTexture(Data, Size, Format, Width, Height, &Texture);
+        Loader->CreateTexture(Data, Size, Format, Width, Height, &Texture, GenerateMipmaps);
         Resources[Name] = Texture;
         return Texture;
     }
