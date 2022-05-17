@@ -1,6 +1,7 @@
 #include "ForwardRenderer.h"
 #include "App.h"
 
+#define PER_MESH_BUFFER 1
 forwardRenderer::forwardRenderer(vulkanApp *App) : renderer(App) {}
 
 void forwardRenderer::Render()
@@ -280,6 +281,41 @@ void forwardRenderer::BuildCommandBuffers()
 
         vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Scene.Solid"));
 
+#if PER_MESH_BUFFER
+        
+        VkPipelineLayout RendererPipelineLayout =  Resources.PipelineLayouts->Get("Offscreen");
+        VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Get("Offscreen");
+        for(auto Instance : App->Scene->Instances)
+        {
+            if(Instance.Mesh->Material->HasAlpha)
+            {
+                continue;
+            }
+            vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
+            vkCmdBindIndexBuffer(DrawCommandBuffers[i], Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+
+            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
+            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
+            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
+            vkCmdDrawIndexed(DrawCommandBuffers[i], Instance.Mesh->IndexCount, 1, 0, 0, 0);
+        }
+
+        vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Scene.Blend"));
+        for(auto Instance : App->Scene->Instances)
+        {
+            if(Instance.Mesh->Material->HasAlpha)
+            {
+                vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
+                vkCmdBindIndexBuffer(DrawCommandBuffers[i], Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+                
+                vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
+                vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
+                vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
+                vkCmdDrawIndexed(DrawCommandBuffers[i], Instance.Mesh->IndexCount, 1, 0, 0, 0);
+            }
+        }
+
+#else
         vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &App->Scene->VertexBuffer.Buffer, Offset);
         vkCmdBindIndexBuffer(DrawCommandBuffers[i], App->Scene->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -308,7 +344,7 @@ void forwardRenderer::BuildCommandBuffers()
                 vkCmdDrawIndexed(DrawCommandBuffers[i], Instance.Mesh->IndexCount, 1, 0, Instance.Mesh->IndexBase, 0);
             }
         }
-
+#endif
         App->ImGuiHelper->DrawFrame(DrawCommandBuffers[i]);
         vkCmdEndRenderPass(DrawCommandBuffers[i]);
         VK_CALL(vkEndCommandBuffer(DrawCommandBuffers[i]));

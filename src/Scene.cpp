@@ -16,8 +16,17 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
 {
     std::vector<vertex> GVertices;
     std::vector<uint32_t> GIndices;
-    assimpImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Textures);    
-    // GLTFImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Textures);    
+
+    std::string Extension = FileName.substr(FileName.find_last_of(".") + 1);
+    if(Extension == "gltf" || Extension == "glb")
+    {
+        GLTFImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Textures);    
+    }
+    else
+    {
+        assimpImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Textures);    
+    }
+
 
     for (size_t i = 0; i < Materials.size(); i++)
     {
@@ -44,7 +53,31 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
             Queue
         );     
     }
-    
+
+    for(uint32_t i=0; i<Meshes.size(); i++)
+    {
+        //Global buffers
+        size_t VertexDataSize = Meshes[i].Vertices.size() * sizeof(vertex);
+        vulkanTools::CreateAndFillBuffer(
+            App->VulkanDevice,
+            Meshes[i].Vertices.data(),
+            VertexDataSize,
+            &Meshes[i].VertexBuffer,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            CopyCommand,
+            Queue
+        );
+        size_t IndexDataSize = Meshes[i].Indices.size() * sizeof(uint32_t);
+        vulkanTools::CreateAndFillBuffer(
+            App->VulkanDevice,
+            Meshes[i].Indices.data(),
+            IndexDataSize,
+            &Meshes[i].IndexBuffer,
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            CopyCommand,
+            Queue
+        );         
+    }    
 
     //Global buffers
     size_t VertexDataSize = GVertices.size() * sizeof(vertex);

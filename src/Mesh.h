@@ -16,7 +16,6 @@ struct meshBufferInfo
 
 struct meshBuffer
 {
-    std::vector<meshDescriptor> MeshDescriptors;
     meshBufferInfo Vertices;
     meshBufferInfo Indices;
     uint32_t IndexCount;

@@ -67,13 +67,29 @@ struct sceneMaterial
     VkDescriptorSet DescriptorSet;
 };
 
+
+struct vertex
+{
+    glm::vec3 Position;
+    glm::vec2 UV;
+    glm::vec3 Color;
+    glm::vec3 Normal;
+    glm::vec3 Tangent;
+    glm::vec3 Bitangent;
+};
+
+
 struct sceneMesh
 {
-    VkBuffer VertexBuffer;
-    VkDeviceMemory VertexMemory;
+    // VkBuffer VertexBuffer;
+    // VkDeviceMemory VertexMemory;
 
-    VkBuffer IndexBuffer;
-    VkDeviceMemory IndexMemory;
+    // VkBuffer IndexBuffer;
+    // VkDeviceMemory IndexMemory;
+    buffer VertexBuffer;
+    buffer IndexBuffer;
+    std::vector<vertex> Vertices;
+    std::vector<uint32_t> Indices;
 
     uint32_t IndexCount;
     uint32_t IndexBase;
@@ -91,16 +107,6 @@ struct instance
     
     buffer UniformBuffer;
     VkDescriptorSet DescriptorSet;
-};
-
-struct vertex
-{
-    glm::vec3 Position;
-    glm::vec2 UV;
-    glm::vec3 Color;
-    glm::vec3 Normal;
-    glm::vec3 Tangent;
-    glm::vec3 Bitangent;
 };
 
 class scene

@@ -368,12 +368,22 @@ namespace GLTFImporter
                         Tangent,
                         glm::vec3(0,0,1)
                     });
+
+                    Meshes[BaseIndex + j].Vertices.push_back({
+                        Position, 
+                        UV,
+                        glm::vec3(1,1,1),
+                        Normal, 
+                        Tangent,
+                        glm::vec3(0,0,1)
+                    });
                 }
                 
                 Meshes[BaseIndex + j].IndexCount = (uint32_t)indices.size();
                 for(uint32_t k=0; k<indices.size(); k++)
                 {
                     GIndices.push_back(VertexBase + k);
+                    Meshes[BaseIndex + j].Indices.push_back(k);
                     GIndexBase++;
                 }
             }
@@ -418,7 +428,7 @@ namespace GLTFImporter
             LocalTransform = scale * rotation * translate;
         }
 
-        glm::mat4 Transform = glm::mat4(1);
+        glm::mat4 Transform = LocalTransform * parentTransform;
 
         //Leaf node
         if(GLTFNode.children.size() == 0 && GLTFNode.mesh != -1)
