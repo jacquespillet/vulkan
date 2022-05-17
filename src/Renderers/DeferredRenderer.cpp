@@ -326,7 +326,7 @@ void deferredRenderer::BuildPipelines()
     VkPipelineRasterizationStateCreateInfo RasterizationState = vulkanTools::BuildPipelineRasterizationStateCreateInfo(
         VK_POLYGON_MODE_FILL,
         VK_CULL_MODE_BACK_BIT,
-        VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        VK_FRONT_FACE_CLOCKWISE,
         0
     );
 
@@ -442,7 +442,8 @@ void deferredRenderer::BuildPipelines()
         ShaderStages[1].pSpecializationInfo = &SpecializationInfo;
         ShaderModules.push_back(ShaderStages[1].module);            
         ShaderModules.push_back(ShaderStages[0].module);
-
+        
+        RasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         PipelineCreateInfo.renderPass = Framebuffers.Offscreen.RenderPass;
         PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Offscreen");
 
@@ -465,6 +466,8 @@ void deferredRenderer::BuildPipelines()
 
     //SSAO
     {
+        RasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        
         ColorBlendState.attachmentCount=1;
 
         VkPipelineVertexInputStateCreateInfo EmptyInputState {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
