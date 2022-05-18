@@ -93,6 +93,16 @@ struct framebuffer
             
         }
         
+        VkImageLayout FinalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        if(ImageUsage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+        {
+            FinalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        }
+        if(ImageUsage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+        {
+            FinalLayout=VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        }
+
         if(HasDepth)
         {
             VkFormat AttDepthFormat;
@@ -113,17 +123,17 @@ struct framebuffer
         VkAttachmentReference DepthReference;
         for(uint32_t i=0; i<AttachmentDescriptions.size(); i++)
         {
+            
             AttachmentDescriptions[i].samples = VK_SAMPLE_COUNT_1_BIT;
             AttachmentDescriptions[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
             AttachmentDescriptions[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
             AttachmentDescriptions[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             AttachmentDescriptions[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            AttachmentDescriptions[i].finalLayout = (i==3) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
             
             if(i<ColorAttachmentCount)
             {
                 AttachmentDescriptions[i].format = _Attachments[i].Format;
-                AttachmentDescriptions[i].finalLayout = VK_IMAGE_LAYOUT_GENERAL;
+                AttachmentDescriptions[i].finalLayout = FinalLayout;
                 ColorReferences.push_back({i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
             }
             else if(HasDepth)//Depth

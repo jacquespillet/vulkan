@@ -859,19 +859,15 @@ namespace vulkanTools
     void CreateAttachment(vulkanDevice *Device, VkFormat Format, VkImageUsageFlags Usage, framebufferAttachment *Attachment, VkCommandBuffer LayoutCommand, uint32_t Width, uint32_t Height)
     {
         VkImageAspectFlags AspectMask=0;
-        VkImageLayout ImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
         Attachment->Format = Format;
 
         if(Usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
         {
             AspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            ImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         }
         if(Usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
         {
             AspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-            ImageLayout=VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         }
 
         assert(AspectMask>0);
@@ -887,7 +883,7 @@ namespace vulkanTools
         ImageCreateInfo.samples=VK_SAMPLE_COUNT_1_BIT;
         ImageCreateInfo.tiling=VK_IMAGE_TILING_OPTIMAL;
         ImageCreateInfo.usage = Usage | VK_IMAGE_USAGE_SAMPLED_BIT;
-        ImageCreateInfo.initialLayout = ImageLayout;
+        ImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
         VkDedicatedAllocationImageCreateInfoNV DedicatedImageInfo {VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_IMAGE_CREATE_INFO_NV};
         if(Device->EnableNVDedicatedAllocation)

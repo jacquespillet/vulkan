@@ -425,7 +425,7 @@ void textureLoader::LoadCubemap(std::string FileName, vulkanTexture *Texture, Vk
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageCreateInfo.extent = { (uint32_t)Texture->Width, (uint32_t)Texture->Height, 1 };
     imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     // Cube faces count as array layers in Vulkan
@@ -479,7 +479,7 @@ void textureLoader::LoadCubemap(std::string FileName, vulkanTexture *Texture, Vk
     
 		vulkanTools::TransitionImageLayout(
 			CommandBuffer,
-			Framebuffers[0]._Attachments[0].Image,
+			Framebuffers[i]._Attachments[0].Image,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -490,6 +490,13 @@ void textureLoader::LoadCubemap(std::string FileName, vulkanTexture *Texture, Vk
 		CubeFaceSubresourceRange.levelCount = 1;
 		CubeFaceSubresourceRange.baseArrayLayer = i;
 		CubeFaceSubresourceRange.layerCount = 1;
+
+		vulkanTools::TransitionImageLayout(
+			CommandBuffer,
+			Texture->Image,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			CubeFaceSubresourceRange);
 
 		// Copy region for transfer from framebuffer to cube face
 		VkImageCopy copyRegion = {};
