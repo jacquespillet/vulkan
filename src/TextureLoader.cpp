@@ -178,6 +178,8 @@ void textureLoader::LoadTexture2D(std::string Filename, VkFormat Format, vulkanT
 
 void textureLoader::LoadCubemap(std::string FileName, vulkanTexture *Texture, VkImageUsageFlags ImageUsageFlags)
 {
+    if(!Texture) return;
+
     float *Pixels;
     int Width, Height;
     Pixels = stbi_loadf(FileName.c_str(), &Width, &Height, NULL, 4);
@@ -190,9 +192,8 @@ void textureLoader::LoadCubemap(std::string FileName, vulkanTexture *Texture, Vk
         &PanoTexture,
         false
     );
-
-    int CubemapWidth = 512;
-    int CubemapHeight = 512;
+    Texture->Width = 512;
+    Texture->Height = 512;
     
     //Vertex Description
     struct 
@@ -223,9 +224,10 @@ void textureLoader::LoadCubemap(std::string FileName, vulkanTexture *Texture, Vk
     std::vector<framebuffer> Framebuffers(6);
     for(int i=0; i<6; i++)
     {
-        Framebuffers[i].SetSize(CubemapWidth, CubemapHeight)
+        Framebuffers[i].SetSize(Texture->Width, Texture->Height)
                             .SetAttachmentCount(1)
                             .SetAttachmentFormat(0, VK_FORMAT_R32G32B32A32_SFLOAT)
+                            .SetImageFlags(VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
                             .BuildBuffers(VulkanDevice,CommandBuffer);
     }
     //Renderpass
@@ -403,22 +405,44 @@ void textureLoader::LoadCubemap(std::string FileName, vulkanTexture *Texture, Vk
         vkCreateGraphicsPipelines(VulkanDevice->Device, VK_NULL_HANDLE, 1, &PipelineCreateInfo, nullptr, &Pipelines[i]);
     }
     
-
-
-
-    //fill commands
     VkCommandBufferBeginInfo CommandBufferInfo = vulkanTools::BuildCommandBufferBeginInfo();
-
-    //G-buffer pass
     std::array<VkClearValue, 2> ClearValues = {};
     ClearValues[0].color = {{0.0f,0.0f,0.0f,0.0f}};
     ClearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo RenderPassBeginInfo = vulkanTools::BuildRenderPassBeginInfo();
-    RenderPassBeginInfo.renderArea.extent.width = CubemapWidth;
-    RenderPassBeginInfo.renderArea.extent.height = CubemapHeight;
+    RenderPassBeginInfo.renderArea.extent.width = Texture->Width;
+    RenderPassBeginInfo.renderArea.extent.height = Texture->Height;
     RenderPassBeginInfo.clearValueCount=(uint32_t)ClearValues.size();
     RenderPassBeginInfo.pClearValues=ClearValues.data();
+
+
+    //Copy the 6 faces into a cubemap image
+    VkImageCreateInfo imageCreateInfo = vulkanTools::BuildImageCreateInfo();
+    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageCreateInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    imageCreateInfo.mipLevels = 1;
+    imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    imageCreateInfo.extent = { (uint32_t)Texture->Width, (uint32_t)Texture->Height, 1 };
+    imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    // Cube faces count as array layers in Vulkan
+    imageCreateInfo.arrayLayers = 6;
+    // This flag is required for cube map images
+    imageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+    VK_CALL(vkCreateImage(VulkanDevice->Device, &imageCreateInfo, nullptr, &Texture->Image));
+
+    VkMemoryAllocateInfo memAllocInfo = vulkanTools::BuildMemoryAllocateInfo();
+    VkMemoryRequirements memReqs;
+    vkGetImageMemoryRequirements(VulkanDevice->Device, Texture->Image, &memReqs);
+    memAllocInfo.allocationSize = memReqs.size;
+    memAllocInfo.memoryTypeIndex = VulkanDevice->GetMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    VK_CALL(vkAllocateMemory(VulkanDevice->Device, &memAllocInfo, nullptr, &Texture->DeviceMemory));
+    VK_CALL(vkBindImageMemory(VulkanDevice->Device, Texture->Image, Texture->DeviceMemory, 0));    
 
     for(int i=0; i<6; i++)
     {
@@ -435,9 +459,9 @@ void textureLoader::LoadCubemap(std::string FileName, vulkanTexture *Texture, Vk
 
         vkCmdBeginRenderPass(CommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        VkViewport Viewport = vulkanTools::BuildViewport((float)CubemapWidth, (float)CubemapHeight, 0.0f, 1.0f);
+        VkViewport Viewport = vulkanTools::BuildViewport((float)Texture->Width, (float)Texture->Height, 0.0f, 1.0f);
         vkCmdSetViewport(CommandBuffer, 0, 1, &Viewport);
-        VkRect2D Scissor = vulkanTools::BuildRect2D(CubemapWidth,CubemapHeight,0,0);
+        VkRect2D Scissor = vulkanTools::BuildRect2D(Texture->Width,Texture->Height,0,0);
         vkCmdSetScissor(CommandBuffer, 0, 1, &Scissor);
 
 
@@ -452,20 +476,97 @@ void textureLoader::LoadCubemap(std::string FileName, vulkanTexture *Texture, Vk
     
         vkCmdEndRenderPass(CommandBuffer);
         
-        VK_CALL(vkEndCommandBuffer(CommandBuffer));
+    
+		vulkanTools::TransitionImageLayout(
+			CommandBuffer,
+			Framebuffers[0]._Attachments[0].Image,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-        VkFence RenderFence;
-        VkFenceCreateInfo fenceCreateInfo = vulkanTools::BuildFenceCreateInfo(0);
-        VK_CALL(vkCreateFence(VulkanDevice->Device, &fenceCreateInfo, nullptr, &RenderFence));
+		VkImageSubresourceRange CubeFaceSubresourceRange = {};
+		CubeFaceSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		CubeFaceSubresourceRange.baseMipLevel = 0;
+		CubeFaceSubresourceRange.levelCount = 1;
+		CubeFaceSubresourceRange.baseArrayLayer = i;
+		CubeFaceSubresourceRange.layerCount = 1;
+
+		// Copy region for transfer from framebuffer to cube face
+		VkImageCopy copyRegion = {};
+		copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		copyRegion.srcSubresource.baseArrayLayer = 0;
+		copyRegion.srcSubresource.mipLevel = 0;
+		copyRegion.srcSubresource.layerCount = 1;
+		copyRegion.srcOffset = { 0, 0, 0 };
+		copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		copyRegion.dstSubresource.baseArrayLayer = i;
+		copyRegion.dstSubresource.mipLevel = 0;
+		copyRegion.dstSubresource.layerCount = 1;
+		copyRegion.dstOffset = { 0, 0, 0 };
+		copyRegion.extent.width = Texture->Width;
+		copyRegion.extent.height = Texture->Height;
+		copyRegion.extent.depth = 1;
+
+		// Copy image
+		vkCmdCopyImage(
+			CommandBuffer,
+			Framebuffers[i]._Attachments[0].Image,
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			Texture->Image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&copyRegion);
+
+		// Change image layout of copied face to shader read
+		vulkanTools::TransitionImageLayout(
+			CommandBuffer,
+			Texture->Image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			CubeFaceSubresourceRange);
+
+        VK_CALL(vkEndCommandBuffer(CommandBuffer));
 
         VkSubmitInfo SubmitInfo = vulkanTools::BuildSubmitInfo();
         SubmitInfo.commandBufferCount = 1;
         SubmitInfo.pCommandBuffers = &CommandBuffer;
-        VK_CALL(vkQueueSubmit(Queue, 1, &SubmitInfo, RenderFence));
-        
-        VK_CALL(vkWaitForFences(VulkanDevice->Device, 1, &RenderFence, VK_TRUE, DEFAULT_FENCE_TIMEOUT));
-        vkDestroyFence(VulkanDevice->Device, RenderFence, nullptr);
-    }
+        VK_CALL(vkQueueSubmit(Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+        VK_CALL(vkQueueWaitIdle(Queue));    
+    }   
+
+    // Create sampler
+    VkSamplerCreateInfo sampler = vulkanTools::BuildSamplerCreateInfo();
+    sampler.magFilter = VK_FILTER_LINEAR;
+    sampler.minFilter = VK_FILTER_LINEAR;
+    sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler.addressModeV = sampler.addressModeU;
+    sampler.addressModeW = sampler.addressModeU;
+    sampler.mipLodBias = 0.0f;
+    sampler.compareOp = VK_COMPARE_OP_NEVER;
+    sampler.minLod = 0.0f;
+    sampler.maxLod = 1; //Mip levels
+    sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    sampler.maxAnisotropy = 1.0f;
+    
+    VK_CALL(vkCreateSampler(VulkanDevice->Device, &sampler, nullptr, &Texture->Sampler));
+
+    // Create image view
+    VkImageViewCreateInfo view = vulkanTools::BuildImageViewCreateInfo();
+    // Cube map view type
+    view.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+    view.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    view.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+    view.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    // 6 array layers (faces)
+    view.subresourceRange.layerCount = 6;
+    // Set number of mip levels
+    view.subresourceRange.levelCount = 1;//Miplevels
+    view.image = Texture->Image;
+    VK_CALL(vkCreateImageView(VulkanDevice->Device, &view, nullptr, &Texture->View));
+
+
+
     
     for(int i=0; i<6; i++)
     {
@@ -483,8 +584,6 @@ void textureLoader::LoadCubemap(std::string FileName, vulkanTexture *Texture, Vk
     
     for(int i=0; i<6; i++)
     {
-        // vkDestroyFramebuffer(VulkanDevice->Device, Framebuffers[i].Framebuffer, nullptr);
-        // vkdestroy
         Framebuffers[i].Destroy(VulkanDevice->Device);
     }
 

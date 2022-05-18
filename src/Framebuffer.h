@@ -33,6 +33,8 @@ struct framebuffer
 
     bool HasDepth=true;
 
+    VkImageUsageFlags ImageUsage=VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
     framebuffer& SetSize(uint32_t NewWidth, uint32_t NewHeight)
     {
         this->Width = NewWidth;
@@ -49,6 +51,12 @@ struct framebuffer
     {
         _Attachments.resize(AttachmentCount);
 		AttachmentFormats.resize(AttachmentCount);
+        return *this;
+    }
+
+    framebuffer& SetImageFlags(VkImageUsageFlagBits Flags)
+    {
+        ImageUsage = ImageUsage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         return *this;
     }
 
@@ -77,7 +85,7 @@ struct framebuffer
         {
             vulkanTools::CreateAttachment(VulkanDevice,
                                             AttachmentFormats[i],
-                                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                            ImageUsage,
                                             &_Attachments[i],
                                             LayoutCommand,
                                             Width,
