@@ -14,98 +14,132 @@ scene::scene(vulkanApp *App) :
 
 void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
 {
-    TextureLoader->LoadCubemap("resources/belfast_farmhouse_4k.hdr", &Cubemap);
-
-    std::vector<vertex> GVertices;
-    std::vector<uint32_t> GIndices;
-
-    std::string Extension = FileName.substr(FileName.find_last_of(".") + 1);
-    if(Extension == "gltf" || Extension == "glb")
-    {
-        GLTFImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Textures);    
-    }
-    else
-    {
-        assimpImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Textures);    
-    }
-
-
-    for (size_t i = 0; i < Materials.size(); i++)
-    {
-        vulkanTools::CreateAndFillBuffer(
-            App->VulkanDevice,
-            &Materials[i].MaterialData,
-            sizeof(materialData),
-            &Materials[i].UniformBuffer,
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            CopyCommand,
-            Queue
-        );     
-    }
     
-    for (size_t i = 0; i < Instances.size(); i++)
-    {
+    { //Cubemap
+        TextureLoader->LoadCubemap("resources/belfast_farmhouse_4k.hdr", &Cubemap.Texture);
+        GLTFImporter::LoadMesh("resources/models/Cube/Cube.gltf", Cubemap.Mesh);
+        size_t VertexDataSize = Cubemap.Mesh.Vertices.size() * sizeof(vertex);
         vulkanTools::CreateAndFillBuffer(
             App->VulkanDevice,
-            &Instances[i].InstanceData,
-            sizeof(materialData),
-            &Instances[i].UniformBuffer,
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            CopyCommand,
-            Queue
-        );     
-    }
-
-    for(uint32_t i=0; i<Meshes.size(); i++)
-    {
-        size_t VertexDataSize = Meshes[i].Vertices.size() * sizeof(vertex);
-        vulkanTools::CreateAndFillBuffer(
-            App->VulkanDevice,
-            Meshes[i].Vertices.data(),
+            Cubemap.Mesh.Vertices.data(),
             VertexDataSize,
-            &Meshes[i].VertexBuffer,
+            &Cubemap.Mesh.VertexBuffer,
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             CopyCommand,
             Queue
         );
-        size_t IndexDataSize = Meshes[i].Indices.size() * sizeof(uint32_t);
+        size_t IndexDataSize = Cubemap.Mesh.Indices.size() * sizeof(uint32_t);
         vulkanTools::CreateAndFillBuffer(
             App->VulkanDevice,
-            Meshes[i].Indices.data(),
+            Cubemap.Mesh.Indices.data(),
             IndexDataSize,
-            &Meshes[i].IndexBuffer,
+            &Cubemap.Mesh.IndexBuffer,
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
             CopyCommand,
             Queue
-        );         
-    }    
+        );    
+        vulkanTools::CreateBuffer(App->VulkanDevice, 
+                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                    &Cubemap.UniformBuffer,
+                                    sizeof(cubemap::uniformData)
+        );        
+        Cubemap.UniformData.modelMatrix = glm::scale(glm::mat4(1), glm::vec3(100));
+        Cubemap.UniformBuffer.Map();
+        Cubemap.UniformBuffer.CopyTo(&Cubemap.UniformData, sizeof(cubemap::uniformData));
+        Cubemap.UniformBuffer.Unmap();
+        
+    }
 
-    //Global buffers
-    size_t VertexDataSize = GVertices.size() * sizeof(vertex);
-    vulkanTools::CreateAndFillBuffer(
-        App->VulkanDevice,
-        GVertices.data(),
-        VertexDataSize,
-        &VertexBuffer,
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        CopyCommand,
-        Queue
-    );
-    size_t IndexDataSize = GIndices.size() * sizeof(uint32_t);
-    vulkanTools::CreateAndFillBuffer(
-        App->VulkanDevice,
-        GIndices.data(),
-        IndexDataSize,
-        &IndexBuffer,
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        CopyCommand,
-        Queue
-    ); 
+    { //Scene
+
+        std::vector<vertex> GVertices;
+        std::vector<uint32_t> GIndices;
+
+        std::string Extension = FileName.substr(FileName.find_last_of(".") + 1);
+        if(Extension == "gltf" || Extension == "glb")
+        {
+            GLTFImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Textures);    
+        }
+        else
+        {
+            assimpImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Textures);    
+        }
 
 
+        for (size_t i = 0; i < Materials.size(); i++)
+        {
+            vulkanTools::CreateAndFillBuffer(
+                App->VulkanDevice,
+                &Materials[i].MaterialData,
+                sizeof(materialData),
+                &Materials[i].UniformBuffer,
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                CopyCommand,
+                Queue
+            );     
+        }
+        
+        for (size_t i = 0; i < Instances.size(); i++)
+        {
+            vulkanTools::CreateAndFillBuffer(
+                App->VulkanDevice,
+                &Instances[i].InstanceData,
+                sizeof(materialData),
+                &Instances[i].UniformBuffer,
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                CopyCommand,
+                Queue
+            );     
+        }
 
-    //create a descriptor setlayout, descriptorSet, and pipelinelayout
-    //create a graphicspipeline
+        for(uint32_t i=0; i<Meshes.size(); i++)
+        {
+            size_t VertexDataSize = Meshes[i].Vertices.size() * sizeof(vertex);
+            vulkanTools::CreateAndFillBuffer(
+                App->VulkanDevice,
+                Meshes[i].Vertices.data(),
+                VertexDataSize,
+                &Meshes[i].VertexBuffer,
+                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                CopyCommand,
+                Queue
+            );
+            size_t IndexDataSize = Meshes[i].Indices.size() * sizeof(uint32_t);
+            vulkanTools::CreateAndFillBuffer(
+                App->VulkanDevice,
+                Meshes[i].Indices.data(),
+                IndexDataSize,
+                &Meshes[i].IndexBuffer,
+                VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                CopyCommand,
+                Queue
+            );         
+        }    
+
+        //Global buffers
+        size_t VertexDataSize = GVertices.size() * sizeof(vertex);
+        vulkanTools::CreateAndFillBuffer(
+            App->VulkanDevice,
+            GVertices.data(),
+            VertexDataSize,
+            &VertexBuffer,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            CopyCommand,
+            Queue
+        );
+        size_t IndexDataSize = GIndices.size() * sizeof(uint32_t);
+        vulkanTools::CreateAndFillBuffer(
+            App->VulkanDevice,
+            GIndices.data(),
+            IndexDataSize,
+            &IndexBuffer,
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            CopyCommand,
+            Queue
+        ); 
+    }
+
     //Fill command buffers in the renderers to render it in last
 }
 
@@ -190,6 +224,40 @@ void scene::CreateDescriptorSets()
             );
             vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
         }
+    }    
+
+    {
+        //Create Instance descriptor pool
+        std::vector<VkDescriptorPoolSize> PoolSizes = 
+        {
+            vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1),
+            vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  1)
+        };
+        VkDescriptorPoolCreateInfo DescriptorPoolInfo = vulkanTools::BuildDescriptorPoolCreateInfo(
+            (uint32_t)PoolSizes.size(),
+            PoolSizes.data(),
+            1
+        );
+        VK_CALL(vkCreateDescriptorPool(Device, &DescriptorPoolInfo, nullptr, &Cubemap.DescriptorPool));
+
+
+        //Create descriptor set layout
+        std::vector<VkDescriptorSetLayoutBinding> SetLayoutBindings;
+        SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0 ));
+        SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ));
+        VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), (uint32_t)SetLayoutBindings.size());
+        VK_CALL(vkCreateDescriptorSetLayout(Device, &DescriptorLayoutCreateInfo, nullptr, &Cubemap.DescriptorSetLayout));
+
+        VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(Cubemap.DescriptorPool, &Cubemap.DescriptorSetLayout, 1);
+        VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &Cubemap.DescriptorSet));
+
+        std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
+        {
+            vulkanTools::BuildWriteDescriptorSet( Cubemap.DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &Cubemap.UniformBuffer.Descriptor),
+            vulkanTools::BuildWriteDescriptorSet( Cubemap.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &Cubemap.Texture.Descriptor)
+        };
+        vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
+    
     }    
 }
 

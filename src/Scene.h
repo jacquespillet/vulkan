@@ -81,6 +81,7 @@ struct sceneMaterial
 
 
 
+
 struct sceneMesh
 {
     // VkBuffer VertexBuffer;
@@ -111,6 +112,29 @@ struct instance
     VkDescriptorSet DescriptorSet;
 };
 
+
+struct cubemap
+{
+    vulkanTexture Texture;
+    vulkanTexture IrradianceMap;
+    vulkanTexture PrefilteredMap;
+    vulkanTexture BRDFLUT;
+    sceneMesh Mesh;
+
+    struct uniformData 
+    {
+        glm::mat4 modelMatrix;
+    } UniformData;
+
+    buffer UniformBuffer;
+
+    VkDescriptorSet DescriptorSet;
+    VkDescriptorSetLayout DescriptorSetLayout;
+    VkDescriptorPool DescriptorPool;
+
+    VkPipeline Pipeline;
+};
+
 class scene
 {
 private:
@@ -123,8 +147,6 @@ private:
     VkDescriptorPool MaterialDescriptorPool;
     VkDescriptorPool InstanceDescriptorPool;
 
-    sceneMesh CubeMesh;
-    vulkanTexture Cubemap;
     
     void LoadMaterials(VkCommandBuffer CommandBuffer);
     void LoadMeshes(VkCommandBuffer CommandBuffer);
@@ -132,13 +154,16 @@ private:
 
 public:
     void Destroy();
+    
     VkDescriptorSetLayout MaterialDescriptorSetLayout;
     VkDescriptorSetLayout InstanceDescriptorSetLayout;
+    
     buffer VertexBuffer;
     buffer IndexBuffer;
     std::vector<sceneMaterial> Materials;
     std::vector<sceneMesh> Meshes;
     std::vector<instance> Instances;
+    cubemap Cubemap;
     
     textureList *Textures;
     

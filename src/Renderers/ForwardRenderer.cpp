@@ -95,25 +95,25 @@ void forwardRenderer::UpdateUniformBufferDeferredMatrices()
 
 void forwardRenderer::BuildLayoutsAndDescriptors()
 {
+    //Create the material, instances, cubemap... descriptor sets
+    App->Scene->CreateDescriptorSets();
+
+    //Create the scene descriptor set layout
+    VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0 );
+    VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(&SetLayoutBindings, 1);
+    VkDescriptorSetLayout RendererDescriptorSetLayout = Resources.DescriptorSetLayouts->Add("Scene", DescriptorLayoutCreateInfo);
+
+    //Allocate and write descriptor sets
+    VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &RendererDescriptorSetLayout, 1);
+    VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Add("Scene", AllocInfo);
+    VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( RendererDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &UniformBuffers.SceneMatrices.Descriptor);
+    vkUpdateDescriptorSets(Device, 1, &WriteDescriptorSets, 0, nullptr);
+    
     //Render scene (Gbuffer) : the pipeline layout contains 3 descriptor sets :
     //- 1 for the global scene variables : Matrices, lights...
     //- 1 for all the material data (Textures, properties...)
     //- 1 for all the instance specific data (Model matrix)
     {
-        //Create the materials descriptor sets
-        App->Scene->CreateDescriptorSets();
-
-        //Create the scene descriptor set layout
-        VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0 );
-        VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(&SetLayoutBindings, 1);
-        VkDescriptorSetLayout RendererDescriptorSetLayout = Resources.DescriptorSetLayouts->Add("Scene", DescriptorLayoutCreateInfo);
-
-        //Allocate and write descriptor sets
-        VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &RendererDescriptorSetLayout, 1);
-        VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Add("Scene", AllocInfo);
-        VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( RendererDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &UniformBuffers.SceneMatrices.Descriptor);
-        vkUpdateDescriptorSets(Device, 1, &WriteDescriptorSets, 0, nullptr);
-
         //Build pipeline layout
         std::vector<VkDescriptorSetLayout> RendererSetLayouts = 
         {
@@ -123,6 +123,18 @@ void forwardRenderer::BuildLayoutsAndDescriptors()
         };
         VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(RendererSetLayouts.data(), (uint32_t)RendererSetLayouts.size());
         Resources.PipelineLayouts->Add("Scene", pPipelineLayoutCreateInfo);
+    }
+
+    //Cubemap
+    {
+        //Build pipeline layout
+        std::vector<VkDescriptorSetLayout> RendererSetLayouts = 
+        {
+            RendererDescriptorSetLayout,
+            App->Scene->Cubemap.DescriptorSetLayout
+        };
+        VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(RendererSetLayouts.data(), (uint32_t)RendererSetLayouts.size());
+        Resources.PipelineLayouts->Add("Cubemap", pPipelineLayoutCreateInfo);
     }
 }
 
@@ -240,6 +252,25 @@ void forwardRenderer::BuildPipelines()
         SpecializationData.Discard=1;
         Resources.Pipelines->Add("Scene.Blend", PipelineCreateInfo, App->PipelineCache);
     }   
+    
+    //Cube map
+    {
+        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/cubemap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/cubemap.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        ShaderModules.push_back(ShaderStages[1].module);            
+        ShaderModules.push_back(ShaderStages[0].module);
+
+        PipelineCreateInfo.renderPass = App->RenderPass;
+        PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Cubemap");
+
+        std::array<VkPipelineColorBlendAttachmentState, 1> BlendAttachmentStates = 
+        {
+            vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE)
+        };
+        ColorBlendState.attachmentCount=(uint32_t)BlendAttachmentStates.size();
+        ColorBlendState.pAttachments=BlendAttachmentStates.data();
+        Resources.Pipelines->Add("Cubemap", PipelineCreateInfo, App->PipelineCache);
+    }   
 }
 
 
@@ -318,6 +349,16 @@ void forwardRenderer::BuildCommandBuffers()
                 vkCmdDrawIndexed(DrawCommandBuffers[i], Instance.Mesh->IndexCount, 1, 0, 0, 0);
             }
         }
+
+        { //Cubemap
+            vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Cubemap"));
+            vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &App->Scene->Cubemap.Mesh.VertexBuffer.Buffer, Offset);
+            vkCmdBindIndexBuffer(DrawCommandBuffers[i], App->Scene->Cubemap.Mesh.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Cubemap"), 0, 1, &RendererDescriptorSet, 0, nullptr);
+            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Cubemap"), 1, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
+            vkCmdDrawIndexed(DrawCommandBuffers[i], App->Scene->Cubemap.Mesh.IndexCount, 1, 0, 0, 0);
+        }
+
         App->ImGuiHelper->DrawFrame(DrawCommandBuffers[i]);
         vkCmdEndRenderPass(DrawCommandBuffers[i]);
         VK_CALL(vkEndCommandBuffer(DrawCommandBuffers[i]));

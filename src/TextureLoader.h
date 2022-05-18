@@ -46,8 +46,6 @@ public:
 
     void LoadTexture2D(std::string Filename, VkFormat Format, vulkanTexture *Texture, VkImageUsageFlags ImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT);
 
-    void LoadCubemap(std::string FileName, vulkanTexture *Texture, VkImageUsageFlags ImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT);
-
     void GenerateMipmaps(VkImage Image, uint32_t Width, uint32_t Height, uint32_t MipLevels);
 
     void CreateTexture(void *Buffer, VkDeviceSize BufferSize, VkFormat Format, uint32_t Width, uint32_t Height, vulkanTexture *Texture, bool DoGenerateMipmaps=false, VkFilter Filter = VK_FILTER_LINEAR, VkImageUsageFlags ImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
@@ -55,4 +53,6 @@ public:
     void DestroyTexture(vulkanTexture Texture);
 
     void Destroy();
+
+    void LoadCubemap(std::string FileName, vulkanTexture *Output);
 };

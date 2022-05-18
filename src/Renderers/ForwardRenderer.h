@@ -38,5 +38,5 @@ private:
     void BuildQuads();
     void BuildLayoutsAndDescriptors();
     void BuildPipelines();
-     void BuildCommandBuffers();
+    void BuildCommandBuffers();
 };
