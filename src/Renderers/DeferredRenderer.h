@@ -1,4 +1,6 @@
 #pragma once
+
+#include "Scene.h"
 #include "../Renderer.h"
 
 class deferredRenderer : public renderer    
@@ -41,8 +43,7 @@ public:
     } Textures;
     struct 
     {
-        meshBuffer Quad;
-        meshBuffer SkySphere;
+        sceneMesh Quad;
     } Meshes;
     
     struct 

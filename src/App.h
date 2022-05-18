@@ -43,7 +43,6 @@
 #include "TextureLoader.h"
 
 #include "Resources.h"
-#include "Mesh.h"
 #include "Framebuffer.h"
 #include "Buffer.h"
 #include "Shader.h"

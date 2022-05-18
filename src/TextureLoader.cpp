@@ -1,4 +1,6 @@
 #include "TextureLoader.h"
+#include "Scene.h"
+#include "GLTFImporter.h"
 
 textureLoader::textureLoader(vulkanDevice *VulkanDevice, VkQueue Queue, VkCommandPool CommandPool) :
                   VulkanDevice(VulkanDevice), Queue(Queue), CommandPool(CommandPool)
@@ -240,8 +242,31 @@ void textureLoader::LoadCubemap(std::string FileName, VkFormat Format, vulkanTex
     VkDescriptorPoolCreateInfo DescriptorPoolCreateInfo = vulkanTools::BuildDescriptorPoolCreateInfo((uint32_t)PoolSizes.size(), PoolSizes.data(), 6);
     VK_CALL(vkCreateDescriptorPool(VulkanDevice->Device, &DescriptorPoolCreateInfo, nullptr, &DescriptorPool));                
 
-    //create quad
-    meshBuffer Quad = vulkanTools::BuildQuad(VulkanDevice);
+    //create Cube
+    // sceneMesh Cube = vulkanTools::BuildCube(VulkanDevice);
+    sceneMesh Cube;
+    GLTFImporter::LoadMesh("resources/models/Cube/Cube.gltf", Cube);
+    //Global buffers
+    size_t VertexDataSize = Cube.Vertices.size() * sizeof(vertex);
+    vulkanTools::CreateAndFillBuffer(
+        VulkanDevice,
+        Cube.Vertices.data(),
+        VertexDataSize,
+        &Cube.VertexBuffer,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        CommandBuffer,
+        Queue
+    );
+    size_t IndexDataSize = Cube.Indices.size() * sizeof(uint32_t);
+    vulkanTools::CreateAndFillBuffer(
+        VulkanDevice,
+        Cube.Indices.data(),
+        IndexDataSize,
+        &Cube.IndexBuffer,
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        CommandBuffer,
+        Queue
+    );       
     
     //load shaders
     std::array<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
@@ -283,8 +308,12 @@ void textureLoader::LoadCubemap(std::string FileName, VkFormat Format, vulkanTex
     VkDescriptorSet DescriptorSet;
     VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &DescriptorSetLayout, 1);
     VK_CALL(vkAllocateDescriptorSets(VulkanDevice->Device, &AllocInfo, &DescriptorSet));
-    VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &ViewMatricesBuffer.Descriptor);
-    vkUpdateDescriptorSets(VulkanDevice->Device, 1, &WriteDescriptorSets, 0, nullptr);
+    std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
+    {
+        vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &ViewMatricesBuffer.Descriptor),
+        vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &PanoTexture.Descriptor)
+    };
+    vkUpdateDescriptorSets(VulkanDevice->Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
 
     //Build pipeline layout
     std::vector<VkDescriptorSetLayout> RendererSetLayouts = 
@@ -398,7 +427,7 @@ void textureLoader::LoadCubemap(std::string FileName, VkFormat Format, vulkanTex
         RenderPassBeginInfo.framebuffer = Framebuffers[i].Framebuffer;
         RenderPassBeginInfo.renderPass = Framebuffers[i].RenderPass;
         
-        ViewMatricesBuffer.Flush();
+        //ViewMatricesBuffer.Flush();
         VK_CALL(ViewMatricesBuffer.Map());
         ViewMatricesBuffer.CopyTo(glm::value_ptr(ViewMatrices[i]), sizeof(glm::mat4));
         ViewMatricesBuffer.Unmap();    
@@ -416,10 +445,10 @@ void textureLoader::LoadCubemap(std::string FileName, VkFormat Format, vulkanTex
         vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipelines[i]); 
         vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, PipelineLayout, 0, 1, &DescriptorSet, 0, nullptr);
 
-        vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &Quad.Vertices.Buffer, Offset);
-        vkCmdBindIndexBuffer(CommandBuffer, Quad.Indices.Buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &Cube.VertexBuffer.Buffer, Offset);
+        vkCmdBindIndexBuffer(CommandBuffer, Cube.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
-        vkCmdDrawIndexed(CommandBuffer, 6, 1, 0, 0, 0);
+        vkCmdDrawIndexed(CommandBuffer, Cube.IndexCount, 1, 0, 0, 0);
     
         vkCmdEndRenderPass(CommandBuffer);
         

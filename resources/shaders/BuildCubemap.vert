@@ -13,9 +13,12 @@ layout (binding = 0) uniform UBO
 } ubo;
 
 layout (location = 0) out vec3 outUV;
+layout (location = 1) out vec3 outPosition;
 
 void main() 
 {
 	outUV = vec3(inUV.st, inNormal.z);
+	outPosition = inPos.xyz;
+	
 	gl_Position = ubo.viewProjectionMatrix * vec4(inPos.xyz, 1.0);
 }

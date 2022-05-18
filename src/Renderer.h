@@ -4,7 +4,6 @@
 #include <vulkan/vulkan.h>
 #include "Resources.h"
 #include "Buffer.h"
-#include "Mesh.h"
 #include "Framebuffer.h"
 #include "Camera.h"
 class vulkanApp;

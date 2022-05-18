@@ -188,8 +188,8 @@ void deferredRenderer::BuildQuads()
                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
                     VertexBuffer.size() * sizeof(vertex),
                     VertexBuffer.data(),
-                    &Meshes.Quad.Vertices.Buffer,
-                    &Meshes.Quad.Vertices.DeviceMemory); 
+                    &Meshes.Quad.VertexBuffer.Buffer,
+                    &Meshes.Quad.VertexBuffer.Memory); 
 
     
     std::vector<uint32_t> IndicesBuffer = {0,1,2,  2,3,0};
@@ -201,8 +201,8 @@ void deferredRenderer::BuildQuads()
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
         IndicesBuffer.size() * sizeof(uint32_t),
         IndicesBuffer.data(),
-        &Meshes.Quad.Indices.Buffer,
-        &Meshes.Quad.Indices.DeviceMemory
+        &Meshes.Quad.IndexBuffer.Buffer,
+        &Meshes.Quad.IndexBuffer.Memory
     );
 }
 
@@ -556,8 +556,8 @@ void deferredRenderer::BuildCommandBuffers()
         vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 0, 1, Resources.DescriptorSets->GetPtr("Composition"), 0, nullptr);
         
         vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Composition.SSAO.Enabled"));
-        vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Meshes.Quad.Vertices.Buffer, Offsets);
-        vkCmdBindIndexBuffer(DrawCommandBuffers[i], Meshes.Quad.Indices.Buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Meshes.Quad.VertexBuffer.Buffer, Offsets);
+        vkCmdBindIndexBuffer(DrawCommandBuffers[i], Meshes.Quad.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(DrawCommandBuffers[i], 6, 1, 0, 0, 1);
 
         vkCmdEndRenderPass(DrawCommandBuffers[i]);

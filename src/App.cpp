@@ -314,4 +314,6 @@ void vulkanApp::Destroy()
     delete ImGuiHelper;
     // Resources.Cleanup();
     // Scene.Cleanup();
+
+    // vkDestroyInstance(Instance, nullptr);
 }
