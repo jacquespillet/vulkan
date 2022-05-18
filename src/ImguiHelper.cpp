@@ -14,6 +14,8 @@ ImGUI::ImGUI(vulkanApp *App) : App(App)
 ImGUI::~ImGUI()
 {
     ImGui::DestroyContext();
+    vkDestroyShaderModule(Device->Device, shaderStages[0].module, nullptr);
+    vkDestroyShaderModule(Device->Device, shaderStages[1].module, nullptr);
     // Release all Vulkan resources required for rendering imGui
     VertexBuffer.Destroy();
     IndexBuffer.Destroy();
@@ -230,8 +232,6 @@ void ImGUI::InitResources(VkRenderPass RenderPass, VkQueue CopyQueue)
     };
     VkPipelineDynamicStateCreateInfo dynamicState =
         vulkanTools::BuildPipelineDynamicStateCreateInfo(dynamicStateEnables);
-
-    std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
 
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = vulkanTools::BuildGraphicsPipelineCreateInfo(PipelineLayout, RenderPass);
 

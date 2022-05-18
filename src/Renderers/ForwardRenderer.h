@@ -7,6 +7,7 @@ public:
     forwardRenderer(vulkanApp *App);
     void Render() override;
     void Setup() override;    
+    void Destroy() override;    
 
     std::vector<VkCommandBuffer> DrawCommandBuffers;
 

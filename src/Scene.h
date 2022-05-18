@@ -129,7 +129,9 @@ private:
     void LoadMaterials(VkCommandBuffer CommandBuffer);
     void LoadMeshes(VkCommandBuffer CommandBuffer);
 
+
 public:
+    void Destroy();
     VkDescriptorSetLayout MaterialDescriptorSetLayout;
     VkDescriptorSetLayout InstanceDescriptorSetLayout;
     buffer VertexBuffer;

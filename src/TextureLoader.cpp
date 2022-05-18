@@ -466,6 +466,9 @@ void textureLoader::LoadCubemap(std::string FileName, VkFormat Format, vulkanTex
         VK_CALL(vkWaitForFences(VulkanDevice->Device, 1, &RenderFence, VK_TRUE, DEFAULT_FENCE_TIMEOUT));
         vkDestroyFence(VulkanDevice->Device, RenderFence, nullptr);
     }
+
+
+    
 }
 
 void textureLoader::GenerateMipmaps(VkImage Image, uint32_t Width, uint32_t Height, uint32_t MipLevels)
@@ -729,4 +732,9 @@ void textureLoader::DestroyTexture(vulkanTexture Texture)
     vkDestroyImage(VulkanDevice->Device, Texture.Image, nullptr);
     vkDestroySampler(VulkanDevice->Device, Texture.Sampler, nullptr);
     vkFreeMemory(VulkanDevice->Device, Texture.DeviceMemory, nullptr);
+}
+
+void textureLoader::Destroy()
+{
+    vkFreeCommandBuffers(VulkanDevice->Device, CommandPool, 1, &CommandBuffer);
 }

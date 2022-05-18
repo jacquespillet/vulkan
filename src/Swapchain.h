@@ -296,4 +296,13 @@ struct swapchain
         return QueuePresentKHR(Queue, &PresentInfo);
 
     }
+
+    void Destroy()
+    {
+        for(uint32_t i=0; i<ImageCount; i++)
+        {
+            vkDestroyImageView(Device, Buffers[i].View, nullptr);
+        }
+        DestroySwapchainKHR(Device, Swapchain, nullptr);
+    }
 };

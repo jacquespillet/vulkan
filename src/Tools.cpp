@@ -149,6 +149,7 @@ namespace vulkanTools
         descriptorPoolInfo.poolSizeCount = PoolSizeCount;
         descriptorPoolInfo.pPoolSizes = PoolSizes;
         descriptorPoolInfo.maxSets=MaxSets;
+        descriptorPoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 
         return descriptorPoolInfo;
     }
@@ -959,7 +960,7 @@ namespace vulkanTools
         Buffer->Allignment = MemoryRequirements.alignment;
         Buffer->Size = MemAlloc.allocationSize;
         Buffer->UsageFlags = Flags;
-        // Buffer->MemoryPropertyFlags = MemoryPropertyFlags;
+        Buffer->Device = Device->Device;
 
         Buffer->SetupDescriptor();
     }

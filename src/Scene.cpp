@@ -192,3 +192,34 @@ void scene::CreateDescriptorSets()
         }
     }    
 }
+
+void scene::Destroy()
+{
+
+    VertexBuffer.Destroy();
+    IndexBuffer.Destroy();
+
+    for(size_t i=0; i<Meshes.size(); i++)
+    {
+        Meshes[i].IndexBuffer.Destroy();
+        Meshes[i].VertexBuffer.Destroy();
+    }
+    for(size_t i=0; i<Materials.size(); i++)
+    {
+        Materials[i].UniformBuffer.Destroy();
+        vkFreeDescriptorSets(Device, MaterialDescriptorPool, 1, &Materials[i].DescriptorSet);
+    }
+    for(size_t i=0; i<Instances.size(); i++)
+    {
+        Instances[i].UniformBuffer.Destroy();
+        vkFreeDescriptorSets(Device, InstanceDescriptorPool, 1, &Instances[i].DescriptorSet);
+    }
+
+    vkDestroyDescriptorSetLayout(Device, InstanceDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(Device, MaterialDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorPool(Device, InstanceDescriptorPool, nullptr);
+    vkDestroyDescriptorPool(Device, MaterialDescriptorPool, nullptr);
+
+    Textures->Destroy();
+    delete Textures;
+}

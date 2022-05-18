@@ -712,3 +712,8 @@ void deferredRenderer::UpdateCamera()
     UpdateUniformBufferDeferredMatrices();
     UpdateUniformBufferSSAOParams();
 }
+
+void deferredRenderer::Destroy()
+{
+    
+}

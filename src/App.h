@@ -134,6 +134,7 @@ public:
     void Initialize(HWND Window);
 
     void Destroy();
+    void DestroyGeneralResources();
 
     void MouseMove(float XPosition, float YPosition);
     void MouseAction(int Button, int Action, int Mods);

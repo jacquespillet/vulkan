@@ -36,6 +36,7 @@ public:
     {
         return Resources.find(Name) != Resources.end();
     }
+    
 };
 
 class pipelineLayoutList : public vulkanResourceList<VkPipelineLayout>
@@ -43,7 +44,7 @@ class pipelineLayoutList : public vulkanResourceList<VkPipelineLayout>
 public:
     pipelineLayoutList(VkDevice &Device) : vulkanResourceList(Device) {}
 
-    ~pipelineLayoutList()
+    void Destroy()
     {
         for(auto &PipelineLayout : Resources)
         {
@@ -71,7 +72,7 @@ class pipelineList : public vulkanResourceList<VkPipeline>
 public:
     pipelineList(VkDevice &Device) : vulkanResourceList(Device) {}
 
-    ~pipelineList()
+    void Destroy()
     {
         for(auto &Pipeline : Resources)
         {
@@ -93,7 +94,7 @@ class descriptorSetLayoutList : public vulkanResourceList<VkDescriptorSetLayout>
 public:
     descriptorSetLayoutList(VkDevice &Device) : vulkanResourceList(Device) {}
 
-    ~descriptorSetLayoutList()
+    void Destroy()
     {
         for(auto &DescriptorSetLayout : Resources)
         {
@@ -113,10 +114,10 @@ public:
 class descriptorSetList : public vulkanResourceList<VkDescriptorSet>
 {
 public:
-    VkDescriptorPool &DescriptorPool;
-    descriptorSetList(VkDevice &Device, VkDescriptorPool &DescriptorPool) : vulkanResourceList(Device), DescriptorPool(DescriptorPool) {}
+    VkDescriptorPool DescriptorPool;
+    descriptorSetList(VkDevice &Device, VkDescriptorPool DescriptorPool) : vulkanResourceList(Device), DescriptorPool(DescriptorPool) {}
 
-    ~descriptorSetList()
+    void Destroy()
     {
         for(auto &DescriptorSet : Resources)
         {
@@ -142,7 +143,7 @@ public:
                 vulkanResourceList(Device),
                 Loader(Loader) {}
 
-    ~textureList()
+    void Destroy()
     {
         for(auto &Texture : Resources)
         {
@@ -232,5 +233,17 @@ struct resources
         DescriptorSetLayouts = new descriptorSetLayoutList(VulkanDevice->Device);
         DescriptorSets = new descriptorSetList(VulkanDevice->Device, DescriptorPool);
         
+    }
+
+    void Destroy()
+    {
+        DescriptorSets->Destroy();
+        DescriptorSetLayouts->Destroy();
+        PipelineLayouts->Destroy();
+        Pipelines->Destroy();
+        delete PipelineLayouts;
+        delete Pipelines;
+        delete DescriptorSetLayouts;
+        delete DescriptorSets;
     }
 };

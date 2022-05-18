@@ -6,6 +6,7 @@
 #include "Buffer.h"
 #include <glm/vec2.hpp>
 #include <string>
+#include <array>
 
 class vulkanDevice;
 class vulkanApp;
@@ -29,6 +30,7 @@ private:
 	VkDescriptorSet DescriptorSet;
 	vulkanDevice *Device;
 	vulkanApp *App;
+	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
 public:
 	// UI params are set via push constants
 	struct PushConstBlock {

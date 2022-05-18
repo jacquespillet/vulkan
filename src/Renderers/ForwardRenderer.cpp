@@ -329,3 +329,15 @@ void forwardRenderer::UpdateCamera()
 {
     UpdateUniformBufferDeferredMatrices();
 }
+
+void forwardRenderer::Destroy()
+{
+    for(size_t i=0; i<ShaderModules.size(); i++)
+    {
+        vkDestroyShaderModule(Device, ShaderModules[i], nullptr);
+    }
+    UniformBuffers.SceneMatrices.Destroy();
+    Resources.Destroy();
+    vkDestroyDescriptorPool(Device, DescriptorPool, nullptr);
+    vkFreeCommandBuffers(Device, App->CommandPool, (uint32_t)DrawCommandBuffers.size(), DrawCommandBuffers.data());
+}

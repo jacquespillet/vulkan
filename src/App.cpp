@@ -263,6 +263,7 @@ void vulkanApp::Initialize(HWND Window)
     Height = 1080;
     InitVulkan();
     Swapchain.InitSurface(Window);
+
     CreateGeneralResources();
 }
 
@@ -306,14 +307,49 @@ void vulkanApp::Scroll(float YOffset)
     Renderer->Camera.Scroll(YOffset);
 }
 
+void vulkanApp::DestroyGeneralResources()
+{
+    
+    Renderer->Destroy(); 
+
+    Scene->Destroy();
+    
+    delete ImGuiHelper;
+
+    TextureLoader->Destroy();
+    
+    for(int i=0; i<AppFramebuffers.size(); i++)
+    {
+        vkDestroyFramebuffer(Device, AppFramebuffers[i], nullptr);
+    }
+    vkDestroyPipelineCache(Device, PipelineCache, nullptr);
+    vkDestroyRenderPass(Device, RenderPass, nullptr);
+    
+    vkDestroyImageView(Device, DepthStencil.View, nullptr);
+    vkDestroyImage(Device, DepthStencil.Image, nullptr);
+    vkFreeMemory(Device, DepthStencil.Memory, nullptr);
+    
+    Swapchain.Destroy();
+    
+    vkDestroyCommandPool(Device, CommandPool, nullptr);
+    
+
+   
+}
 
 void vulkanApp::Destroy()
 {
+    DestroyGeneralResources();
+
+    vkDestroySemaphore(Device, Semaphores.PresentComplete, nullptr);
+    vkDestroySemaphore(Device, Semaphores.RenderComplete, nullptr);
+    vkDestroyDevice(Device, nullptr);
+//    vulkanDebug::DestroyDebugReportCallback(Instance, vulkanDebug::DebugReportCallback, nullptr);
+    vkDestroyInstance(Instance, nullptr);
+
     delete Renderer;
     delete TextureLoader;
     delete ImGuiHelper;
-    // Resources.Cleanup();
-    // Scene.Cleanup();
-
-    // vkDestroyInstance(Instance, nullptr);
+    delete Scene;
+    system("pause");
 }
