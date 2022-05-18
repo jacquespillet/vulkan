@@ -21,6 +21,6 @@ void main()
 {
 	// outColor = vec4(1,0, 0, 1);
 	vec2 UV = SampleSphericalMap(normalize(inPosition));
-    vec3 Color = texture(Panorama, inPosition.xy).rgb;
+    vec3 Color = texture(Panorama, UV).rgb;
     outColor = vec4(Color, 1.0);
 }

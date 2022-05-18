@@ -304,5 +304,6 @@ struct swapchain
             vkDestroyImageView(Device, Buffers[i].View, nullptr);
         }
         DestroySwapchainKHR(Device, Swapchain, nullptr);
+        vkDestroySurfaceKHR(Instance, Surface, nullptr);
     }
 };

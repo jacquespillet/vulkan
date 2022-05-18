@@ -56,6 +56,15 @@ struct framebuffer
     {
         vkDestroyFramebuffer(Device, Framebuffer, nullptr);
         vkDestroyRenderPass(Device, RenderPass, nullptr);
+        vkDestroySampler(Device, Sampler, nullptr);
+        for(size_t i=0; i<_Attachments.size(); i++)
+        {
+            _Attachments[i].Destroy(Device);
+        }
+        if(HasDepth)
+        {
+            Depth.Destroy(Device);
+        }
         return *this;
     }
 

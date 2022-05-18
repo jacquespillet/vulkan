@@ -340,6 +340,7 @@ void vulkanApp::DestroyGeneralResources()
 void vulkanApp::Destroy()
 {
     DestroyGeneralResources();
+    
 
     vkDestroySemaphore(Device, Semaphores.PresentComplete, nullptr);
     vkDestroySemaphore(Device, Semaphores.RenderComplete, nullptr);
@@ -349,7 +350,6 @@ void vulkanApp::Destroy()
 
     delete Renderer;
     delete TextureLoader;
-    delete ImGuiHelper;
     delete Scene;
     system("pause");
 }

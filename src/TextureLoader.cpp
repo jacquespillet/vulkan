@@ -176,7 +176,7 @@ void textureLoader::LoadTexture2D(std::string Filename, VkFormat Format, vulkanT
     Texture->Descriptor.sampler = Texture->Sampler;
 }
 
-void textureLoader::LoadCubemap(std::string FileName, VkFormat Format, vulkanTexture *Texture, VkImageUsageFlags ImageUsageFlags)
+void textureLoader::LoadCubemap(std::string FileName, vulkanTexture *Texture, VkImageUsageFlags ImageUsageFlags)
 {
     float *Pixels;
     int Width, Height;
@@ -466,9 +466,30 @@ void textureLoader::LoadCubemap(std::string FileName, VkFormat Format, vulkanTex
         VK_CALL(vkWaitForFences(VulkanDevice->Device, 1, &RenderFence, VK_TRUE, DEFAULT_FENCE_TIMEOUT));
         vkDestroyFence(VulkanDevice->Device, RenderFence, nullptr);
     }
-
-
     
+    for(int i=0; i<6; i++)
+    {
+        vkDestroyPipeline(VulkanDevice->Device, Pipelines[i], nullptr);
+    }
+    vkDestroyPipelineLayout(VulkanDevice->Device, PipelineLayout, nullptr);
+    vkFreeDescriptorSets(VulkanDevice->Device, DescriptorPool, 1, &DescriptorSet);
+    vkDestroyDescriptorSetLayout(VulkanDevice->Device, DescriptorSetLayout, nullptr);
+    ViewMatricesBuffer.Destroy();
+    vkDestroyShaderModule(VulkanDevice->Device, ShaderStages[0].module, nullptr);
+    vkDestroyShaderModule(VulkanDevice->Device, ShaderStages[1].module, nullptr);
+    Cube.IndexBuffer.Destroy();
+    Cube.VertexBuffer.Destroy();
+    vkDestroyDescriptorPool(VulkanDevice->Device, DescriptorPool, nullptr);
+    
+    for(int i=0; i<6; i++)
+    {
+        // vkDestroyFramebuffer(VulkanDevice->Device, Framebuffers[i].Framebuffer, nullptr);
+        // vkdestroy
+        Framebuffers[i].Destroy(VulkanDevice->Device);
+    }
+
+    DestroyTexture(PanoTexture);
+
 }
 
 void textureLoader::GenerateMipmaps(VkImage Image, uint32_t Width, uint32_t Height, uint32_t MipLevels)
@@ -554,7 +575,7 @@ void textureLoader::CreateTexture(void *Buffer, VkDeviceSize BufferSize, VkForma
 
     Texture->Width = Width;
     Texture->Height = Height;
-    Texture->MipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(Width, Height)))) + 1;
+    Texture->MipLevels = DoGenerateMipmaps ?  static_cast<uint32_t>(std::floor(std::log2(std::max(Width, Height)))) + 1 : 1;
 
     VkMemoryAllocateInfo memAllocInfo = vulkanTools::BuildMemoryAllocateInfo();
     VkMemoryRequirements memReqs;

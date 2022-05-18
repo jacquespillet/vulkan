@@ -14,7 +14,7 @@ scene::scene(vulkanApp *App) :
 
 void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
 {
-    TextureLoader->LoadCubemap("resources/belfast_farmhouse_4k.hdr",VK_FORMAT_R32G32B32A32_SFLOAT, &Cubemap);
+    TextureLoader->LoadCubemap("resources/belfast_farmhouse_4k.hdr", &Cubemap);
 
     std::vector<vertex> GVertices;
     std::vector<uint32_t> GIndices;

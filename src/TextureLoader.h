@@ -46,7 +46,7 @@ public:
 
     void LoadTexture2D(std::string Filename, VkFormat Format, vulkanTexture *Texture, VkImageUsageFlags ImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT);
 
-    void LoadCubemap(std::string FileName, VkFormat Format, vulkanTexture *Texture, VkImageUsageFlags ImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT);
+    void LoadCubemap(std::string FileName, vulkanTexture *Texture, VkImageUsageFlags ImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT);
 
     void GenerateMipmaps(VkImage Image, uint32_t Width, uint32_t Height, uint32_t MipLevels);
 
