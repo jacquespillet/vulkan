@@ -192,8 +192,12 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
         &PanoTexture,
         false
     );
+    
+    bool DoGenerateMipmaps=true;
+
     Output->Width = 512;
     Output->Height = 512;
+    Output->MipLevels = DoGenerateMipmaps ?  static_cast<uint32_t>(std::floor(std::log2(std::max(Output->Width, Output->Height)))) + 1 : 1;
     
     //Vertex Description
     struct 
@@ -421,13 +425,14 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
     VkImageCreateInfo imageCreateInfo = vulkanTools::BuildImageCreateInfo();
     imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
     imageCreateInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    imageCreateInfo.mipLevels = 1;
+    imageCreateInfo.mipLevels = Output->MipLevels;
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageCreateInfo.extent = { (uint32_t)Output->Width, (uint32_t)Output->Height, 1 };
     imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    if(DoGenerateMipmaps) imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     // Cube faces count as array layers in Vulkan
     imageCreateInfo.arrayLayers = 6;
     // This flag is required for cube map images
@@ -487,7 +492,7 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
 		VkImageSubresourceRange CubeFaceSubresourceRange = {};
 		CubeFaceSubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		CubeFaceSubresourceRange.baseMipLevel = 0;
-		CubeFaceSubresourceRange.levelCount = 1;
+		CubeFaceSubresourceRange.levelCount = Output->MipLevels;
 		CubeFaceSubresourceRange.baseArrayLayer = i;
 		CubeFaceSubresourceRange.layerCount = 1;
 
@@ -525,12 +530,16 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
 			&copyRegion);
 
 		// Change image layout of copied face to shader read
-		vulkanTools::TransitionImageLayout(
+        //If mipmaps are generated, it will take care of transitioning
+		if(!DoGenerateMipmaps)
+        {
+            vulkanTools::TransitionImageLayout(
 			CommandBuffer,
 			Output->Image,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 			CubeFaceSubresourceRange);
+        }
 
         VK_CALL(vkEndCommandBuffer(CommandBuffer));
 
@@ -540,6 +549,16 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
         VK_CALL(vkQueueSubmit(Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
         VK_CALL(vkQueueWaitIdle(Queue));    
     }   
+
+    
+    VK_CALL(vkBeginCommandBuffer(CommandBuffer, &CommandBufferInfo));
+    if(DoGenerateMipmaps) GenerateCubemapMipmaps(Output->Image, Output->Width, Output->Height, Output->MipLevels);
+    VK_CALL(vkEndCommandBuffer(CommandBuffer));
+    VkSubmitInfo SubmitInfo = vulkanTools::BuildSubmitInfo();
+    SubmitInfo.commandBufferCount = 1;
+    SubmitInfo.pCommandBuffers = &CommandBuffer;
+    VK_CALL(vkQueueSubmit(Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+    VK_CALL(vkQueueWaitIdle(Queue));    
 
     // Create sampler
     VkSamplerCreateInfo sampler = vulkanTools::BuildSamplerCreateInfo();
@@ -552,7 +571,7 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
     sampler.mipLodBias = 0.0f;
     sampler.compareOp = VK_COMPARE_OP_NEVER;
     sampler.minLod = 0.0f;
-    sampler.maxLod = 1; //Mip levels
+    sampler.maxLod = (float)Output->MipLevels; //Mip levels
     sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     sampler.maxAnisotropy = 1.0f;
     
@@ -568,7 +587,7 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
     // 6 array layers (faces)
     view.subresourceRange.layerCount = 6;
     // Set number of mip levels
-    view.subresourceRange.levelCount = 1;//Miplevels
+    view.subresourceRange.levelCount = Output->MipLevels;//Miplevels
     view.image = Output->Image;
     VK_CALL(vkCreateImageView(VulkanDevice->Device, &view, nullptr, &Output->View));
 
@@ -668,6 +687,89 @@ void textureLoader::GenerateMipmaps(VkImage Image, uint32_t Width, uint32_t Heig
     Barrier.subresourceRange.baseMipLevel = MipLevels - 1;
     Barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     Barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    Barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    Barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    vkCmdPipelineBarrier(CommandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+        0, nullptr,
+        0, nullptr,
+        1, &Barrier);        
+
+}
+
+
+void textureLoader::GenerateCubemapMipmaps(VkImage Image, uint32_t Width, uint32_t Height, uint32_t MipLevels)
+{
+    VkImageMemoryBarrier Barrier {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    Barrier.image = Image;
+    Barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    Barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    Barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    Barrier.subresourceRange.baseArrayLayer=0;
+    Barrier.subresourceRange.layerCount=6;
+    Barrier.subresourceRange.levelCount=1;
+
+    int32_t MipWidth = Width;
+    int32_t MipHeight = Height;
+    for(uint32_t i=1; i<MipLevels; i++)
+    {
+        // for(int j=0; j<6; j++)
+        {
+            Barrier.subresourceRange.baseMipLevel=i-1;
+            Barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            Barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            Barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            Barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+            vkCmdPipelineBarrier(CommandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+            0, nullptr, 
+            0, nullptr,
+            1, &Barrier);
+
+            VkImageBlit Blit {};
+            Blit.srcOffsets[0] = {0,0,0};
+            Blit.srcOffsets[1] = {MipWidth, MipHeight, 1};
+            Blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            Blit.srcSubresource.mipLevel = i-1;
+            Blit.srcSubresource.baseArrayLayer = 0;
+            Blit.srcSubresource.layerCount=6;
+            Blit.dstOffsets[0] = {0,0,0};
+            Blit.dstOffsets[1] = {MipWidth > 1 ? MipWidth / 2 : 1, MipHeight > 1 ? MipHeight/2 : 1, 1};
+            Blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            Blit.dstSubresource.mipLevel = i;
+            Blit.dstSubresource.baseArrayLayer = 0;
+            Blit.dstSubresource.layerCount=6;
+
+            vkCmdBlitImage(CommandBuffer,
+                            Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                            Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                            1, &Blit,
+                            VK_FILTER_LINEAR);
+            
+            Barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            Barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            Barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            Barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            vkCmdPipelineBarrier(CommandBuffer,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+                0, nullptr,
+                0, nullptr,
+                1, &Barrier);       
+        }
+
+
+        if (MipWidth > 1) MipWidth /= 2;
+        if (MipHeight > 1) MipHeight /= 2;                     
+    }
+
+    Barrier.subresourceRange.baseMipLevel = MipLevels - 1;
+    Barrier.subresourceRange.baseArrayLayer=0;
+    Barrier.subresourceRange.layerCount=6;
+    Barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    Barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     Barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     Barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 

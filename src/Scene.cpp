@@ -3,6 +3,7 @@
 #include "Resources.h"
 #include "AssimpImporter.h"
 #include "GLTFImporter.h"
+#include "IBLHelper.h"
 
 scene::scene(vulkanApp *App) :
             App(App), Device(App->Device), 
@@ -48,7 +49,10 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
         Cubemap.UniformBuffer.Map();
         Cubemap.UniformBuffer.CopyTo(&Cubemap.UniformData, sizeof(cubemap::uniformData));
         Cubemap.UniformBuffer.Unmap();
-        
+
+        IBLHelper::CalculateIrradianceMap(App->VulkanDevice, CopyCommand, Queue, &Cubemap.Texture, &Cubemap.IrradianceMap);        
+        IBLHelper::CalculatePrefilteredMap(App->VulkanDevice, CopyCommand, Queue, &Cubemap.Texture, &Cubemap.PrefilteredMap);        
+        IBLHelper::CalculateBRDFLUT(App->VulkanDevice, CopyCommand, Queue, &Cubemap.BRDFLUT);        
     }
 
     { //Scene

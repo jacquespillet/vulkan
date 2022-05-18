@@ -43,6 +43,12 @@ REM --------------------
 
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/BuildCubemap.vert -o resources/shaders/BuildCubemap.vert.spv
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/BuildCubemap.frag -o resources/shaders/BuildCubemap.frag.spv
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/BuildIrradianceMap.vert -o resources/shaders/BuildIrradianceMap.vert.spv
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/BuildIrradianceMap.frag -o resources/shaders/BuildIrradianceMap.frag.spv
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/BuildPrefilterEnvMap.vert -o resources/shaders/BuildPrefilterEnvMap.vert.spv
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/BuildPrefilterEnvMap.frag -o resources/shaders/BuildPrefilterEnvMap.frag.spv
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/BuildBRDFLUT.vert -o resources/shaders/BuildBRDFLUT.vert.spv
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/BuildBRDFLUT.frag -o resources/shaders/BuildBRDFLUT.frag.spv
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/cubemap.vert -o resources/shaders/cubemap.vert.spv
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/cubemap.frag -o resources/shaders/cubemap.frag.spv
 
