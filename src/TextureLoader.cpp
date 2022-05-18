@@ -971,3 +971,11 @@ void textureLoader::Destroy()
 {
     vkFreeCommandBuffers(VulkanDevice->Device, CommandPool, 1, &CommandBuffer);
 }
+
+void vulkanTexture::Destroy(vulkanDevice *VulkanDevice)
+{
+    vkDestroyImageView(VulkanDevice->Device, View, nullptr);
+    vkDestroyImage(VulkanDevice->Device, Image, nullptr);
+    vkDestroySampler(VulkanDevice->Device, Sampler, nullptr);
+    vkFreeMemory(VulkanDevice->Device, DeviceMemory, nullptr);
+}

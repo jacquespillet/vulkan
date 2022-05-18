@@ -98,6 +98,8 @@ struct sceneMesh
     uint32_t IndexBase;
 
     sceneMaterial *Material;
+
+    void Destroy();
 };
 
 struct instance
@@ -133,6 +135,8 @@ struct cubemap
     VkDescriptorPool DescriptorPool;
 
     VkPipeline Pipeline;
+
+    void Destroy(vulkanDevice *VulkanDevice);
 };
 
 class scene

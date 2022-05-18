@@ -5,6 +5,8 @@
 #include "GLTFImporter.h"
 #include "IBLHelper.h"
 
+
+
 scene::scene(vulkanApp *App) :
             App(App), Device(App->Device), 
             Queue(App->Queue), TextureLoader(App->TextureLoader)
@@ -265,16 +267,39 @@ void scene::CreateDescriptorSets()
     }    
 }
 
+void cubemap::Destroy(vulkanDevice *VulkanDevice)
+{
+    Texture.Destroy(VulkanDevice);
+    IrradianceMap.Destroy(VulkanDevice);
+    PrefilteredMap.Destroy(VulkanDevice);
+    BRDFLUT.Destroy(VulkanDevice);
+    Mesh.Destroy();
+
+
+    UniformBuffer.Destroy();
+
+    vkDestroyDescriptorSetLayout(VulkanDevice->Device, DescriptorSetLayout, nullptr);
+    vkFreeDescriptorSets(VulkanDevice->Device, DescriptorPool, 1, &DescriptorSet);
+    vkDestroyDescriptorPool(VulkanDevice->Device, DescriptorPool, nullptr);
+    vkDestroyPipeline(VulkanDevice->Device, Pipeline, nullptr);
+}
+
+void sceneMesh::Destroy()
+{
+    IndexBuffer.Destroy();
+    VertexBuffer.Destroy();
+}
+
 void scene::Destroy()
 {
+    Cubemap.Destroy(App->VulkanDevice);
 
     VertexBuffer.Destroy();
     IndexBuffer.Destroy();
 
     for(size_t i=0; i<Meshes.size(); i++)
     {
-        Meshes[i].IndexBuffer.Destroy();
-        Meshes[i].VertexBuffer.Destroy();
+        Meshes[i].Destroy();
     }
     for(size_t i=0; i<Materials.size(); i++)
     {
