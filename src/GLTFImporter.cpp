@@ -49,11 +49,11 @@ namespace GLTFImporter
         
         // AScene->mMaterials[i]->Get(AI_MATKEY_TEXTURE_DIFFUSE(0), Materials[i].MaterialData.BaseColorTextureID);
         Materials.resize(GLTFModel.materials.size());
-        
         for (size_t i = 0; i < GLTFModel.materials.size(); i++)
         {
             const tinygltf::Material GLTFMaterial = GLTFModel.materials[i];
             const tinygltf::PbrMetallicRoughness PBR = GLTFMaterial.pbrMetallicRoughness;
+            Materials[i] = {};
 
             Materials[i].MaterialData.BaseColor = glm::vec3((float)PBR.baseColorFactor[0], (float)PBR.baseColorFactor[1], (float)PBR.baseColorFactor[2]);
             if(PBR.baseColorTexture.index > -1)
@@ -67,7 +67,6 @@ namespace GLTFImporter
                 if(strcmp(GLTFTex.name.c_str(), "") == 0)
                 {
                     TexName = GLTFImage.uri;
-                    // TexName = "Dummy.Diffuse";
                 }
                 else
                 {
@@ -95,7 +94,6 @@ namespace GLTFImporter
                 if(strcmp(GLTFTex.name.c_str(), "") == 0)
                 {
                     TexName = GLTFImage.uri;
-                    TexName = "Dummy.Specular";
                 }
                 else
                 {
@@ -120,7 +118,6 @@ namespace GLTFImporter
                 if(strcmp(GLTFTex.name.c_str(), "") == 0)
                 {
                     TexName = GLTFImage.uri;
-                    TexName = "Dummy.Bump";
                 }
                 else
                 {
@@ -135,25 +132,25 @@ namespace GLTFImporter
             }
 
 
-            if(GLTFMaterial.occlusionTexture.index>-1)
-            {
-                Materials[i].MaterialData.OcclusionMapTextureID = GLTFMaterial.occlusionTexture.index;
-            }
-            else
-            {
-                Materials[i].MaterialData.UseOcclusionMap=0;
-            }
+            // if(GLTFMaterial.occlusionTexture.index>-1)
+            // {
+            //     Materials[i].MaterialData.OcclusionMapTextureID = GLTFMaterial.occlusionTexture.index;
+            // }
+            // else
+            // {
+            //     Materials[i].MaterialData.UseOcclusionMap=0;
+            // }
 
 
-            Materials[i].MaterialData.Emission = glm::vec3((float) GLTFMaterial.emissiveFactor[0], (float) GLTFMaterial.emissiveFactor[1], (float) GLTFMaterial.emissiveFactor[2]);
-            if(GLTFMaterial.emissiveTexture.index>-1)
-            {
-                Materials[i].MaterialData.EmissionMapTextureID = GLTFMaterial.emissiveTexture.index;
-            }
-            else
-            {
-                Materials[i].MaterialData.UseEmissionMap= 0;
-            }
+            // Materials[i].MaterialData.Emission = glm::vec3((float) GLTFMaterial.emissiveFactor[0], (float) GLTFMaterial.emissiveFactor[1], (float) GLTFMaterial.emissiveFactor[2]);
+            // if(GLTFMaterial.emissiveTexture.index>-1)
+            // {
+            //     Materials[i].MaterialData.EmissionMapTextureID = GLTFMaterial.emissiveTexture.index;
+            // }
+            // else
+            // {
+            //     Materials[i].MaterialData.UseEmissionMap= 0;
+            // }
 
             // if(GLTFMaterial.extensions.find("KHR_materials_transmission") != GLTFMaterial.extensions.end())
             // {
@@ -284,11 +281,12 @@ namespace GLTFImporter
                 //Fill geometry buffers
                 std::vector<glm::vec3> Positions;
                 std::vector<glm::vec3> Normals;
-                std::vector<glm::vec3> Tangents;
+                std::vector<glm::vec4> Tangents;
                 std::vector<glm::vec2> UVs;
                 for (size_t k = 0; k < PositionAccessor.count; k++)
                 {
-                    glm::vec3 Position, Normal, Tangent;
+                    glm::vec3 Position, Normal;
+                    glm::vec4 Tangent;
                     glm::vec2 UV;
 
                     {
@@ -305,7 +303,7 @@ namespace GLTFImporter
                     if(TangentIndex>0)
                     {
                         const uint8_t *address = TangentBufferAddress + TangentBufferView.byteOffset + TangentAccessor.byteOffset + (k * TangentStride);
-                        memcpy(&Tangent, address, 12);
+                        memcpy(&Tangent, address, 16);
                     }
 
                     if(UVIndex>0)
@@ -355,28 +353,22 @@ namespace GLTFImporter
                 uint32_t VertexBase = (uint32_t) GVertices.size();
                 for (size_t k = 0; k < indices.size(); k++)
                 {
-                    glm::vec3 Position = Positions[indices[k]];
-                    glm::vec3 Normal = Normals[indices[k]];
-                    glm::vec3 Tangent = Tangents[indices[k]];
                     glm::vec2 UV = UVs[indices[k]];
+                    glm::vec4 Position = glm::vec4(Positions[indices[k]].x,Positions[indices[k]].y, Positions[indices[k]].z, UV.x);
+                    glm::vec4 Normal = glm::vec4(Normals[indices[k]].x,Normals[indices[k]].y, Normals[indices[k]].z, UV.y);
+                    glm::vec4 Tangent = Tangents[indices[k]];
                     UV.y *= -1;
 
                     GVertices.push_back({
                         Position, 
-                        UV,
-                        glm::vec3(1,1,1),
                         Normal, 
-                        Tangent,
-                        glm::vec3(0,0,1)
+                        Tangent
                     });
 
                     Meshes[BaseIndex + j].Vertices.push_back({
                         Position, 
-                        UV,
-                        glm::vec3(1,1,1),
                         Normal, 
-                        Tangent,
-                        glm::vec3(0,0,1)
+                        Tangent
                     });
                 }
                 
@@ -485,11 +477,12 @@ namespace GLTFImporter
                 //Fill geometry buffers
                 std::vector<glm::vec3> Positions;
                 std::vector<glm::vec3> Normals;
-                std::vector<glm::vec3> Tangents;
+                std::vector<glm::vec4> Tangents;
                 std::vector<glm::vec2> UVs;
                 for (size_t k = 0; k < PositionAccessor.count; k++)
                 {
-                    glm::vec3 Position, Normal, Tangent;
+                    glm::vec3 Position, Normal; 
+                    glm::vec4 Tangent;
                     glm::vec2 UV;
 
                     {
@@ -506,7 +499,7 @@ namespace GLTFImporter
                     if(TangentIndex>0)
                     {
                         const uint8_t *address = TangentBufferAddress + TangentBufferView.byteOffset + TangentAccessor.byteOffset + (k * TangentStride);
-                        memcpy(&Tangent, address, 12);
+                        memcpy(&Tangent, address, 16);
                     }
 
                     if(UVIndex>0)
@@ -552,19 +545,16 @@ namespace GLTFImporter
                 Mesh.IndexBase = 0;
                 for (size_t k = 0; k < indices.size(); k++)
                 {
-                    glm::vec3 Position = Positions[indices[k]];
-                    glm::vec3 Normal = Normals[indices[k]];
-                    glm::vec3 Tangent = Tangents[indices[k]];
                     glm::vec2 UV = UVs[indices[k]];
+                    glm::vec4 Position = glm::vec4(Positions[indices[k]].x,Positions[indices[k]].y, Positions[indices[k]].z, UV.x);
+                    glm::vec4 Normal = glm::vec4(Normals[indices[k]].x,Normals[indices[k]].y, Normals[indices[k]].z, UV.y);                    
+                    glm::vec4 Tangent = Tangents[indices[k]];
                     UV.y *= -1;
 
                     Mesh.Vertices.push_back({
                         Position, 
-                        UV,
-                        glm::vec3(1,1,1),
                         Normal, 
-                        Tangent,
-                        glm::vec3(0,0,1)
+                        Tangent
                     });
                 }
                 

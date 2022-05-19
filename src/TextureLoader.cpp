@@ -211,12 +211,9 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
     };
 
     VerticesDescription.AttributeDescription = {
-        vulkanTools::BuildVertexInputAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, Position)),
-        vulkanTools::BuildVertexInputAttributeDescription(0, 1, VK_FORMAT_R32G32_SFLOAT,    offsetof(vertex, UV)),
-        vulkanTools::BuildVertexInputAttributeDescription(0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, Color)),
-        vulkanTools::BuildVertexInputAttributeDescription(0, 3, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, Normal)),
-        vulkanTools::BuildVertexInputAttributeDescription(0, 4, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, Tangent)),
-        vulkanTools::BuildVertexInputAttributeDescription(0, 5, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, Bitangent)),
+        vulkanTools::BuildVertexInputAttributeDescription(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(vertex, Position)),
+        vulkanTools::BuildVertexInputAttributeDescription(0, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(vertex, Normal)),
+        vulkanTools::BuildVertexInputAttributeDescription(0, 2, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(vertex, Tangent))
     };
     VerticesDescription.InputState = vulkanTools::BuildPipelineVertexInputStateCreateInfo();
     VerticesDescription.InputState.vertexBindingDescriptionCount = (uint32_t)VerticesDescription.BindingDescription.size();

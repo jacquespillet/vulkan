@@ -1,11 +1,10 @@
 #version 450
 
+
 layout (location = 0) in vec4 inPos;
-layout (location = 1) in vec2 inUV;
-layout (location = 2) in vec3 inColor;
-layout (location = 3) in vec3 inNormal;
-layout (location = 4) in vec3 inTangent;
-layout (location = 5) in vec3 inBitangent;
+layout (location = 1) in vec4 inNormal;
+layout (location = 2) in vec4 inTangent;
+
 
 layout (set=0, binding = 0) uniform UBO 
 {
@@ -32,7 +31,7 @@ void main()
 	vec4 pos = inPos;
 	gl_Position = ubo.projection * ubo.view * InstanceUBO.model * pos;
 	
-	outUV = inUV;
+	outUV = vec2(inPos.w, inNormal.w);
 	outUV.t = 1.0 - outUV.t;
 
 	// Vertex position in world space
@@ -45,16 +44,11 @@ void main()
 	
 	// Normal in world space
 	mat3 mNormal = transpose(inverse(mat3(InstanceUBO.model)));
-	outNormal = mNormal * normalize(inNormal);	
+	outNormal = mNormal * normalize(inNormal.xyz);	
 
 	// Normal in view space
 	mat3 normalMatrix = transpose(inverse(mat3(ubo.view * InstanceUBO.model)));
-	outNormal = normalMatrix * inNormal;
+	outNormal = normalMatrix * inNormal.xyz;
 
-	outTangent = mNormal * normalize(inTangent);
-
-	// Currently just vertex color
-	outColor = inColor;
-
-	outBitangent = inBitangent;
+	outTangent = mNormal * normalize(inTangent.xyz);
 }

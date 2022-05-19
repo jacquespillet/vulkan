@@ -180,10 +180,10 @@ void deferredRenderer::UpdateUniformBufferSSAOParams()
 void deferredRenderer::BuildQuads()
 {
     std::vector<vertex> VertexBuffer;
-    VertexBuffer.push_back({ { 1.0f, 1.0f, 0.0f },{ 1.0f, 1.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });
-    VertexBuffer.push_back({ { 0,      1.0f, 0.0f },{ 0.0f, 1.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });
-    VertexBuffer.push_back({ { 0,      0,      0.0f },{ 0.0f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });
-    VertexBuffer.push_back({ { 1.0f, 0,      0.0f },{ 1.0f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });    
+    VertexBuffer.push_back({ { 1.0f, 1.0f, 0.0f, 1.0f},{ 1.0f, 1.0f, 1.0f , 1.0f},{ 0.0f, 0.0f, 0.0f, 0.0f } });
+    VertexBuffer.push_back({ { 0,      1.0f, 0.0f, 0.0f},{ 1.0f, 1.0f, 1.0f , 1.0f},{ 0.0f, 0.0f, 0.0f, 0.0f } });
+    VertexBuffer.push_back({ { 0,      0,      0.0f, 0.0f},{ 1.0f, 1.0f, 1.0f , 0.0f},{ 0.0f, 0.0f, 0.0f, 0.0f } });
+    VertexBuffer.push_back({ { 1.0f, 0,      0.0f, 1.0f},{ 1.0f, 1.0f, 1.0f, 0.0f },{ 0.0f, 0.0f, 0.0f, 0.0f } });    
     
     vulkanTools::CreateBuffer(VulkanDevice,
                              VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,

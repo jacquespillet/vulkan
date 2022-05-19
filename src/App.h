@@ -92,15 +92,7 @@ public:
     VkPipelineCache PipelineCache;
     textureLoader *TextureLoader;
     uint32_t CurrentBuffer=0;
-    struct vertex
-    {
-        glm::vec3 Position;
-        glm::vec2 UV;
-        glm::vec3 Color;
-        glm::vec3 Normal;
-        glm::vec3 Tangent;
-        glm::vec3 Bitangent;
-    };
+
     struct 
     {
         VkPipelineVertexInputStateCreateInfo InputState;

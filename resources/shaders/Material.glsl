@@ -1,0 +1,154 @@
+
+struct materialInfo
+{
+    float ior;
+    float PerceptualRoughness;      // roughness value, as authored by the model creator (input to shader)
+    vec3 f0;                        // full Reflectance color (n incidence angle)
+
+    float AlphaRoughness;           // roughness mapped to a more linear change in the roughness (proposed by [2])
+    vec3 c_diff;
+
+    vec3 F90;                       // Reflectance color at grazing angle
+    float Metallic;
+
+    vec3 BaseColor;
+
+    // float sheenRoughnessFactor;
+    // vec3 sheenColorFactor;
+
+    vec3 ClearcoatF0;
+    vec3 ClearcoatF90;
+    float ClearcoatFactor;
+    vec3 ClearcoatNormal;
+    float ClearcoatRoughness;
+
+    // KHR_materials_specular 
+    float SpecularWeight; // product of specularFactor and specularTexture.a
+
+    // float transmissionFactor;
+
+    // float thickness;
+    // vec3 attenuationColor;
+    // float attenuationDistance;
+
+    // KHR_materials_iridescence
+    // float iridescenceFactor;
+    // float iridescenceIOR;
+    // float iridescenceThickness;
+};
+
+
+struct normalInfo {
+    vec3 ng;   // Geometry normal
+    vec3 t;    // Geometry tangent
+    vec3 b;    // Geometry bitangent
+    vec3 n;    // Shading normal
+    vec3 ntex; // Normal from texture, scaling is accounted for.
+};
+
+// Get normal, tangent and bitangent vectors.
+normalInfo getNormalInfo(vec3 v)
+{
+    // vec3 uv_dx = dFdx(vec3(FragUv, 0.0));
+    // vec3 uv_dy = dFdy(vec3(FragUv, 0.0));
+
+    // vec3 t_ = (uv_dy.t * dFdx(FragPosition) - uv_dx.t * dFdy(FragPosition)) /
+    //     (uv_dx.s * uv_dy.t - uv_dy.s * uv_dx.t);
+
+
+    vec3 n, t, b, ng;
+    
+    // #ifdef HAS_TANGENT_VEC3
+        t = normalize(TBN[0]);
+        b = normalize(TBN[1]);
+        ng = normalize(TBN[2]);
+    // #else
+    //     ng = normalize(FragNormal);
+    //     t = normalize(t_ - ng * dot(ng, t_));
+    //     b = cross(ng, t);
+    // #endif
+
+    // if (gl_FrontFacing)
+    // {
+    //     t *= -1.0;
+    //     b *= -1.0;
+    //     ng *= -1.0;
+    // }
+
+    normalInfo info;
+    info.ng = ng;
+    info.n = ng;
+// #ifdef HAS_NORMAL_MAP
+    if(MaterialUBO.NormalMapTextureID >= 0)
+    {
+        info.ntex = texture(samplerNormal, FragUv).rgb * 2.0 - vec3(1.0);
+        info.ntex = normalize(info.ntex);
+        info.n = normalize(mat3(t, b, ng) * info.ntex);
+    }
+// #endif
+
+    info.t = t;
+    info.b = b;
+    return info;
+}
+
+materialInfo getMetallicRoughnessInfo(materialInfo info)
+{
+    info.Metallic = MaterialUBO.Metallic;
+    info.PerceptualRoughness = MaterialUBO.Roughness;
+
+// #ifdef HAS_METALLIC_ROUGHNESS_MAP
+    if(MaterialUBO.MetallicRoughnessTextureID >= 0)
+    {
+        vec4 mrSample = texture(samplerSpecular, FragUv);
+        info.PerceptualRoughness *= mrSample.g;
+        info.Metallic *= mrSample.b;
+    }
+// #endif
+
+    // Achromatic f0 based on IOR.
+    info.c_diff = mix(info.BaseColor.rgb,  vec3(0), info.Metallic);
+    info.f0 = mix(info.f0, info.BaseColor.rgb, info.Metallic);
+    return info;
+}
+
+vec4 GetBaseColor()
+{
+    vec4 BaseColor = vec4(1);
+
+    BaseColor = vec4(MaterialUBO.BaseColor, 1);
+
+// #ifdef HAS_BASE_COLOR_MAP
+    if(MaterialUBO.BaseColorTextureID >= 0)
+    {
+        vec4 sampleCol = texture(samplerColor, FragUv); 
+        BaseColor.rgb *= sampleCol.rgb;
+        BaseColor.a *= sampleCol.a;
+    }
+// #endif
+
+
+    return BaseColor;
+}
+
+
+
+vec3 getClearcoatNormal(normalInfo normalInfo)
+{
+    //TODO(JAcques): Clearcoat normal map
+    return normalInfo.ng;
+}
+
+materialInfo GetClearCoatInfo(materialInfo info, normalInfo normalInfo)
+{
+    info.ClearcoatFactor = MaterialUBO.ClearcoatFactor;
+    info.ClearcoatRoughness = MaterialUBO.ClearcoatRoughness;
+    info.ClearcoatF0 = vec3(pow((info.ior - 1.0) / (info.ior + 1.0), 2.0));
+    info.ClearcoatF90 = vec3(1.0);
+
+    //TODO(Jacques): Clearcoat map and roughness map
+
+    info.ClearcoatNormal = getClearcoatNormal(normalInfo);
+    info.ClearcoatRoughness = clamp(info.ClearcoatRoughness, 0.0, 1.0);
+    return info;
+}

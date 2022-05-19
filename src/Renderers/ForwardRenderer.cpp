@@ -85,6 +85,7 @@ void forwardRenderer::UpdateUniformBufferDeferredMatrices()
     UBOSceneMatrices.Projection = Camera.GetProjectionMatrix();
     UBOSceneMatrices.View = Camera.GetViewMatrix();
     UBOSceneMatrices.Model = glm::mat4(1);
+    UBOSceneMatrices.CameraPosition = Camera.worldPosition;
     
     UBOSceneMatrices.ViewportDim = glm::vec2((float)App->Width,(float)App->Height);
     VK_CALL(UniformBuffers.SceneMatrices.Map());
@@ -99,7 +100,7 @@ void forwardRenderer::BuildLayoutsAndDescriptors()
     App->Scene->CreateDescriptorSets();
 
     //Create the scene descriptor set layout
-    VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0 );
+    VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0 );
     VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(&SetLayoutBindings, 1);
     VkDescriptorSetLayout RendererDescriptorSetLayout = Resources.DescriptorSetLayouts->Add("Scene", DescriptorLayoutCreateInfo);
 

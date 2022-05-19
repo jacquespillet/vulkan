@@ -23,6 +23,7 @@ public:
         glm::mat4 Model;
         glm::mat4 View;
         glm::vec2 ViewportDim;
+        glm::vec3 CameraPosition;
     } UBOVS, UBOSceneMatrices;
         
     std::vector<VkShaderModule> ShaderModules;

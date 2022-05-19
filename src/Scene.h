@@ -14,12 +14,9 @@ class textureList;
 
 struct vertex
 {
-    glm::vec3 Position;
-    glm::vec2 UV;
-    glm::vec3 Color;
-    glm::vec3 Normal;
-    glm::vec3 Tangent;
-    glm::vec3 Bitangent;
+    glm::vec4 Position;
+    glm::vec4 Normal;
+    glm::vec4 Tangent;
 };
 
 
@@ -79,7 +76,31 @@ struct sceneMaterial
     VkDescriptorSet DescriptorSet;
 };
 
+//Material system:
+enum materialFlags
+{
+    AlphaMode               = 1,
+    HasMetallicRoughnessMap = 1 << 1,
+    HasEmissiveMap          = 1 << 2,
+    HasBaseColorMap         = 1 << 4,
+    HasOcclusionMap         = 1 << 5,
+    HasClearCoat            = 1 << 6,
+    NumFlags                = 6
+};
 
+//Build the flags : 
+//MatFlag=0;
+//if(Mat->HasMtalic) MatFlag |= materialFlags::HasMetallicROughnessMAp
+//....
+//Store the matFlags in the material struct
+//In the resources, store the pipelines with the flags as key of the map
+
+//when building the pipelines :
+//For each material, build the flag, check if it already exists in the pipeline map
+//If it doesn't build the pipeline accordingly
+
+//At render time :
+//For mesh : build the pipeline of its material
 
 
 struct sceneMesh
