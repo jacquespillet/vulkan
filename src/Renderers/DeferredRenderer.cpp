@@ -57,6 +57,8 @@ void deferredRenderer::CreateCommandBuffers()
     DrawCommandBuffers.resize(App->Swapchain.ImageCount);
     VkCommandBufferAllocateInfo CommandBufferAllocateInfo = vulkanTools::BuildCommandBufferAllocateInfo(App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(DrawCommandBuffers.size()));
     VK_CALL(vkAllocateCommandBuffers(Device, &CommandBufferAllocateInfo, DrawCommandBuffers.data()));
+
+    OffscreenCommandBuffer = vulkanTools::CreateCommandBuffer(Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
 }
 
 void deferredRenderer::SetupDescriptorPool()
@@ -184,26 +186,22 @@ void deferredRenderer::BuildQuads()
     VertexBuffer.push_back({ { 1.0f, 0,      0.0f },{ 1.0f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 0.0f, 0 } });    
     
     vulkanTools::CreateBuffer(VulkanDevice,
-                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-                    VertexBuffer.size() * sizeof(vertex),
-                    VertexBuffer.data(),
-                    &Meshes.Quad.VertexBuffer.Buffer,
-                    &Meshes.Quad.VertexBuffer.Memory); 
+                             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                             &Meshes.Quad.VertexBuffer,
+                             VertexBuffer.size() * sizeof(vertex),
+                             VertexBuffer.data());
 
     
-    std::vector<uint32_t> IndicesBuffer = {0,1,2,  2,3,0};
-    Meshes.Quad.IndexCount = (uint32_t)IndicesBuffer.size();
+    std::vector<uint32_t> IndexBuffer = {0,1,2,  2,3,0};
+    Meshes.Quad.IndexCount = (uint32_t)IndexBuffer.size();
 
-    vulkanTools::CreateBuffer(
-        VulkanDevice,
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-        IndicesBuffer.size() * sizeof(uint32_t),
-        IndicesBuffer.data(),
-        &Meshes.Quad.IndexBuffer.Buffer,
-        &Meshes.Quad.IndexBuffer.Memory
-    );
+    vulkanTools::CreateBuffer(VulkanDevice,
+                             VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                             &Meshes.Quad.IndexBuffer,
+                             IndexBuffer.size() * sizeof(uint32_t),
+                             IndexBuffer.data());
 }
 
 
@@ -568,15 +566,6 @@ void deferredRenderer::BuildCommandBuffers()
 
 void deferredRenderer::BuildDeferredCommandBuffers()
 {
-    if((OffscreenCommandBuffer == VK_NULL_HANDLE) || Rebuild)
-    {
-        if(Rebuild)
-        {
-            vkFreeCommandBuffers(Device, App->CommandPool, 1, &OffscreenCommandBuffer);
-        }
-        OffscreenCommandBuffer = vulkanTools::CreateCommandBuffer(Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
-    }
-
     VkSemaphoreCreateInfo SemaphoreCreateInfo = vulkanTools::BuildSemaphoreCreateInfo();
     VK_CALL(vkCreateSemaphore(Device, &SemaphoreCreateInfo, nullptr, &OffscreenSemaphore));
 
@@ -723,5 +712,26 @@ void deferredRenderer::UpdateCamera()
 
 void deferredRenderer::Destroy()
 {
+    vkDestroySemaphore(VulkanDevice->Device, OffscreenSemaphore, nullptr);
+    for (size_t i = 0; i < ShaderModules.size(); i++)
+    {
+        vkDestroyShaderModule(VulkanDevice->Device, ShaderModules[i], nullptr);
+    }
+
+    Textures.SSAONoise.Destroy(VulkanDevice);
     
+    Framebuffers.Offscreen.Destroy(VulkanDevice->Device);
+    Framebuffers.SSAO.Destroy(VulkanDevice->Device);
+    Framebuffers.SSAOBlur.Destroy(VulkanDevice->Device);
+    
+    Meshes.Quad.Destroy();
+    UniformBuffers.FullScreen.Destroy();
+    UniformBuffers.SceneMatrices.Destroy();
+    UniformBuffers.SSAOKernel.Destroy();
+    UniformBuffers.SSAOParams.Destroy();
+    Resources.Destroy();
+    vkDestroyDescriptorPool(VulkanDevice->Device, DescriptorPool, nullptr);
+    
+    vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, (uint32_t)DrawCommandBuffers.size(), DrawCommandBuffers.data());
+    vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, 1, &OffscreenCommandBuffer);
 }
