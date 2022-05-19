@@ -237,7 +237,7 @@ void scene::CreateDescriptorSets()
         std::vector<VkDescriptorPoolSize> PoolSizes = 
         {
             vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1),
-            vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  1)
+            vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  4)
         };
         VkDescriptorPoolCreateInfo DescriptorPoolInfo = vulkanTools::BuildDescriptorPoolCreateInfo(
             (uint32_t)PoolSizes.size(),
@@ -251,8 +251,12 @@ void scene::CreateDescriptorSets()
         std::vector<VkDescriptorSetLayoutBinding> SetLayoutBindings;
         SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0 ));
         SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ));
+        SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2 ));
+        SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 3 ));
+        SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4 ));
         VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), (uint32_t)SetLayoutBindings.size());
         VK_CALL(vkCreateDescriptorSetLayout(Device, &DescriptorLayoutCreateInfo, nullptr, &Cubemap.DescriptorSetLayout));
+
 
         VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(Cubemap.DescriptorPool, &Cubemap.DescriptorSetLayout, 1);
         VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &Cubemap.DescriptorSet));
@@ -260,7 +264,10 @@ void scene::CreateDescriptorSets()
         std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
         {
             vulkanTools::BuildWriteDescriptorSet( Cubemap.DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &Cubemap.UniformBuffer.Descriptor),
-            vulkanTools::BuildWriteDescriptorSet( Cubemap.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &Cubemap.Texture.Descriptor)
+            vulkanTools::BuildWriteDescriptorSet( Cubemap.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &Cubemap.Texture.Descriptor),
+            vulkanTools::BuildWriteDescriptorSet( Cubemap.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &Cubemap.IrradianceMap.Descriptor),
+            vulkanTools::BuildWriteDescriptorSet( Cubemap.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &Cubemap.PrefilteredMap.Descriptor),
+            vulkanTools::BuildWriteDescriptorSet( Cubemap.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &Cubemap.BRDFLUT.Descriptor)
         };
         vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
     
