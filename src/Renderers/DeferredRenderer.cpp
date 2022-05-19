@@ -282,9 +282,9 @@ void deferredRenderer::BuildLayoutsAndDescriptors()
         std::vector<descriptor> Descriptors = 
         {
             descriptor(VK_SHADER_STAGE_VERTEX_BIT, UniformBuffers.FullScreen.Descriptor),
-            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler),
-            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler),
-            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[2].ImageView, Framebuffers.Offscreen.Sampler),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[2].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.SSAOBlur._Attachments[0].ImageView, Framebuffers.SSAOBlur.Sampler)
         };
         
@@ -295,8 +295,8 @@ void deferredRenderer::BuildLayoutsAndDescriptors()
     {
         std::vector<descriptor> Descriptors = 
         {
-            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler),
-            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Textures.SSAONoise.View, Textures.SSAONoise.Sampler),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, UniformBuffers.SSAOKernel.Descriptor),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, UniformBuffers.SSAOParams.Descriptor),
@@ -308,7 +308,7 @@ void deferredRenderer::BuildLayoutsAndDescriptors()
     {
         std::vector<descriptor> Descriptors = 
         {
-            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.SSAO._Attachments[0].ImageView, Framebuffers.SSAO.Sampler)
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.SSAO._Attachments[0].ImageView, Framebuffers.SSAO.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
         };
         Resources.AddDescriptorSet(VulkanDevice, "SSAO.Blur", Descriptors, DescriptorPool);            
     }
@@ -582,9 +582,6 @@ void deferredRenderer::BuildDeferredCommandBuffers()
 
     VkCommandBufferBeginInfo CommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
     VK_CALL(vkBeginCommandBuffer(OffscreenCommandBuffer, &CommandBufferBeginInfo));
-
-
-
     
     //G-buffer pass
     std::array<VkClearValue, 4> ClearValues = {};
@@ -644,6 +641,24 @@ void deferredRenderer::BuildDeferredCommandBuffers()
 
     vkCmdEndRenderPass(OffscreenCommandBuffer);
 
+    //
+    //Transition framebuffers from layout color attachment to layout shader read only
+    vulkanTools::TransitionImageLayout(OffscreenCommandBuffer,
+    Framebuffers.Offscreen._Attachments[0].Image, 
+    VK_IMAGE_ASPECT_COLOR_BIT,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    vulkanTools::TransitionImageLayout(OffscreenCommandBuffer,
+    Framebuffers.Offscreen._Attachments[1].Image, 
+    VK_IMAGE_ASPECT_COLOR_BIT,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    vulkanTools::TransitionImageLayout(OffscreenCommandBuffer,
+    Framebuffers.Offscreen._Attachments[2].Image, 
+    VK_IMAGE_ASPECT_COLOR_BIT,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
     if(EnableSSAO)
     {
         ClearValues[0].color = {{0.0f,0.0f,0.0f,0.0f}};
@@ -670,20 +685,13 @@ void deferredRenderer::BuildDeferredCommandBuffers()
         vkCmdDraw(OffscreenCommandBuffer, 3, 1, 0, 0);
         vkCmdEndRenderPass(OffscreenCommandBuffer);
         
-        //ssao blur
-        VkImageSubresourceRange SubresourceRange = {};
-        SubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        SubresourceRange.baseMipLevel = 0;
-        SubresourceRange.levelCount = 1;
-        SubresourceRange.layerCount = 1;
-        vulkanTools::TransitionImageLayout(
-            OffscreenCommandBuffer,
-            Framebuffers.SSAOBlur._Attachments[0].Image,
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_GENERAL,
-            SubresourceRange
-        );
+
+
+        vulkanTools::TransitionImageLayout(OffscreenCommandBuffer,
+        Framebuffers.SSAO._Attachments[0].Image, 
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                 
         RenderPassBeginInfo.framebuffer = Framebuffers.SSAO.Framebuffer;
         RenderPassBeginInfo.renderPass = Framebuffers.SSAO.RenderPass;

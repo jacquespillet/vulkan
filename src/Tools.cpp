@@ -861,10 +861,7 @@ namespace vulkanTools
         VkImageAspectFlags AspectMask=0;
         Attachment->Format = Format;
 
-        if(Usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
-        {
-            AspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        }
+        AspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         if(Usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
         {
             AspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;

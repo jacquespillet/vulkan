@@ -199,11 +199,11 @@ struct descriptor
     VkDescriptorBufferInfo DescriptorBufferInfo;
     VkDescriptorType DescriptorType;
 
-    descriptor(VkShaderStageFlags Stage, VkImageView ImageView, VkSampler Sampler) :
+    descriptor(VkShaderStageFlags Stage, VkImageView ImageView, VkSampler Sampler, VkImageLayout ImageLayout=VK_IMAGE_LAYOUT_GENERAL) :
                 Stage(Stage), ImageView(ImageView), DescriptorImageInfo(DescriptorImageInfo), Sampler(Sampler)
     {
         Type = Image;
-        DescriptorImageInfo = vulkanTools::BuildDescriptorImageInfo(Sampler, ImageView, VK_IMAGE_LAYOUT_GENERAL);
+        DescriptorImageInfo = vulkanTools::BuildDescriptorImageInfo(Sampler, ImageView, ImageLayout);
         DescriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     }
     

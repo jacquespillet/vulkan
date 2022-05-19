@@ -134,7 +134,7 @@ struct framebuffer
             {
                 AttachmentDescriptions[i].format = _Attachments[i].Format;
                 AttachmentDescriptions[i].finalLayout = FinalLayout;
-                ColorReferences.push_back({i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
+                ColorReferences.push_back({i, FinalLayout});
             }
             else if(HasDepth)//Depth
             {
