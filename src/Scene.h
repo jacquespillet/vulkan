@@ -105,7 +105,10 @@ struct sceneMaterial
     std::string Name;
     vulkanTexture Diffuse;
     vulkanTexture Specular;
-    vulkanTexture Bump;
+    vulkanTexture Normal;
+    vulkanTexture Emission;
+    vulkanTexture Occlusion;
+    
     bool HasAlpha=false;
     bool HasBump=false;
     bool HasSpecular=false;

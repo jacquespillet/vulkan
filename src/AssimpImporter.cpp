@@ -88,17 +88,17 @@ void Load(std::string FileName,  std::unordered_map<int, std::vector<instance>> 
 				std::replace(TextureFileName.begin(), TextureFileName.end(), '\\', '/');
 				if (!Textures->Present(TextureFileName))
 				{
-					Materials[i].Bump = Textures->AddTexture2D(TextureFileName, "resources/models/sponza/" + TextureFileName, VK_FORMAT_BC2_UNORM_BLOCK);
+					Materials[i].Normal = Textures->AddTexture2D(TextureFileName, "resources/models/sponza/" + TextureFileName, VK_FORMAT_BC2_UNORM_BLOCK);
 					AScene->mMaterials[i]->Get(AI_MATKEY_TEXTURE_NORMALS(0), Materials[i].MaterialData.NormalMapTextureID);
 				}
 				else
 				{
-					Materials[i].Bump = Textures->Get(TextureFileName);
+					Materials[i].Normal = Textures->Get(TextureFileName);
 				}
 			}
 			else
 			{
-				Materials[i].Bump = Textures->Get("Dummy.Bump");
+				Materials[i].Normal = Textures->Get("Dummy.Bump");
 			}
 
 			if (AScene->mMaterials[i]->GetTextureCount(aiTextureType_OPACITY) > 0)

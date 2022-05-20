@@ -25,6 +25,56 @@
 
 namespace GLTFImporter
 {
+
+    void CalculateTangents(const std::vector<glm::vec3> &Positions,  const std::vector<glm::vec3> &Normals, const std::vector<glm::vec2> &UVs, const std::vector<uint32_t> &Indices, std::vector<glm::vec4>& Tangents) {
+        std::vector<glm::vec4> tan1(Positions.size(), glm::vec4(0));
+        std::vector<glm::vec4> tan2(Positions.size(), glm::vec4(0));
+		if (Tangents.size() != Positions.size()) Tangents.resize(Positions.size());
+        for(uint64_t i=0; i<Indices.size(); i+=3) {
+            glm::vec3 v1 = Positions[Indices[i]];
+            glm::vec3 v2 = Positions[Indices[i + 1]];
+            glm::vec3 v3 = Positions[Indices[i + 2]];
+
+            glm::vec2 w1 = UVs[Indices[i]];
+            glm::vec2 w2 = UVs[Indices[i+1]];
+            glm::vec2 w3 = UVs[Indices[i+2]];
+
+            double x1 = v2.x - v1.x;
+            double x2 = v3.x - v1.x;
+            double y1 = v2.y - v1.y;
+            double y2 = v3.y - v1.y;
+            double z1 = v2.z - v1.z;
+            double z2 = v3.z - v1.z;
+
+            double s1 = w2.x - w1.x;
+            double s2 = w3.x - w1.x;
+            double t1 = w2.y - w1.y;
+            double t2 = w3.y - w1.y;
+
+            double r = 1.0F / (s1 * t2 - s2 * t1);
+            glm::vec4 sdir((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r, (t2 * z1 - t1 * z2) * r, 0);
+            glm::vec4 tdir((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r, (s1 * z2 - s2 * z1) * r, 0);
+
+            tan1[Indices[i]] += sdir;
+            tan1[Indices[i + 1]] += sdir;
+            tan1[Indices[i + 2]] += sdir;
+            
+            tan2[Indices[i]] += tdir;
+            tan2[Indices[i + 1]] += tdir;
+            tan2[Indices[i + 2]] += tdir;
+
+        }
+
+        for(uint64_t i=0; i<Positions.size(); i++) { 
+            glm::vec3 n = Normals[i];
+            glm::vec3 t = glm::vec3(tan1[i]);
+
+            Tangents[i] = glm::vec4(glm::normalize((t - n * glm::dot(n, t))), 1);
+            
+            Tangents[i].w = (glm::dot(glm::cross(n, t), glm::vec3(tan2[i])) < 0.0F) ? -1.0F : 1.0F;
+        }
+    }
+
     void LoadTextures(tinygltf::Model &GLTFModel, textureList *Textures)
     {
 		Textures->AddTexture2D("Dummy.Diffuse", "resources/models/sponza/dummy.dds", VK_FORMAT_BC2_UNORM_BLOCK);
@@ -78,6 +128,11 @@ namespace GLTFImporter
                 }
                 Materials[i].Diffuse = Textures->Get(TexName);
             }
+            else
+            {
+                Materials[i].Diffuse = Textures->Get("Dummy.Diffuse");         
+                Materials[i].MaterialData.UseBaseColor=0;
+            }
 
             Materials[i].MaterialData.Opacity = (float)PBR.baseColorFactor[3];
             Materials[i].MaterialData.AlphaCutoff = (float) GLTFMaterial.alphaCutoff;
@@ -127,24 +182,61 @@ namespace GLTFImporter
                 {
                     TexName = "Dummy.Bump";
                 }
-                Materials[i].Bump = Textures->Get(TexName);                
+                Materials[i].Normal = Textures->Get(TexName);                
             }
             else
             {
-                Materials[i].Bump = Textures->Get("Dummy.Bump");                
+                Materials[i].Normal = Textures->Get("Dummy.Bump");                
                 Materials[i].MaterialData.UseNormalMap=0;
             }
 
-            Materials[i].CalculateFlags();
+            if(GLTFMaterial.occlusionTexture.index>-1)
+            {
+                int TexIndex = GLTFMaterial.occlusionTexture.index;
+                Materials[i].MaterialData.OcclusionMapTextureID = TexIndex;
 
-            // if(GLTFMaterial.occlusionTexture.index>-1)
-            // {
-            //     Materials[i].MaterialData.OcclusionMapTextureID = GLTFMaterial.occlusionTexture.index;
-            // }
-            // else
-            // {
-            //     Materials[i].MaterialData.UseOcclusionMap=0;
-            // }
+                tinygltf::Texture& GLTFTex = GLTFModel.textures[TexIndex];
+                tinygltf::Image GLTFImage = GLTFModel.images[GLTFTex.source];
+                std::string TexName = GLTFTex.name;
+                if(strcmp(GLTFTex.name.c_str(), "") == 0)
+                {
+                    TexName = GLTFImage.uri;
+                }
+                else
+                {
+                    TexName = "Dummy.Diffuse";
+                }
+                Materials[i].Occlusion = Textures->Get(TexName);                
+            }
+            else
+            {
+                Materials[i].Occlusion = Textures->Get("Dummy.Diffuse");                
+                Materials[i].MaterialData.UseOcclusionMap=0;
+            }            
+
+            if(GLTFMaterial.emissiveTexture.index>-1)
+            {
+                int TexIndex = GLTFMaterial.emissiveTexture.index;
+                Materials[i].MaterialData.EmissionMapTextureID = TexIndex;
+
+                tinygltf::Texture& GLTFTex = GLTFModel.textures[TexIndex];
+                tinygltf::Image GLTFImage = GLTFModel.images[GLTFTex.source];
+                std::string TexName = GLTFTex.name;
+                if(strcmp(GLTFTex.name.c_str(), "") == 0)
+                {
+                    TexName = GLTFImage.uri;
+                }
+                else
+                {
+                    TexName = "Dummy.Specular"; //Black texture
+                }
+                Materials[i].Emission = Textures->Get(TexName);                
+            }
+            else
+            {
+                Materials[i].Emission = Textures->Get("Dummy.Specular");                
+                Materials[i].MaterialData.UseEmissionMap=0;
+            }            
 
 
             // Materials[i].MaterialData.Emission = glm::vec3((float) GLTFMaterial.emissiveFactor[0], (float) GLTFMaterial.emissiveFactor[1], (float) GLTFMaterial.emissiveFactor[2]);
@@ -183,6 +275,9 @@ namespace GLTFImporter
             // {
             //     Materials[i].MaterialData.HasClearcoat=0;
             // }
+            
+            
+            Materials[i].CalculateFlags();
         }
     }    
 
@@ -259,6 +354,7 @@ namespace GLTFImporter
                     TangentStride = tinygltf::GetComponentSizeInBytes(TangentAccessor.componentType) * tinygltf::GetNumComponentsInType(TangentAccessor.type);
                     if(TangentBufferView.byteStride > 0) TangentStride =(int) TangentBufferView.byteStride;
                 }
+      
 
                 //UV
                 tinygltf::Accessor UVAccessor;
@@ -288,10 +384,11 @@ namespace GLTFImporter
                 std::vector<glm::vec3> Normals;
                 std::vector<glm::vec4> Tangents;
                 std::vector<glm::vec2> UVs;
+
+
                 for (size_t k = 0; k < PositionAccessor.count; k++)
                 {
                     glm::vec3 Position, Normal;
-                    glm::vec4 Tangent;
                     glm::vec2 UV;
 
                     {
@@ -307,8 +404,10 @@ namespace GLTFImporter
 
                     if(TangentIndex>0)
                     {
+                        glm::vec4 Tangent;
                         const uint8_t *address = TangentBufferAddress + TangentBufferView.byteOffset + TangentAccessor.byteOffset + (k * TangentStride);
                         memcpy(&Tangent, address, 16);
+                        Tangents.push_back(Tangent);
                     }
 
                     if(UVIndex>0)
@@ -319,12 +418,12 @@ namespace GLTFImporter
 
                     Positions.push_back(Position);
                     Normals.push_back(Normal);
-                    Tangents.push_back(Tangent);
                     UVs.push_back(UV);
                 }
 
+
                 //Fill indices buffer
-                std::vector<int> indices(IndicesAccessor.count);
+                std::vector<uint32_t> Indices(IndicesAccessor.count);
                 const uint8_t *baseAddress = IndicesBufferAddress + IndicesBufferView.byteOffset + IndicesAccessor.byteOffset;
                 if(IndicesStride == 1)
                 {
@@ -333,7 +432,7 @@ namespace GLTFImporter
                     memcpy(Quarter.data(), baseAddress, (IndicesAccessor.count) * IndicesStride);
                     for(size_t i=0; i<IndicesAccessor.count; i++)
                     {
-                        indices[i] = Quarter[i];
+                        Indices[i] = Quarter[i];
                     }
                 }
                 else if(IndicesStride == 2)
@@ -343,12 +442,18 @@ namespace GLTFImporter
                     memcpy(Half.data(), baseAddress, (IndicesAccessor.count) * IndicesStride);
                     for(size_t i=0; i<IndicesAccessor.count; i++)
                     {
-                        indices[i] = Half[i];
+                        Indices[i] = Half[i];
                     }
                 }
                 else
                 {
-                    memcpy(indices.data(), baseAddress, (IndicesAccessor.count) * IndicesStride);
+                    memcpy(Indices.data(), baseAddress, (IndicesAccessor.count) * IndicesStride);
+                }
+
+                
+                if(Tangents.size()==0)
+                {
+                    CalculateTangents(Positions, Normals, UVs, Indices, Tangents);                                        
                 }
 
                 Meshes[BaseIndex + j].IndexBase = GIndexBase;
@@ -356,12 +461,12 @@ namespace GLTFImporter
                 InstanceMapping[MeshIndex][j] = &Meshes[BaseIndex + j];
 
                 uint32_t VertexBase = (uint32_t) GVertices.size();
-                for (size_t k = 0; k < indices.size(); k++)
+                for (size_t k = 0; k < Indices.size(); k++)
                 {
-                    glm::vec2 UV = UVs[indices[k]];
-                    glm::vec4 Position = glm::vec4(Positions[indices[k]].x,Positions[indices[k]].y, Positions[indices[k]].z, UV.x);
-                    glm::vec4 Normal = glm::vec4(Normals[indices[k]].x,Normals[indices[k]].y, Normals[indices[k]].z, UV.y);
-                    glm::vec4 Tangent = Tangents[indices[k]];
+                    glm::vec2 UV = UVs[Indices[k]];
+                    glm::vec4 Position = glm::vec4(Positions[Indices[k]].x,Positions[Indices[k]].y, Positions[Indices[k]].z, UV.x);
+                    glm::vec4 Normal = glm::vec4(Normals[Indices[k]].x,Normals[Indices[k]].y, Normals[Indices[k]].z, UV.y);
+                    glm::vec4 Tangent = Tangents[Indices[k]];
 
                     GVertices.push_back({
                         Position, 
@@ -376,8 +481,8 @@ namespace GLTFImporter
                     });
                 }
                 
-                Meshes[BaseIndex + j].IndexCount = (uint32_t)indices.size();
-                for(uint32_t k=0; k<indices.size(); k++)
+                Meshes[BaseIndex + j].IndexCount = (uint32_t)Indices.size();
+                for(uint32_t k=0; k<Indices.size(); k++)
                 {
                     GIndices.push_back(VertexBase + k);
                     Meshes[BaseIndex + j].Indices.push_back(k);
