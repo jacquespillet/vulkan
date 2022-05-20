@@ -378,6 +378,11 @@ void vulkanApp::RenderGUI()
                 
                     ImGui::Separator();
 
+                    UpdateMaterial |= ImGui::Checkbox("Use Occlusion Map", (bool*)&Material->UseOcclusionMap);
+                    UpdateMaterial |= ImGui::DragFloat("Occlusion Strength", &Material->OcclusionStrength, 0.01f, 0, 1);
+                
+                    ImGui::Separator();
+
                     UpdateMaterial |= ImGui::Checkbox("Use Color Map", (bool*)&Material->UseBaseColor);
                     UpdateMaterial |= ImGui::ColorPicker3("Base Color", glm::value_ptr(Material->BaseColor));
                     ImGui::Separator();

@@ -2,10 +2,7 @@
 
 const float Exposure=1;
 
-layout (set=1, binding = 0) uniform sampler2D samplerColor;
-layout (set=1, binding = 1) uniform sampler2D samplerSpecular;
-layout (set=1, binding = 2) uniform sampler2D samplerNormal;
-layout (set=1, binding = 3) uniform materialUBO 
+layout (set=1, binding = 0) uniform materialUBO 
 {
     int BaseColorTextureID;
     int MetallicRoughnessTextureID;
@@ -38,6 +35,10 @@ layout (set=1, binding = 3) uniform materialUBO
     vec3 Emission;
     float Exposure;   
 } MaterialUBO;
+layout (set=1, binding = 1) uniform sampler2D samplerColor;
+layout (set=1, binding = 2) uniform sampler2D samplerSpecular;
+layout (set=1, binding = 3) uniform sampler2D samplerNormal;
+layout (set=1, binding = 4) uniform sampler2D samplerOcclusion;
 
 
 layout (set=0, binding = 0) uniform UBO 
@@ -141,18 +142,15 @@ void main()
     FinalDiffuse += GetIBLRadianceLambertian(Normal, View, MaterialInfo.PerceptualRoughness, MaterialInfo.c_diff, MaterialInfo.f0, MaterialInfo.SpecularWeight);
 
 
-//     float AmbientOcclusion = 1.0;
-// #ifdef HAS_OCCLUSION_MAP
-//     if(_UseOcclusionMap>0)
-//     {
-//         AmbientOcclusion = texture(_MapsTextureArray, vec3(FragUv, _OcclusionMapTextureID)).r;
-//         FinalDiffuse = mix(FinalDiffuse, FinalDiffuse * AmbientOcclusion, _OcclusionStrength);
-//         // apply ambient occlusion to all lighting that is not punctual
-//         FinalSpecular = mix(FinalSpecular, FinalSpecular * AmbientOcclusion, _OcclusionStrength);
-//         FinalSheen = mix(FinalSheen, FinalSheen * AmbientOcclusion, _OcclusionStrength);
-//         FinalClearcoat = mix(FinalClearcoat, FinalClearcoat * AmbientOcclusion, _OcclusionStrength);
-//     }
-// #endif
+    float AmbientOcclusion = 1.0;
+    if(HAS_OCCLUSION_MAP > 0 &&  MaterialUBO.UseOcclusionMap>0)
+    {
+        AmbientOcclusion = texture(samplerOcclusion, FragUv).r;
+        FinalDiffuse = mix(FinalDiffuse, FinalDiffuse * AmbientOcclusion, MaterialUBO.OcclusionStrength);
+        FinalSpecular = mix(FinalSpecular, FinalSpecular * AmbientOcclusion, MaterialUBO.OcclusionStrength);
+        FinalSheen = mix(FinalSheen, FinalSheen * AmbientOcclusion, MaterialUBO.OcclusionStrength);
+        FinalClearcoat = mix(FinalClearcoat, FinalClearcoat * AmbientOcclusion, MaterialUBO.OcclusionStrength);
+    }
 
 //     FinalEmissive = _Emission * _EmissiveStrength;
 // #ifdef HAS_EMISSIVE_MAP

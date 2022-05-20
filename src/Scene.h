@@ -89,7 +89,7 @@ struct materialData
     float padding1;
     
     float Metallic=0;
-    float OcclusionStrength=0;
+    float OcclusionStrength=1;
     float EmissiveStrength=1;
     float ClearcoatFactor=0;
     

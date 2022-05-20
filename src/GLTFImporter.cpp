@@ -204,7 +204,7 @@ namespace GLTFImporter
                 }
                 else
                 {
-                    TexName = "Dummy.Diffuse";
+                    TexName = "Dummy.Diffuse"; //Use a white color if not present
                 }
                 Materials[i].Occlusion = Textures->Get(TexName);                
             }
