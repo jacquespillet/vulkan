@@ -49,50 +49,29 @@ struct normalInfo {
 // Get normal, tangent and bitangent vectors.
 normalInfo getNormalInfo(vec3 v)
 {
-    // vec3 uv_dx = dFdx(vec3(FragUv, 0.0));
-    // vec3 uv_dy = dFdy(vec3(FragUv, 0.0));
-
-    // vec3 t_ = (uv_dy.t * dFdx(FragPosition) - uv_dx.t * dFdy(FragPosition)) /
-    //     (uv_dx.s * uv_dy.t - uv_dy.s * uv_dx.t);
-
-
     vec3 n, t, b, ng;
-    
-    // #ifdef HAS_TANGENT_VEC3
-        t = normalize(TBN[0]);
-        b = normalize(TBN[1]);
-        ng = normalize(TBN[2]);
-    // #else
-    //     ng = normalize(FragNormal);
-    //     t = normalize(t_ - ng * dot(ng, t_));
-    //     b = cross(ng, t);
-    // #endif
-
-    // if (gl_FrontFacing)
-    // {
-    //     t *= -1.0;
-    //     b *= -1.0;
-    //     ng *= -1.0;
-    // }
+   
+    t = normalize(TBN[0]);
+    b = normalize(TBN[1]);
+    ng = normalize(TBN[2]);
 
     normalInfo info;
     info.ng = ng;
     info.n = ng;
-// #ifdef HAS_NORMAL_MAP
+
     if(MaterialUBO.NormalMapTextureID >= 0)
     {
         info.ntex = texture(samplerNormal, FragUv).rgb * 2.0 - vec3(1.0);
         info.ntex = normalize(info.ntex);
         info.n = normalize(mat3(t, b, ng) * info.ntex);
     }
-// #endif
 
     info.t = t;
     info.b = b;
     return info;
 }
 
-materialInfo getMetallicRoughnessInfo(materialInfo info)
+materialInfo GetMetallicRoughnessInfo(materialInfo info)
 {
     info.Metallic = MaterialUBO.Metallic;
     info.PerceptualRoughness = MaterialUBO.Roughness;
@@ -109,6 +88,14 @@ materialInfo getMetallicRoughnessInfo(materialInfo info)
     // Achromatic f0 based on IOR.
     info.c_diff = mix(info.BaseColor.rgb,  vec3(0), info.Metallic);
     info.f0 = mix(info.f0, info.BaseColor.rgb, info.Metallic);
+
+
+    info.PerceptualRoughness = Clamp01(info.PerceptualRoughness);
+    info.Metallic = Clamp01(info.Metallic);
+
+    info.AlphaRoughness = info.PerceptualRoughness * info.PerceptualRoughness;
+
+
     return info;
 }
 
@@ -122,7 +109,7 @@ vec4 GetBaseColor()
     if(MaterialUBO.BaseColorTextureID >= 0)
     {
         vec4 sampleCol = texture(samplerColor, FragUv); 
-        BaseColor.rgb *= sampleCol.rgb;
+        BaseColor.rgb *= pow(sampleCol.rgb, vec3(2.2));
         BaseColor.a *= sampleCol.a;
     }
 // #endif

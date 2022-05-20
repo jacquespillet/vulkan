@@ -38,9 +38,11 @@ namespace GLTFImporter
             {
                 TexName = GLTFImage.uri;
             }
-            VkFormat Format = VK_FORMAT_R8G8B8A8_SRGB;
+            
+            VkFormat Format = VK_FORMAT_R8G8B8A8_UNORM;
             assert(GLTFImage.component==4);
             assert(GLTFImage.bits==8);
+
             Textures->AddTexture2D(TexName, GLTFImage.image.data(), GLTFImage.image.size(), GLTFImage.width, GLTFImage.height, Format, true);
         }
     }
@@ -85,7 +87,7 @@ namespace GLTFImporter
             Materials[i].MaterialData.Metallic = (float)PBR.metallicFactor;
             if(PBR.metallicRoughnessTexture.index>-1)
             {
-                int TexIndex = PBR.baseColorTexture.index;
+                int TexIndex = PBR.metallicRoughnessTexture.index;
                 Materials[i].MaterialData.MetallicRoughnessTextureID = TexIndex;
 
                 tinygltf::Texture& GLTFTex = GLTFModel.textures[TexIndex];
@@ -128,7 +130,7 @@ namespace GLTFImporter
             else
             {
                 Materials[i].Bump = Textures->Get("Dummy.Bump");                
-                Materials[i].MaterialData.UseMetallicRoughness=0;
+                Materials[i].MaterialData.UseNormalMap=0;
             }
 
 
@@ -357,7 +359,6 @@ namespace GLTFImporter
                     glm::vec4 Position = glm::vec4(Positions[indices[k]].x,Positions[indices[k]].y, Positions[indices[k]].z, UV.x);
                     glm::vec4 Normal = glm::vec4(Normals[indices[k]].x,Normals[indices[k]].y, Normals[indices[k]].z, UV.y);
                     glm::vec4 Tangent = Tangents[indices[k]];
-                    UV.y *= -1;
 
                     GVertices.push_back({
                         Position, 

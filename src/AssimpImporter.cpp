@@ -146,6 +146,7 @@ void Load(std::string FileName, std::vector<instance> &Instances, std::vector<sc
             {
                 glm::vec2 UV = (HasUV) ? glm::make_vec2(&AMesh->mTextureCoords[0][j].x) : glm::vec2(0);
                 Meshes[i].Vertices[j].Position = glm::vec4(AMesh->mVertices[j].x, AMesh->mVertices[j].y, AMesh->mVertices[j].z, UV.x);
+				Meshes[i].Vertices[j].Position *= 0.01f;
                 Meshes[i].Vertices[j].Normal = glm::vec4(AMesh->mNormals[j].x, AMesh->mNormals[j].y, AMesh->mNormals[j].z, UV.y);
                 Meshes[i].Vertices[j].Tangent = (HasTangent) ? glm::make_vec4(&AMesh->mTangents[j].x) : glm::vec4(0,1,0,0);
                 GVertices.push_back(Meshes[i].Vertices[j]);

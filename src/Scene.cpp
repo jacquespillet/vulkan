@@ -19,7 +19,7 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
 {
     
     { //Cubemap
-        TextureLoader->LoadCubemap("resources/belfast_faarmhouse_4k.hdr", &Cubemap.Texture);
+        TextureLoader->LoadCubemap("resources/belfast_farmhouse_4k.hdr", &Cubemap.Texture);
         GLTFImporter::LoadMesh("resources/models/Cube/Cube.gltf", Cubemap.Mesh);
         size_t VertexDataSize = Cubemap.Mesh.Vertices.size() * sizeof(vertex);
         vulkanTools::CreateAndFillBuffer(
