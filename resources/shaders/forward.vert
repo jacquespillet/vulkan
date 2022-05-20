@@ -15,6 +15,7 @@ layout (set=0, binding = 0) uniform UBO
 layout (set=2, binding = 0) uniform instance 
 {
 	mat4 Model;
+	mat4 Normal;
 	float Selected;
 	vec3 Padding;
 } InstanceUBO;
@@ -33,9 +34,9 @@ void main()
 	FragUv = vec2(inPos.w, inNormal.w);
 
 
-	FragNormal = normalize((InstanceUBO.Model * vec4(inNormal.xyz, 0.0)).xyz);
+	FragNormal = normalize((InstanceUBO.Normal * vec4(inNormal.xyz, 0.0)).xyz);
 // #ifdef HAS_TANGENT_VEC3
-    vec3 FragTangent = normalize((InstanceUBO.Model * vec4(inTangent.xyz, 0.0)).xyz);  
+    vec3 FragTangent = normalize((InstanceUBO.Normal * vec4(inTangent.xyz, 0.0)).xyz);  
     // FragTangent = normalize(FragTangent - dot(FragTangent, FragNormal) * FragNormal);  
 
     vec3 FragBitangent = normalize(cross(FragNormal, FragTangent.xyz) * inTangent.w); 

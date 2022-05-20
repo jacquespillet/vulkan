@@ -177,6 +177,7 @@ struct instance
     struct 
     {
         glm::mat4 Transform;
+        glm::mat4 Normal;
         float Selected=0;
         glm::vec3 padding;
     } InstanceData;
@@ -197,6 +198,8 @@ struct instance
         glm::mat4 rotM = rotyPM * rotxPM * rotzPM; 	
             
         InstanceData.Transform = translateM * rotM * scaleM;   
+
+        InstanceData.Normal = glm::inverseTranspose(InstanceData.Transform);
 
         UploadUniform();
     }

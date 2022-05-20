@@ -52,6 +52,7 @@ layout (set=0, binding = 0) uniform UBO
 layout (set=2, binding = 0) uniform instance 
 {
 	mat4 Model;
+	mat4 Normal;
 	float Selected;
 	vec3 Padding;
 } InstanceUBO;
