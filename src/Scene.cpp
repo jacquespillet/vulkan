@@ -75,28 +75,22 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
 
         for (size_t i = 0; i < Materials.size(); i++)
         {
-            vulkanTools::CreateAndFillBuffer(
-                App->VulkanDevice,
-                &Materials[i].MaterialData,
-                sizeof(materialData),
-                &Materials[i].UniformBuffer,
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                CopyCommand,
-                Queue
-            );     
+            vulkanTools::CreateBuffer(App->VulkanDevice,
+                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                     &Materials[i].UniformBuffer,
+                                     sizeof(Materials[i].MaterialData),
+                                     &Materials[i].MaterialData);             
         }
         
         for (size_t i = 0; i < Instances.size(); i++)
         {
-            vulkanTools::CreateAndFillBuffer(
-                App->VulkanDevice,
-                &Instances[i].InstanceData,
-                sizeof(materialData),
-                &Instances[i].UniformBuffer,
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                CopyCommand,
-                Queue
-            );     
+            vulkanTools::CreateBuffer(App->VulkanDevice,
+                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                     &Instances[i].UniformBuffer,
+                                     sizeof(Instances[i].InstanceData),
+                                     &Instances[i].InstanceData);   
         }
 
         for(uint32_t i=0; i<Meshes.size(); i++)
@@ -214,7 +208,7 @@ void scene::CreateDescriptorSets()
 
         //Create descriptor set layout
         std::vector<VkDescriptorSetLayoutBinding> SetLayoutBindings;
-        SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0 ));
+        SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0 ));
         VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), (uint32_t)SetLayoutBindings.size());
         VK_CALL(vkCreateDescriptorSetLayout(Device, &DescriptorLayoutCreateInfo, nullptr, &InstanceDescriptorSetLayout));
 

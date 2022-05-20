@@ -48,13 +48,11 @@ public:
 	// Initialize all Vulkan resources used by the ui
 	void InitResources(VkRenderPass RenderPass, VkQueue CopyQueue);
 
-	// Starts a new imGui frame and sets up windows and ui elements
-	void NewFrame(vulkanApp *App, bool UpdateFrameGraph);
-
 	// Update vertex and index buffer containing the imGui elements when required
 	void UpdateBuffers();
 
 	// Draw current imGui frame into a command buffer
 	void DrawFrame(VkCommandBuffer CommandBuffer);
 
+	void InitStyle();
 };

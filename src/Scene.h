@@ -120,19 +120,55 @@ struct sceneMesh
 
     sceneMaterial *Material;
 
+
     void Destroy();
 };
 
 struct instance
 {
     sceneMesh *Mesh;
+    
+
+    glm::vec3 Position;
+    glm::vec3 Rotation;
+    glm::vec3 Scale;
+
     struct 
     {
         glm::mat4 Transform;
+        float Selected=0;
+        glm::vec3 padding;
     } InstanceData;
     
     buffer UniformBuffer;
     VkDescriptorSet DescriptorSet;
+    
+    void RecalculateModelMatrixAndUpload()
+    {
+        glm::mat4 translateM = glm::translate(glm::mat4(1.0f), Position);
+        
+        glm::mat4 scaleM = glm::scale(glm::mat4(1.0f), Scale);
+
+        glm::mat4 rotxPM = glm::rotate(glm::mat4(1.0f), glm::radians(Rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));//rot x axis
+        glm::mat4 rotyPM = glm::rotate(glm::mat4(1.0f), glm::radians(Rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));//rot y axis
+        glm::mat4 rotzPM = glm::rotate(glm::mat4(1.0f), glm::radians(Rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));//rot z axis
+
+        glm::mat4 rotM = rotyPM * rotxPM * rotzPM; 	
+            
+        InstanceData.Transform = translateM * rotM * scaleM;   
+
+        UploadUniform();
+    }
+
+    void UploadUniform()
+    {
+        UniformBuffer.Map();
+        UniformBuffer.CopyTo(&InstanceData, sizeof(InstanceData));
+        UniformBuffer.Unmap();     
+    }
+    
+
+    std::string Name;
 };
 
 
@@ -144,18 +180,18 @@ struct cubemap
     vulkanTexture BRDFLUT;
     sceneMesh Mesh;
 
+    VkDescriptorSet DescriptorSet;
+    VkDescriptorSetLayout DescriptorSetLayout;
+    VkDescriptorPool DescriptorPool;
+
+    VkPipeline Pipeline;
+
     struct uniformData 
     {
         glm::mat4 modelMatrix;
     } UniformData;
 
     buffer UniformBuffer;
-
-    VkDescriptorSet DescriptorSet;
-    VkDescriptorSetLayout DescriptorSetLayout;
-    VkDescriptorPool DescriptorPool;
-
-    VkPipeline Pipeline;
 
     void Destroy(vulkanDevice *VulkanDevice);
 };
@@ -167,6 +203,7 @@ private:
     VkQueue Queue;
     textureLoader *TextureLoader;
     vulkanApp *App;
+    
     
 
     VkDescriptorPool MaterialDescriptorPool;

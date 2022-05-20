@@ -248,6 +248,7 @@ void vulkanApp::CreateGeneralResources()
 	ImGuiHelper = new ImGUI(this);
 	ImGuiHelper->Init((float)Width, (float)Height);
 	ImGuiHelper->InitResources(RenderPass, Queue);
+    ImGuiHelper->InitStyle();
 
     // Renderer = new deferredRenderer(this);
     Renderer = new forwardRenderer(this);
@@ -265,8 +266,7 @@ void vulkanApp::Initialize(HWND Window)
     CreateGeneralResources();
 }
 
-
-void vulkanApp::Render()
+void vulkanApp::RenderGUI()
 {
     ImGuiIO& io = ImGui::GetIO();
     io.DisplaySize = ImVec2((float)Width, (float)Height);
@@ -274,6 +274,119 @@ void vulkanApp::Render()
     io.MouseDown[0] = Mouse.Left;
     io.MouseDown[1] = Mouse.Right;    
 
+    //Render scene gui
+    ImGui::NewFrame();
+    ImGui::SetNextWindowSize(ImVec2(GuiWidth, (float)Height));
+    ImGui::SetNextWindowPos(ImVec2(0,0), ImGuiCond_Always);
+
+    Renderer->ViewportStart=0;
+
+    static int CurrentSceneItemIndex = -1;
+    if(ImGui::Begin("Parameters"))
+    {
+        Renderer->ViewportStart += GuiWidth;
+
+        if (ImGui::BeginTabBar("MyTabBar"))
+        {
+            if (ImGui::BeginTabItem("Scene"))
+            {
+                for (int i = 0; i < Scene->Instances.size(); i++)
+                {
+                    const bool IsSelected = (CurrentSceneItemIndex == i);
+                    
+                    if (ImGui::Selectable(Scene->Instances[i].Name.c_str(), IsSelected))
+                    {
+                        CurrentSceneItemIndex = i;
+                    }
+
+                    if (IsSelected)
+                    {
+                        ImGui::SetItemDefaultFocus();
+                        Scene->Instances[i].InstanceData.Selected=1;
+                        Scene->Instances[i].UploadUniform();
+                    }
+                    else //Mesh no longer selected
+                    {
+                        if(Scene->Instances[i].InstanceData.Selected > 0)
+                        {
+                            Scene->Instances[i].InstanceData.Selected=0;
+                            Scene->Instances[i].UploadUniform();                 
+                        }
+                    }
+
+                }
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("Environment"))
+            {
+                ImGui::Text("This is the Broccoli tab!\nblah blah blah blah blah");
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("Renderer"))
+            {
+                ImGui::Text("This is the Broccoli tab!\nblah blah blah blah blah");
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("Lights"))
+            {
+                ImGui::Text("This is the Broccoli tab!\nblah blah blah blah blah");
+                ImGui::EndTabItem();
+            }
+            
+            ImGui::EndTabBar();
+        }    
+
+
+        if(CurrentSceneItemIndex>=0)
+        {
+            ImGui::SetNextWindowSize(ImVec2((float)GuiWidth, (float)Height));
+            ImGui::SetNextWindowPos(ImVec2((float)GuiWidth,0), ImGuiCond_Always);
+            if(ImGui::Begin(Scene->Instances[CurrentSceneItemIndex].Name.c_str()))
+            {
+                Renderer->ViewportStart+=GuiWidth;
+                bool UpdateTransform=false;
+                if(ImGui::CollapsingHeader("Transform"))
+                {
+                    UpdateTransform |= ImGui::DragFloat3("Position", glm::value_ptr(Scene->Instances[CurrentSceneItemIndex].Position), 0.01f);
+                    UpdateTransform |= ImGui::DragFloat3("Rotation", glm::value_ptr(Scene->Instances[CurrentSceneItemIndex].Rotation), 0.01f);
+                    UpdateTransform |= ImGui::DragFloat3("Scale", glm::value_ptr(Scene->Instances[CurrentSceneItemIndex].Scale), 0.01f);
+
+                    if(UpdateTransform) Scene->Instances[CurrentSceneItemIndex].RecalculateModelMatrixAndUpload();
+                }
+
+                if(ImGui::CollapsingHeader("Material"))
+                {
+                }
+
+            }
+            ImGui::End();
+        }   
+
+    }
+
+    ImGui::End();
+     
+    
+  
+
+
+
+    // ImGui::ShowDemoWindow();
+
+    Renderer->RenderGUI();
+    std::cout << ImGui::IsAnyItemHovered() << std::endl;
+    if(ImGui::IsAnyItemHovered() || ImGui::IsAnyItemActive() || ImGui::IsAnyItemFocused()) Renderer->Camera.Locked=true;
+    else Renderer->Camera.Locked=false;
+    
+
+    // Render to generate draw buffers
+    ImGui::Render();
+}
+
+
+void vulkanApp::Render()
+{
+    RenderGUI();
     Renderer->Render();
 }
 

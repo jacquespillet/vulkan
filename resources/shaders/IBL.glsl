@@ -13,7 +13,6 @@ vec3 GetIBLRadianceLambertian(vec3 Normal, vec3 View, float Roughness, vec3 Diff
     float NdotV = ClampedDot(Normal, View);
     //Samples the brdf lut table. x is angle, y is roughness
     vec2 brdfSamplePoint = clamp(vec2(NdotV, Roughness), vec2(0.0, 0.0), vec2(1.0, 1.0));
-    brdfSamplePoint.y = 1 - brdfSamplePoint.y;
     vec2 brdfSample = texture(BRDFLUT, brdfSamplePoint).rg;
 
     //Get irradiance for current normal
@@ -52,7 +51,6 @@ vec3 GetIBLRadianceGGX(vec3 Normal, vec3 View, float Roughness, vec3 F0, float S
     vec3 reflection = normalize(reflect(-View, Normal));
 
     vec2 brdfSamplePoint = clamp(vec2(NdotV, Roughness), vec2(0.0, 0.0), vec2(1.0, 1.0));
-    brdfSamplePoint.y = 1 - brdfSamplePoint.y;
     vec2 f_ab = texture(BRDFLUT, brdfSamplePoint).rg;
     vec4 specularSample = GetSpecularSample(reflection, LOD);
 

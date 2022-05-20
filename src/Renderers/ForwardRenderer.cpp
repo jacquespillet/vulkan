@@ -1,7 +1,7 @@
 #include "ForwardRenderer.h"
 #include "App.h"
+#include "imgui.h"
 
-#define PER_MESH_BUFFER 1
 forwardRenderer::forwardRenderer(vulkanApp *App) : renderer(App) {}
 
 void forwardRenderer::Render()
@@ -82,6 +82,8 @@ void forwardRenderer::BuildUniformBuffers()
 
 void forwardRenderer::UpdateUniformBufferDeferredMatrices()
 {
+    Camera.SetAspectRatio((App->Width - ViewportStart) / App->Height);
+    
     UBOSceneMatrices.Projection = Camera.GetProjectionMatrix();
     UBOSceneMatrices.View = Camera.GetViewMatrix();
     UBOSceneMatrices.Model = glm::mat4(1);
@@ -274,6 +276,12 @@ void forwardRenderer::BuildPipelines()
     }   
 }
 
+void forwardRenderer::RenderGUI()
+{
+
+}
+
+
 
 
 void forwardRenderer::BuildCommandBuffers()
@@ -293,7 +301,6 @@ void forwardRenderer::BuildCommandBuffers()
     RenderPassBeginInfo.pClearValues=ClearValues.data();
 
     
-    App->ImGuiHelper->NewFrame(App, (App->CurrentBuffer == 0));
     App->ImGuiHelper->UpdateBuffers();
 
     //Rendering abstraction : 
@@ -310,7 +317,8 @@ void forwardRenderer::BuildCommandBuffers()
 
         vkCmdBeginRenderPass(DrawCommandBuffers[i], &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        VkViewport Viewport = vulkanTools::BuildViewport((float)App->Width, (float)App->Height, 0.0f, 1.0f);
+
+        VkViewport Viewport = vulkanTools::BuildViewport((float)App->Width - ViewportStart, (float)App->Height, 0.0f, 1.0f, ViewportStart, 0);
         vkCmdSetViewport(DrawCommandBuffers[i], 0, 1, &Viewport);
 
         VkRect2D Scissor = vulkanTools::BuildRect2D(App->Width,App->Height,0,0);

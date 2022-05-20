@@ -114,7 +114,7 @@ namespace vulkanTools
 
     VkRenderPassBeginInfo BuildRenderPassBeginInfo();
 
-    VkViewport BuildViewport(float Width, float Height, float MinDepth, float MaxDepth);
+    VkViewport BuildViewport(float Width, float Height, float MinDepth, float MaxDepth, float StartX=0, float StartY=0);
     
     VkRect2D BuildRect2D(int32_t Width, int32_t Height, int32_t OffsetX, int32_t OffsetY);
 

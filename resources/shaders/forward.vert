@@ -15,6 +15,8 @@ layout (set=0, binding = 0) uniform UBO
 layout (set=2, binding = 0) uniform instance 
 {
 	mat4 Model;
+	float Selected;
+	vec3 Padding;
 } InstanceUBO;
 
 layout(location=0) out vec3 FragPosition;

@@ -21,6 +21,8 @@
 #define TINYGLTF_NO_INCLUDE_STB_IMAGE_RESIZE
 #include <tiny_gltf.h>
 
+#include "Util.h"
+
 namespace GLTFImporter
 {
     void LoadTextures(tinygltf::Model &GLTFModel, textureList *Textures)
@@ -608,6 +610,7 @@ namespace GLTFImporter
 
         glm::mat4 Transform = LocalTransform * parentTransform;
 
+
         //Leaf node
         if(GLTFNode.children.size() == 0 && GLTFNode.mesh != -1)
         {
@@ -617,6 +620,12 @@ namespace GLTFImporter
                 instance Instance = {};
                 Instance.InstanceData.Transform = Transform;
                 Instance.Mesh = InstanceMapping[GLTFNode.mesh][i];
+                Instance.Name = GLTFNode.name;
+                if(strcmp(Instance.Name.c_str(), "") == 0)
+                {
+                    Instance.Name = "Mesh" + std::to_string(GLTFNode.mesh) + "_" + std::to_string(i);
+                }
+                util::DecomposeMatrix(Transform, &Instance.Position, &Instance.Rotation, &Instance.Scale);
                 Instances.push_back(Instance);
             }
             

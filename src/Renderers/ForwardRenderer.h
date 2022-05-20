@@ -8,6 +8,7 @@ public:
     void Render() override;
     void Setup() override;    
     void Destroy() override;    
+    void RenderGUI() override;
 
     std::vector<VkCommandBuffer> DrawCommandBuffers;
 
@@ -39,4 +40,5 @@ private:
     void BuildLayoutsAndDescriptors();
     void BuildPipelines();
     void BuildCommandBuffers();
+
 };

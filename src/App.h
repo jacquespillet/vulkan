@@ -105,6 +105,8 @@ public:
 
     ImGUI *ImGuiHelper;
 
+    float GuiWidth=200;
+    
     void InitVulkan();
 
     void SetupDepthStencil();
@@ -122,6 +124,7 @@ public:
     void BuildScene();
     
     void Render();
+    void RenderGUI();
 
     void Initialize(HWND Window);
 

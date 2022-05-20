@@ -20,7 +20,7 @@ set vulkanLib= %VULKAN_SDK%\Lib\vulkan-1.lib
 REM --------------------
 
 REM IMGUI
-set imguiInclude=..\ext\dearimgui
+set imguiInclude=..\ext\imgui
 set imguiSrc=%imguiInclude%\imgui_impl_vulkan.cpp %imguiInclude%\imgui_impl_glfw.cpp %imguiInclude%\imgui.cpp %imguiInclude%\imgui_demo.cpp %imguiInclude%\imgui_draw.cpp %imguiInclude%\imgui_widgets.cpp %imguiInclude%\imgui_tables.cpp
 REM --------------------
 

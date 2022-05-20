@@ -474,13 +474,15 @@ namespace vulkanTools
         return Result;
     }
     
-    VkViewport BuildViewport(float Width, float Height, float MinDepth, float MaxDepth)
+    VkViewport BuildViewport(float Width, float Height, float MinDepth, float MaxDepth, float StartX, float StartY)
     {
 		VkViewport Result = {};
         Result.width = Width;
         Result.height = Height;
         Result.minDepth = MinDepth;
         Result.maxDepth = MaxDepth;
+        Result.x = StartX;
+        Result.y = StartY;
         return Result;
     }
     

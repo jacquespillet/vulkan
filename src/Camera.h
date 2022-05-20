@@ -57,7 +57,7 @@ public:
     void GetScreenRay(glm::vec2 ndc, float aspect, glm::vec3& rayOrig, glm::vec3& rayDir);
     glm::vec3 worldPosition;
 
-    bool locked=false;
+    bool Locked=false;
 
     float GetNearPlane() {return nearPlane;}
     float GetFarPlane() {return farPlane;}

@@ -9,7 +9,7 @@ void camera::RecalculateLookat() {
 
 
 void camera::mousePressEvent(int button) {
-    if(locked) return;
+    if(Locked) return;
     std::cout << button << std::endl;
     if(button==0) {
         IsLeftMousePressed=true;
@@ -25,7 +25,7 @@ void camera::mouseReleaseEvent(int button) {
 }
 
 bool camera::mouseMoveEvent(float x, float y) {
-    if(locked) return false;
+    if(Locked) return false;
 
     bool changed=false;
     glm::vec2 currentPos = glm::vec2(x, y);
@@ -62,7 +62,7 @@ bool camera::mouseMoveEvent(float x, float y) {
 }
 
 void camera::Scroll(float offset){
-    if(locked) return;
+    if(Locked) return;
     distance -= (float)offset * distance * 0.05f;
     RecalculateLookat();   
 }

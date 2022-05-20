@@ -41,6 +41,14 @@ layout (set=0, binding = 0) uniform UBO
 } SceneUbo;
 
 
+layout (set=2, binding = 0) uniform instance 
+{
+	mat4 Model;
+	float Selected;
+	vec3 Padding;
+} InstanceUBO;
+
+
 layout (set=3, binding = 1) uniform samplerCube Cubemap;
 layout (set=3, binding = 2) uniform samplerCube IrradianceMap;
 layout (set=3, binding = 3) uniform samplerCube PrefilteredEnv;
@@ -167,6 +175,7 @@ void main()
 //     BaseColor.a = 1.0;
 // #endif
 
-    outputColor = vec4(toneMap(Color), BaseColor.a);        
+    outputColor = vec4(toneMap(Color), BaseColor.a);   
+    if(InstanceUBO.Selected>0) outputColor += vec4(0.5, 0.5, 0, 0);     
     // outputColor = vec4(vec3(MaterialInfo.Metallic), 1);        
 }
