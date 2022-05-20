@@ -12,7 +12,7 @@
 
 namespace assimpImporter
 {
-void Load(std::string FileName, std::vector<instance> &Instances, std::vector<sceneMesh> &Meshes, std::vector<sceneMaterial> &Materials,std::vector<vertex> &GVertices, 
+void Load(std::string FileName,  std::unordered_map<int, std::vector<instance>> &Instances, std::vector<sceneMesh> &Meshes, std::vector<sceneMaterial> &Materials,std::vector<vertex> &GVertices, 
             std::vector<uint32_t> &GIndices, textureList *Textures)
 {
     Assimp::Importer Importer;
@@ -120,6 +120,7 @@ void Load(std::string FileName, std::vector<instance> &Instances, std::vector<sc
 			AScene->mMaterials[i]->Get(AI_MATKEY_COLOR_DIFFUSE, Color);
 			Materials[i].MaterialData.BaseColor = glm::vec3(Color.r, Color.g, Color.b);
 
+			Materials[i].CalculateFlags();
 
 		}
 	}
@@ -169,7 +170,9 @@ void Load(std::string FileName, std::vector<instance> &Instances, std::vector<sc
 			instance Instance = {};
 			Instance.InstanceData.Transform = glm::mat4(1.0f);
 			Instance.Mesh = &Meshes[i];
-			Instances.push_back(Instance);
+			
+			int MatFlag = Instance.Mesh->Material->Flags;
+			Instances[MatFlag].push_back(Instance);
         }    
     }
 }

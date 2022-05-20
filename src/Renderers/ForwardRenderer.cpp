@@ -217,14 +217,13 @@ void forwardRenderer::BuildPipelines()
     //Store the meshes according to their material masks
     //  std::unorderedmap<flag, std::vector<Instance>> 
 
+
     // Fill G buffer
     {
         struct specializationData
         {
             int Mask=0;
         } SpecializationData;
-
-        SpecializationData.Mask =0;
 
         std::vector<VkSpecializationMapEntry> SpecializationMapEntries = 
         {
@@ -251,13 +250,27 @@ void forwardRenderer::BuildPipelines()
         };
         ColorBlendState.attachmentCount=(uint32_t)BlendAttachmentStates.size();
         ColorBlendState.pAttachments=BlendAttachmentStates.data();
-        Resources.Pipelines->Add("Scene.Opaque", PipelineCreateInfo, App->PipelineCache);
         
-        //Transparents
-        DepthStencilState.depthWriteEnable=VK_FALSE;
-        RasterizationState.cullMode=VK_CULL_MODE_NONE;
-        SpecializationData.Mask=1;
-        Resources.Pipelines->Add("Scene.Mask", PipelineCreateInfo, App->PipelineCache);
+        for(int i=0; i<App->Scene->Materials.size(); i++)
+        {
+            int MatFlags = App->Scene->Materials[i].Flags;
+            if(!Resources.Pipelines->Present(MatFlags))
+            {
+                if(MatFlags & materialFlags::Opaque) 
+                {
+                    SpecializationData.Mask=0;
+                    RasterizationState.cullMode=VK_CULL_MODE_BACK_BIT;
+                }
+                if(MatFlags & materialFlags::Mask) 
+                {
+                    SpecializationData.Mask=1;
+                    RasterizationState.cullMode=VK_CULL_MODE_NONE;
+                }
+                
+                Resources.Pipelines->Add(MatFlags, PipelineCreateInfo, App->PipelineCache);
+            }
+        }
+
     }   
     
     //Cube map
@@ -330,33 +343,20 @@ void forwardRenderer::BuildCommandBuffers()
 
         VkDeviceSize Offset[1] = {0};
 
-        vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Scene.Opaque")); 
         VkPipelineLayout RendererPipelineLayout =  Resources.PipelineLayouts->Get("Scene");
         VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Get("Scene");
-        vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
-        vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 3, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
-
-        for(auto Instance : App->Scene->Instances)
+        for(auto &InstanceGroup : App->Scene->Instances)
         {
-            if(Instance.Mesh->Material->MaterialData.AlphaMode == alphaMode::Opaque)
+            int Flag = InstanceGroup.first;
+            vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get(Flag)); 
+            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
+            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 3, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
+
+            for(auto Instance : InstanceGroup.second)
             {
-                vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
+                  vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
                 vkCmdBindIndexBuffer(DrawCommandBuffers[i], Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
-                vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
-                vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
-                vkCmdDrawIndexed(DrawCommandBuffers[i], Instance.Mesh->IndexCount, 1, 0, 0, 0);
-            }
-        }
-
-        vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Scene.Mask"));
-        for(auto Instance : App->Scene->Instances)
-        {
-            if(Instance.Mesh->Material->MaterialData.AlphaMode == alphaMode::Mask)
-            {
-                vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
-                vkCmdBindIndexBuffer(DrawCommandBuffers[i], Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
-                
                 vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
                 vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
                 vkCmdDrawIndexed(DrawCommandBuffers[i], Instance.Mesh->IndexCount, 1, 0, 0, 0);

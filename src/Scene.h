@@ -1,5 +1,6 @@
 #pragma once
 
+#include <unordered_map>
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
@@ -117,9 +118,17 @@ struct sceneMaterial
 
     void CalculateFlags()
     {
-        if(MaterialData.AlphaMode==alphaMode::Opaque) Flags &= materialFlags::Opaque;
-        if(MaterialData.AlphaMode==alphaMode::Blend) Flags &= materialFlags::Blend;
-        if(MaterialData.AlphaMode==alphaMode::Mask) Flags &= materialFlags::Mask;
+        Flags=0;
+        if(MaterialData.AlphaMode==alphaMode::Opaque) Flags |= materialFlags::Opaque;
+        if(MaterialData.AlphaMode==alphaMode::Blend) Flags |= materialFlags::Blend;
+        if(MaterialData.AlphaMode==alphaMode::Mask) Flags |= materialFlags::Mask;
+
+        if(MaterialData.MetallicRoughnessTextureID>=0) Flags |= materialFlags::HasMetallicRoughnessMap;
+        if(MaterialData.EmissionMapTextureID>=0) Flags |= materialFlags::HasEmissiveMap;
+        if(MaterialData.BaseColorTextureID>=0) Flags |= materialFlags::HasBaseColorMap;
+        if(MaterialData.OcclusionMapTextureID>=0) Flags |= materialFlags::HasOcclusionMap;
+        
+        if(MaterialData.ClearcoatFactor>0) Flags |= materialFlags::HasClearCoat;
     }
 
     void Upload()
@@ -251,7 +260,7 @@ public:
     buffer IndexBuffer;
     std::vector<sceneMaterial> Materials;
     std::vector<sceneMesh> Meshes;
-    std::vector<instance> Instances;
+    std::unordered_map<int, std::vector<instance>> Instances;
     cubemap Cubemap;
     
     textureList *Textures;

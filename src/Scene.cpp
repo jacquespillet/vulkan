@@ -83,14 +83,17 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
                                      &Materials[i].MaterialData);             
         }
         
-        for (size_t i = 0; i < Instances.size(); i++)
+        for(auto &InstanceGroup : Instances)
         {
-            vulkanTools::CreateBuffer(App->VulkanDevice,
-                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                     &Instances[i].UniformBuffer,
-                                     sizeof(Instances[i].InstanceData),
-                                     &Instances[i].InstanceData);   
+            for (size_t i = 0; i < InstanceGroup.second.size(); i++)
+            {
+                vulkanTools::CreateBuffer(App->VulkanDevice,
+                                        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                        &InstanceGroup.second[i].UniformBuffer,
+                                        sizeof(InstanceGroup.second[i].InstanceData),
+                                        &InstanceGroup.second[i].InstanceData);   
+            }
         }
 
         for(uint32_t i=0; i<Meshes.size(); i++)
@@ -194,14 +197,19 @@ void scene::CreateDescriptorSets()
 
     {
         //Create Instance descriptor pool
+		size_t NumInstances = 0;
+		for (auto &InstanceGroup : Instances)
+		{
+			NumInstances += InstanceGroup.second.size();
+		}
         std::vector<VkDescriptorPoolSize> PoolSizes = 
         {
-            vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  (uint32_t)Instances.size())
+            vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  (uint32_t)NumInstances)
         };
         VkDescriptorPoolCreateInfo DescriptorPoolInfo = vulkanTools::BuildDescriptorPoolCreateInfo(
             (uint32_t)PoolSizes.size(),
             PoolSizes.data(),
-            (uint32_t)Instances.size()
+            (uint32_t)NumInstances
         );
         VK_CALL(vkCreateDescriptorPool(Device, &DescriptorPoolInfo, nullptr, &InstanceDescriptorPool));
 
@@ -213,16 +221,19 @@ void scene::CreateDescriptorSets()
         VK_CALL(vkCreateDescriptorSetLayout(Device, &DescriptorLayoutCreateInfo, nullptr, &InstanceDescriptorSetLayout));
 
         //Write descriptor sets
-        for(uint32_t i=0; i<Instances.size(); i++)
+        for(auto &InstanceGroup : Instances)
         {
-            VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(InstanceDescriptorPool, &InstanceDescriptorSetLayout, 1);
-            VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &Instances[i].DescriptorSet));
+            for(uint32_t i=0; i<InstanceGroup.second.size(); i++)
+            {
+                VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(InstanceDescriptorPool, &InstanceDescriptorSetLayout, 1);
+                VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &InstanceGroup.second[i].DescriptorSet));
 
-            std::vector<VkWriteDescriptorSet> WriteDescriptorSets;
-            WriteDescriptorSets.push_back(
-                vulkanTools::BuildWriteDescriptorSet( Instances[i].DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &Instances[i].UniformBuffer.Descriptor)
-            );
-            vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
+                std::vector<VkWriteDescriptorSet> WriteDescriptorSets;
+                WriteDescriptorSets.push_back(
+                    vulkanTools::BuildWriteDescriptorSet( InstanceGroup.second[i].DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &InstanceGroup.second[i].UniformBuffer.Descriptor)
+                );
+                vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
+            }
         }
     }    
 
@@ -307,10 +318,13 @@ void scene::Destroy()
         Materials[i].UniformBuffer.Destroy();
         vkFreeDescriptorSets(Device, MaterialDescriptorPool, 1, &Materials[i].DescriptorSet);
     }
-    for(size_t i=0; i<Instances.size(); i++)
+    for(auto &InstanceGroup : Instances)
     {
-        Instances[i].UniformBuffer.Destroy();
-        vkFreeDescriptorSets(Device, InstanceDescriptorPool, 1, &Instances[i].DescriptorSet);
+        for(size_t i=0; i<InstanceGroup.second.size(); i++)
+        {
+            InstanceGroup.second[i].UniformBuffer.Destroy();
+            vkFreeDescriptorSets(Device, InstanceDescriptorPool, 1, &InstanceGroup.second[i].DescriptorSet);
+        }
     }
 
     vkDestroyDescriptorSetLayout(Device, InstanceDescriptorSetLayout, nullptr);

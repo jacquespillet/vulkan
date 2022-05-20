@@ -282,6 +282,7 @@ void vulkanApp::RenderGUI()
     Renderer->ViewportStart=0;
 
     static int CurrentSceneItemIndex = -1;
+    static int CurrentSceneGroupIndex=-1;
     if(ImGui::Begin("Parameters"))
     {
         Renderer->ViewportStart += GuiWidth;
@@ -290,30 +291,34 @@ void vulkanApp::RenderGUI()
         {
             if (ImGui::BeginTabItem("Scene"))
             {
-                for (int i = 0; i < Scene->Instances.size(); i++)
-                {
-                    const bool IsSelected = (CurrentSceneItemIndex == i);
-                    if (ImGui::Selectable(Scene->Instances[i].Name.c_str(), IsSelected))
+                for (auto& InstanceGroup: Scene->Instances) {
+                    for (int i = 0; i < InstanceGroup.second.size(); i++)
                     {
-                        if(IsSelected) CurrentSceneItemIndex=-1; //Unselect if click on selected item
-                        else CurrentSceneItemIndex = i;
-                    }
-
-                    if (IsSelected)
-                    {
-                        ImGui::SetItemDefaultFocus();
-                        Scene->Instances[i].InstanceData.Selected=1;
-                        Scene->Instances[i].UploadUniform();
-                    }
-                    else //Mesh no longer selected
-                    {
-                        if(Scene->Instances[i].InstanceData.Selected > 0)
+                        const bool IsSelected = (CurrentSceneItemIndex == i);
+                        if (ImGui::Selectable(InstanceGroup.second[i].Name.c_str(), IsSelected))
                         {
-                            Scene->Instances[i].InstanceData.Selected=0;
-                            Scene->Instances[i].UploadUniform();                 
+                            if(IsSelected) CurrentSceneItemIndex=-1; //Unselect if click on selected item
+                            else {
+                                CurrentSceneGroupIndex = InstanceGroup.first;
+                                CurrentSceneItemIndex = i;
+                            }
+                        }
+
+                        if (IsSelected)
+                        {
+                            ImGui::SetItemDefaultFocus();
+                            InstanceGroup.second[i].InstanceData.Selected=1;
+                            InstanceGroup.second[i].UploadUniform();
+                        }
+                        else //Mesh no longer selected
+                        {
+                            if(InstanceGroup.second[i].InstanceData.Selected > 0)
+                            {
+                                InstanceGroup.second[i].InstanceData.Selected=0;
+                                InstanceGroup.second[i].UploadUniform();                 
+                            }
                         }
                     }
-
                 }
                 ImGui::EndTabItem();
             }
@@ -341,30 +346,30 @@ void vulkanApp::RenderGUI()
         {
             ImGui::SetNextWindowSize(ImVec2((float)GuiWidth, (float)Height));
             ImGui::SetNextWindowPos(ImVec2((float)GuiWidth,0), ImGuiCond_Always);
-            if(ImGui::Begin(Scene->Instances[CurrentSceneItemIndex].Name.c_str()))
+            if(ImGui::Begin(Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].Name.c_str()))
             {
                 Renderer->ViewportStart+=GuiWidth;
                 if(ImGui::CollapsingHeader("Transform"))
                 {
                     bool UpdateTransform=false;
-                    UpdateTransform |= ImGui::DragFloat3("Position", glm::value_ptr(Scene->Instances[CurrentSceneItemIndex].Position), 0.01f);
-                    UpdateTransform |= ImGui::DragFloat3("Rotation", glm::value_ptr(Scene->Instances[CurrentSceneItemIndex].Rotation), 0.01f);
-                    UpdateTransform |= ImGui::DragFloat3("Scale", glm::value_ptr(Scene->Instances[CurrentSceneItemIndex].Scale), 0.01f);
+                    UpdateTransform |= ImGui::DragFloat3("Position", glm::value_ptr(Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].Position), 0.01f);
+                    UpdateTransform |= ImGui::DragFloat3("Rotation", glm::value_ptr(Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].Rotation), 0.01f);
+                    UpdateTransform |= ImGui::DragFloat3("Scale", glm::value_ptr(Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].Scale), 0.01f);
 
-                    if(UpdateTransform) Scene->Instances[CurrentSceneItemIndex].RecalculateModelMatrixAndUpload();
+                    if(UpdateTransform) Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].RecalculateModelMatrixAndUpload();
                 }
 
                 if(ImGui::CollapsingHeader("Material"))
                 {
                     //If changing material, disable the colouring
-                    if(Scene->Instances[CurrentSceneItemIndex].InstanceData.Selected>0)
+                    if(Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].InstanceData.Selected>0)
                     {
-                        Scene->Instances[CurrentSceneItemIndex].InstanceData.Selected=0;
-                        Scene->Instances[CurrentSceneItemIndex].UploadUniform();   
+                        Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].InstanceData.Selected=0;
+                        Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].UploadUniform();   
                     }
 
                     bool UpdateMaterial=false;
-                    materialData *Material = &Scene->Instances[CurrentSceneItemIndex].Mesh->Material->MaterialData;
+                    materialData *Material = &Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].Mesh->Material->MaterialData;
 
                     UpdateMaterial |= ImGui::Checkbox("Use Metallic / Roughness Map", (bool*)&Material->UseMetallicRoughness);
                     UpdateMaterial |= ImGui::DragFloat("Roughness", &Material->Roughness, 0.01f, 0, 1);
@@ -386,16 +391,16 @@ void vulkanApp::RenderGUI()
 
                     if(UpdateMaterial)
                     {
-                        Scene->Instances[CurrentSceneItemIndex].Mesh->Material->Upload();
+                        Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].Mesh->Material->Upload();
                     }
                 }
                 else
                 {
                     //If not changing material, re-enable the colouring
-                    if(Scene->Instances[CurrentSceneItemIndex].InstanceData.Selected==0)
+                    if(Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].InstanceData.Selected==0)
                     {
-                        Scene->Instances[CurrentSceneItemIndex].InstanceData.Selected=1;
-                        Scene->Instances[CurrentSceneItemIndex].UploadUniform();   
+                        Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].InstanceData.Selected=1;
+                        Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].UploadUniform();   
                     }                    
                 }
             }

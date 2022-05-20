@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 struct vertex;
 struct meshBuffer;
@@ -11,7 +12,7 @@ class textureList;
 
 namespace GLTFImporter
 {
-    bool Load(std::string FileName,  std::vector<instance> &Instances, std::vector<sceneMesh> &Meshes, std::vector<sceneMaterial> &Materials,std::vector<vertex> &GVertices, 
+    bool Load(std::string FileName,  std::unordered_map<int, std::vector<instance>> &Instances, std::vector<sceneMesh> &Meshes, std::vector<sceneMaterial> &Materials,std::vector<vertex> &GVertices, 
             std::vector<uint32_t> &GIndices, textureList *Textures);
     
     bool LoadMesh(std::string FileName, sceneMesh &Mesh);

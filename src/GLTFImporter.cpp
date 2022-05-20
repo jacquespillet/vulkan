@@ -135,6 +135,7 @@ namespace GLTFImporter
                 Materials[i].MaterialData.UseNormalMap=0;
             }
 
+            Materials[i].CalculateFlags();
 
             // if(GLTFMaterial.occlusionTexture.index>-1)
             // {
@@ -570,7 +571,7 @@ namespace GLTFImporter
         }
     }    
 
-    void TraverseNodes(tinygltf::Model &GLTFModel, uint32_t nodeIndex, glm::mat4 parentTransform, std::vector<sceneMesh> &Meshes, std::vector<instance> &Instances, std::vector<std::vector<sceneMesh*>> &InstanceMapping)
+    void TraverseNodes(tinygltf::Model &GLTFModel, uint32_t nodeIndex, glm::mat4 parentTransform, std::vector<sceneMesh> &Meshes, std::unordered_map<int, std::vector<instance>> &Instances, std::vector<std::vector<sceneMesh*>> &InstanceMapping)
     {
         tinygltf::Node GLTFNode = GLTFModel.nodes[nodeIndex];
 
@@ -626,7 +627,8 @@ namespace GLTFImporter
                     Instance.Name = "Mesh" + std::to_string(GLTFNode.mesh) + "_" + std::to_string(i);
                 }
                 util::DecomposeMatrix(Transform, &Instance.Position, &Instance.Rotation, &Instance.Scale);
-                Instances.push_back(Instance);
+                int MatFlag = Instance.Mesh->Material->Flags;
+                Instances[MatFlag].push_back(Instance);
             }
             
         }
@@ -639,7 +641,7 @@ namespace GLTFImporter
 
     }
 
-    void LoadInstances(tinygltf::Model &GLTFModel, std::vector<sceneMesh> &Meshes, std::vector<instance> &Instances,  std::vector<std::vector<sceneMesh*>> &InstanceMapping)
+    void LoadInstances(tinygltf::Model &GLTFModel, std::vector<sceneMesh> &Meshes, std::unordered_map<int, std::vector<instance>> &Instances,  std::vector<std::vector<sceneMesh*>> &InstanceMapping)
     {
         glm::mat4 RootTransform(1.0f);
         const tinygltf::Scene GLTFScene = GLTFModel.scenes[GLTFModel.defaultScene];
@@ -649,7 +651,7 @@ namespace GLTFImporter
         }
     }
 
-    bool Load(std::string FileName,  std::vector<instance> &Instances, std::vector<sceneMesh> &Meshes, std::vector<sceneMaterial> &Materials,std::vector<vertex> &GVertices, 
+    bool Load(std::string FileName,  std::unordered_map<int, std::vector<instance>> &Instances, std::vector<sceneMesh> &Meshes, std::vector<sceneMaterial> &Materials,std::vector<vertex> &GVertices, 
             std::vector<uint32_t> &GIndices, textureList *Textures)
     {
         tinygltf::Model GLTFModel;

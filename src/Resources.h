@@ -20,11 +20,17 @@ class vulkanResourceList
 public:
     VkDevice &Device;
     std::unordered_map<std::string, T> Resources;
+    std::unordered_map<int, T> ResourcesInt;
     vulkanResourceList(VkDevice &Device) : Device(Device){};
 
     T Get(std::string Name)
     {
         return Resources[Name];
+    }
+
+    T Get(int Flag)
+    {
+        return ResourcesInt[Flag];
     }
 
     T *GetPtr(std::string Name)
@@ -35,6 +41,11 @@ public:
     bool Present(std::string Name)
     {
         return Resources.find(Name) != Resources.end();
+    }
+
+    bool Present(int Flag)
+    {
+        return ResourcesInt.find(Flag) != ResourcesInt.end();
     }
     
 };
@@ -78,6 +89,18 @@ public:
         {
             vkDestroyPipeline(Device, Pipeline.second, nullptr);
         }
+        for(auto &Pipeline : ResourcesInt)
+        {
+            vkDestroyPipeline(Device, Pipeline.second, nullptr);
+        }
+    }
+
+    VkPipeline Add(int Flags, VkGraphicsPipelineCreateInfo &CreateInfo, VkPipelineCache &PipelineCache)
+    {
+        VkPipeline Pipeline;
+        VK_CALL(vkCreateGraphicsPipelines(Device, PipelineCache, 1, &CreateInfo, nullptr, &Pipeline));
+        ResourcesInt[Flags] = Pipeline;
+        return Pipeline;
     }
 
     VkPipeline Add(std::string Name, VkGraphicsPipelineCreateInfo &CreateInfo, VkPipelineCache &PipelineCache)
