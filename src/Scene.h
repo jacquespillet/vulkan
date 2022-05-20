@@ -39,25 +39,32 @@ struct materialData
     int MetallicRoughnessTextureID = -1;
     int NormalMapTextureID = -1;
     int EmissionMapTextureID = -1;
-    int OcclusionMapTextureID = -1;
+    
+    int OcclusionMapTextureID = 1;
+    int UseBaseColor = 1;
+    int UseMetallicRoughness = 1;
+    int UseNormalMap = 1;
 
-    int UseBaseColor;
-    int UseMetallicRoughness;
-    int UseNormalMap;
-    int UseEmissionMap;
-    int UseOcclusionMap;
-    float Roughness;
-    float AlphaCutoff;
-    float Metallic;
-    float OcclusionStrength;
-    float EmissiveStrength;
-    float ClearcoatFactor;
-    float ClearcoatRoughness;
-    float Exposure;
-    float Opacity;
-    alphaMode AlphaMode;
-    glm::vec3 BaseColor;
-    glm::vec3 Emission;    
+    int UseEmissionMap=1;
+    int UseOcclusionMap=1;
+    alphaMode AlphaMode=alphaMode::Opaque;
+    int padding0;
+
+    float Roughness=1;
+    float AlphaCutoff=1;
+    float ClearcoatRoughness=1;
+    float padding1;
+    
+    float Metallic=0;
+    float OcclusionStrength=0;
+    float EmissiveStrength=1;
+    float ClearcoatFactor=0;
+    
+    glm::vec3 BaseColor = glm::vec3(1,1,1);
+    float Opacity=1;
+    
+    glm::vec3 Emission;
+    float Exposure=1;
 };
 
 struct sceneMaterial
@@ -74,6 +81,13 @@ struct sceneMaterial
     buffer UniformBuffer;
 
     VkDescriptorSet DescriptorSet;
+
+    void Upload()
+    {
+        UniformBuffer.Map();
+        UniformBuffer.CopyTo(&MaterialData, sizeof(materialData));
+        UniformBuffer.Unmap();
+    }
 };
 
 //Material system:

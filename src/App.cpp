@@ -293,10 +293,10 @@ void vulkanApp::RenderGUI()
                 for (int i = 0; i < Scene->Instances.size(); i++)
                 {
                     const bool IsSelected = (CurrentSceneItemIndex == i);
-                    
                     if (ImGui::Selectable(Scene->Instances[i].Name.c_str(), IsSelected))
                     {
-                        CurrentSceneItemIndex = i;
+                        if(IsSelected) CurrentSceneItemIndex=-1; //Unselect if click on selected item
+                        else CurrentSceneItemIndex = i;
                     }
 
                     if (IsSelected)
@@ -344,9 +344,9 @@ void vulkanApp::RenderGUI()
             if(ImGui::Begin(Scene->Instances[CurrentSceneItemIndex].Name.c_str()))
             {
                 Renderer->ViewportStart+=GuiWidth;
-                bool UpdateTransform=false;
                 if(ImGui::CollapsingHeader("Transform"))
                 {
+                    bool UpdateTransform=false;
                     UpdateTransform |= ImGui::DragFloat3("Position", glm::value_ptr(Scene->Instances[CurrentSceneItemIndex].Position), 0.01f);
                     UpdateTransform |= ImGui::DragFloat3("Rotation", glm::value_ptr(Scene->Instances[CurrentSceneItemIndex].Rotation), 0.01f);
                     UpdateTransform |= ImGui::DragFloat3("Scale", glm::value_ptr(Scene->Instances[CurrentSceneItemIndex].Scale), 0.01f);
@@ -356,8 +356,48 @@ void vulkanApp::RenderGUI()
 
                 if(ImGui::CollapsingHeader("Material"))
                 {
-                }
+                    //If changing material, disable the colouring
+                    if(Scene->Instances[CurrentSceneItemIndex].InstanceData.Selected>0)
+                    {
+                        Scene->Instances[CurrentSceneItemIndex].InstanceData.Selected=0;
+                        Scene->Instances[CurrentSceneItemIndex].UploadUniform();   
+                    }
 
+                    bool UpdateMaterial=false;
+                    materialData *Material = &Scene->Instances[CurrentSceneItemIndex].Mesh->Material->MaterialData;
+
+                    UpdateMaterial |= ImGui::Checkbox("Use Metallic / Roughness Map", (bool*)&Material->UseMetallicRoughness);
+                    UpdateMaterial |= ImGui::DragFloat("Roughness", &Material->Roughness, 0.01f, 0, 1);
+                    UpdateMaterial |= ImGui::DragFloat("Metallic", &Material->Metallic, 0.01f, 0, 1);
+                
+                    ImGui::Separator();
+
+                    UpdateMaterial |= ImGui::Checkbox("Use Color Map", (bool*)&Material->UseBaseColor);
+                    UpdateMaterial |= ImGui::ColorPicker3("Base Color", glm::value_ptr(Material->BaseColor));
+                    ImGui::Separator();
+                    
+                    UpdateMaterial |= ImGui::Checkbox("Use Normal Map", (bool*)&Material->UseNormalMap);
+                    ImGui::Separator();
+
+                    UpdateMaterial |= ImGui::DragFloat("Opacity", &Material->Opacity, 0.01f, 0, 1);
+                    UpdateMaterial |= ImGui::DragFloat("Alpha Cutoff", &Material->AlphaCutoff, 0.01f, 0, 1);
+                    ImGui::Separator();
+
+
+                    if(UpdateMaterial)
+                    {
+                        Scene->Instances[CurrentSceneItemIndex].Mesh->Material->Upload();
+                    }
+                }
+                else
+                {
+                    //If not changing material, re-enable the colouring
+                    if(Scene->Instances[CurrentSceneItemIndex].InstanceData.Selected==0)
+                    {
+                        Scene->Instances[CurrentSceneItemIndex].InstanceData.Selected=1;
+                        Scene->Instances[CurrentSceneItemIndex].UploadUniform();   
+                    }                    
+                }
             }
             ImGui::End();
         }   
@@ -374,7 +414,6 @@ void vulkanApp::RenderGUI()
     // ImGui::ShowDemoWindow();
 
     Renderer->RenderGUI();
-    std::cout << ImGui::IsAnyItemHovered() << std::endl;
     if(ImGui::IsAnyItemHovered() || ImGui::IsAnyItemActive() || ImGui::IsAnyItemFocused()) Renderer->Camera.Locked=true;
     else Renderer->Camera.Locked=false;
     

@@ -11,24 +11,32 @@ layout (set=1, binding = 3) uniform materialUBO
     int MetallicRoughnessTextureID;
     int NormalMapTextureID;
     int EmissionMapTextureID;
+    
     int OcclusionMapTextureID;
-    int UseBaseColor;
-    int UseMetallicRoughness;
+    int UseBaseColorMap;
+    int UseMetallicRoughnessMap;
     int UseNormalMap;
+
     int UseEmissionMap;
     int UseOcclusionMap;
+    int AlphaMode;
+    int padding0;
+
     float Roughness;
     float AlphaCutoff;
+    float ClearcoatRoughness;
+    float padding1;
+    
     float Metallic;
     float OcclusionStrength;
     float EmissiveStrength;
     float ClearcoatFactor;
-    float ClearcoatRoughness;
-    float Exposure;
-    float Opacity;
-    int AlphaMode;
+    
     vec3 BaseColor;
-    vec3 Emission;    
+    float Opacity;
+    
+    vec3 Emission;
+    float Exposure;   
 } MaterialUBO;
 
 
@@ -177,5 +185,4 @@ void main()
 
     outputColor = vec4(toneMap(Color), BaseColor.a);   
     if(InstanceUBO.Selected>0) outputColor += vec4(0.5, 0.5, 0, 0);     
-    // outputColor = vec4(vec3(MaterialInfo.Metallic), 1);        
 }
