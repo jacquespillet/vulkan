@@ -20,7 +20,38 @@ struct vertex
 };
 
 
-enum alphaMode
+//Material system:
+enum materialFlags
+{
+    Opaque                  = 1,
+    Blend                   = 1 << 1,
+    Mask                    = 1 << 2,
+    HasMetallicRoughnessMap = 1 << 3,
+    HasEmissiveMap          = 1 << 4,
+    HasBaseColorMap         = 1 << 5,
+    HasOcclusionMap         = 1 << 6,
+    HasClearCoat            = 1 << 7,
+    HasSheen                = 1 << 8,
+    NumFlags                = 9
+};
+
+//Build the flags : 
+//MatFlag=0;
+//if(Mat->HasMtalic) MatFlag |= materialFlags::HasMetallicROughnessMAp
+//....
+//Store the matFlags in the material struct
+//In the resources, store the pipelines with the flags as key of the map
+
+//when building the pipelines :
+//For each material, build the flag, check if it already exists in the pipeline map
+//If it doesn't build the pipeline accordingly
+
+//At render time :
+//For mesh : build the pipeline of its material
+
+
+
+enum class alphaMode
 {
     Opaque, Blend, Mask
 };
@@ -82,6 +113,15 @@ struct sceneMaterial
 
     VkDescriptorSet DescriptorSet;
 
+    int Flags;
+
+    void CalculateFlags()
+    {
+        if(MaterialData.AlphaMode==alphaMode::Opaque) Flags &= materialFlags::Opaque;
+        if(MaterialData.AlphaMode==alphaMode::Blend) Flags &= materialFlags::Blend;
+        if(MaterialData.AlphaMode==alphaMode::Mask) Flags &= materialFlags::Mask;
+    }
+
     void Upload()
     {
         UniformBuffer.Map();
@@ -89,33 +129,6 @@ struct sceneMaterial
         UniformBuffer.Unmap();
     }
 };
-
-//Material system:
-enum materialFlags
-{
-    AlphaMode               = 1,
-    HasMetallicRoughnessMap = 1 << 1,
-    HasEmissiveMap          = 1 << 2,
-    HasBaseColorMap         = 1 << 4,
-    HasOcclusionMap         = 1 << 5,
-    HasClearCoat            = 1 << 6,
-    NumFlags                = 6
-};
-
-//Build the flags : 
-//MatFlag=0;
-//if(Mat->HasMtalic) MatFlag |= materialFlags::HasMetallicROughnessMAp
-//....
-//Store the matFlags in the material struct
-//In the resources, store the pipelines with the flags as key of the map
-
-//when building the pipelines :
-//For each material, build the flag, check if it already exists in the pipeline map
-//If it doesn't build the pipeline accordingly
-
-//At render time :
-//For mesh : build the pipeline of its material
-
 
 struct sceneMesh
 {

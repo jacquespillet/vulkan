@@ -36,7 +36,7 @@ vec3 GetIBLRadianceLambertian(vec3 Normal, vec3 View, float Roughness, vec3 Diff
 vec4 GetSpecularSample(vec3 Reflection, float LOD)
 {
     //TODO(Jacques): Rotation
-    // Reflection.y *= -1;
+    Reflection.y *= -1;
     return textureLod(PrefilteredEnv, Reflection, LOD);
 }
 

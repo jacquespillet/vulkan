@@ -208,23 +208,27 @@ void forwardRenderer::BuildPipelines()
     PipelineCreateInfo.pStages = ShaderStages.data();
     PipelineCreateInfo.flags = VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
 
+    //Loop through materials
+    //  Check if a pipeline with this flag already exists, if not :
+    //  For each flag
+    //      Check the flag, and set a specialization data property
+    //      Build the pipeline and add it to the list
+    
+    //Store the meshes according to their material masks
+    //  std::unorderedmap<flag, std::vector<Instance>> 
+
     // Fill G buffer
     {
         struct specializationData
         {
-            float ZNear;
-            float ZFar;
-            int32_t Discard=0;
+            int Mask=0;
         } SpecializationData;
 
-        SpecializationData.ZNear = 0.01f;
-        SpecializationData.ZFar = 100;
+        SpecializationData.Mask =0;
 
         std::vector<VkSpecializationMapEntry> SpecializationMapEntries = 
         {
-            vulkanTools::BuildSpecializationMapEntry(0, offsetof(specializationData, ZNear), sizeof(float)),
-            vulkanTools::BuildSpecializationMapEntry(1, offsetof(specializationData, ZFar), sizeof(float)),
-            vulkanTools::BuildSpecializationMapEntry(2, offsetof(specializationData, Discard), sizeof(int32_t))
+            vulkanTools::BuildSpecializationMapEntry(0, offsetof(specializationData, Mask), sizeof(int))
         };
         VkSpecializationInfo SpecializationInfo = vulkanTools::BuildSpecializationInfo(
             (uint32_t)SpecializationMapEntries.size(),
@@ -247,13 +251,13 @@ void forwardRenderer::BuildPipelines()
         };
         ColorBlendState.attachmentCount=(uint32_t)BlendAttachmentStates.size();
         ColorBlendState.pAttachments=BlendAttachmentStates.data();
-        Resources.Pipelines->Add("Scene.Solid", PipelineCreateInfo, App->PipelineCache);
+        Resources.Pipelines->Add("Scene.Opaque", PipelineCreateInfo, App->PipelineCache);
         
         //Transparents
         DepthStencilState.depthWriteEnable=VK_FALSE;
         RasterizationState.cullMode=VK_CULL_MODE_NONE;
-        SpecializationData.Discard=1;
-        Resources.Pipelines->Add("Scene.Blend", PipelineCreateInfo, App->PipelineCache);
+        SpecializationData.Mask=1;
+        Resources.Pipelines->Add("Scene.Mask", PipelineCreateInfo, App->PipelineCache);
     }   
     
     //Cube map
@@ -326,7 +330,7 @@ void forwardRenderer::BuildCommandBuffers()
 
         VkDeviceSize Offset[1] = {0};
 
-        vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Scene.Solid")); 
+        vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Scene.Opaque")); 
         VkPipelineLayout RendererPipelineLayout =  Resources.PipelineLayouts->Get("Scene");
         VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Get("Scene");
         vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
@@ -334,22 +338,21 @@ void forwardRenderer::BuildCommandBuffers()
 
         for(auto Instance : App->Scene->Instances)
         {
-            if(Instance.Mesh->Material->HasAlpha)
+            if(Instance.Mesh->Material->MaterialData.AlphaMode == alphaMode::Opaque)
             {
-                continue;
-            }
-            vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
-            vkCmdBindIndexBuffer(DrawCommandBuffers[i], Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
+                vkCmdBindIndexBuffer(DrawCommandBuffers[i], Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
-            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
-            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
-            vkCmdDrawIndexed(DrawCommandBuffers[i], Instance.Mesh->IndexCount, 1, 0, 0, 0);
+                vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
+                vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
+                vkCmdDrawIndexed(DrawCommandBuffers[i], Instance.Mesh->IndexCount, 1, 0, 0, 0);
+            }
         }
 
-        vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Scene.Blend"));
+        vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Scene.Mask"));
         for(auto Instance : App->Scene->Instances)
         {
-            if(Instance.Mesh->Material->HasAlpha)
+            if(Instance.Mesh->Material->MaterialData.AlphaMode == alphaMode::Mask)
             {
                 vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
                 vkCmdBindIndexBuffer(DrawCommandBuffers[i], Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);

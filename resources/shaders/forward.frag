@@ -70,9 +70,7 @@ layout(location=3) in mat3 TBN;
 
 layout (location = 0) out vec4 outputColor;
 
-layout (constant_id = 0) const float NEAR_PLANE = 0.1f;
-layout (constant_id = 1) const float FAR_PLANE = 64.0f;
-layout (constant_id = 2) const int ENABLE_DISCARD = 0;
+layout (constant_id = 0) const float MASK = 0;
 
 #include "Functions.glsl"
 #include "Tonemapping.glsl"
@@ -174,14 +172,15 @@ void main()
 
 //     //TODO(Jacques): Alpha cutoff
 //     // // Late discard to avoid samplig artifacts. See https://github.com/KhronosGroup/glTF-Sample-Viewer/issues/267
-// #if ALPHAMODE == ALPHAMODE_MASK
-//     // Late discard to avoid samplig artifacts. See https://github.com/KhronosGroup/glTF-Sample-Viewer/issues/267
-//     if (BaseColor.a < _AlphaCutoff)
-//     {
-//         discard;
-//     }
-//     BaseColor.a = 1.0;
-// #endif
+    if(MASK>0)
+    {
+        // Late discard to avoid samplig artifacts. See https://github.com/KhronosGroup/glTF-Sample-Viewer/issues/267
+        if (BaseColor.a < MaterialUBO.AlphaCutoff)
+        {
+            discard;
+        }
+        BaseColor.a = 1.0;
+    }
 
     outputColor = vec4(toneMap(Color), BaseColor.a);   
     if(InstanceUBO.Selected>0) outputColor += vec4(0.5, 0.5, 0, 0);     
