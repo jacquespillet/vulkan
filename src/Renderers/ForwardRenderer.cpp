@@ -223,11 +223,25 @@ void forwardRenderer::BuildPipelines()
         struct specializationData
         {
             int Mask=0;
+            int HasMetallicRoughnessMap = 0;
+            int HasEmissiveMap = 0;
+            int HasBaseColorMap = 0;
+            int HasOcclusionMap = 0;
+            int HasNormalMap = 0;
+            int HasClearCoat = 0;
+            int HasSheen = 0;
         } SpecializationData;
 
         std::vector<VkSpecializationMapEntry> SpecializationMapEntries = 
         {
-            vulkanTools::BuildSpecializationMapEntry(0, offsetof(specializationData, Mask), sizeof(int))
+            vulkanTools::BuildSpecializationMapEntry(0, offsetof(specializationData, Mask), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(1, offsetof(specializationData, HasMetallicRoughnessMap), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(2, offsetof(specializationData, HasEmissiveMap), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(3, offsetof(specializationData, HasBaseColorMap), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(4, offsetof(specializationData, HasOcclusionMap), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(5, offsetof(specializationData, HasNormalMap), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(6, offsetof(specializationData, HasClearCoat), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(7, offsetof(specializationData, HasSheen), sizeof(int))
         };
         VkSpecializationInfo SpecializationInfo = vulkanTools::BuildSpecializationInfo(
             (uint32_t)SpecializationMapEntries.size(),
@@ -266,6 +280,14 @@ void forwardRenderer::BuildPipelines()
                     SpecializationData.Mask=1;
                     RasterizationState.cullMode=VK_CULL_MODE_NONE;
                 }
+
+                if(MatFlags & materialFlags::HasBaseColorMap)SpecializationData.HasBaseColorMap=1;
+                if(MatFlags & materialFlags::HasEmissiveMap)SpecializationData.HasEmissiveMap=1;
+                if(MatFlags & materialFlags::HasMetallicRoughnessMap)SpecializationData.HasMetallicRoughnessMap=1;
+                if(MatFlags & materialFlags::HasOcclusionMap)SpecializationData.HasOcclusionMap=1;
+                if(MatFlags & materialFlags::HasNormalMap)SpecializationData.HasNormalMap=1;
+                if(MatFlags & materialFlags::HasClearCoat)SpecializationData.HasClearCoat=1;
+                if(MatFlags & materialFlags::HasSheen)SpecializationData.HasSheen=1;
                 
                 Resources.Pipelines->Add(MatFlags, PipelineCreateInfo, App->PipelineCache);
             }

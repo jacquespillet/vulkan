@@ -31,8 +31,9 @@ enum materialFlags
     HasEmissiveMap          = 1 << 4,
     HasBaseColorMap         = 1 << 5,
     HasOcclusionMap         = 1 << 6,
-    HasClearCoat            = 1 << 7,
-    HasSheen                = 1 << 8,
+    HasNormalMap            = 1 << 7,
+    HasClearCoat            = 1 << 8,
+    HasSheen                = 1 << 9,
     NumFlags                = 9
 };
 
@@ -125,6 +126,7 @@ struct sceneMaterial
 
         if(MaterialData.MetallicRoughnessTextureID>=0) Flags |= materialFlags::HasMetallicRoughnessMap;
         if(MaterialData.EmissionMapTextureID>=0) Flags |= materialFlags::HasEmissiveMap;
+        if(MaterialData.NormalMapTextureID>=0) Flags |= materialFlags::HasNormalMap;
         if(MaterialData.BaseColorTextureID>=0) Flags |= materialFlags::HasBaseColorMap;
         if(MaterialData.OcclusionMapTextureID>=0) Flags |= materialFlags::HasOcclusionMap;
         

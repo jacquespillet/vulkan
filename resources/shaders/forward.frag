@@ -71,6 +71,13 @@ layout(location=3) in mat3 TBN;
 layout (location = 0) out vec4 outputColor;
 
 layout (constant_id = 0) const float MASK = 0;
+layout (constant_id = 1) const int HAS_METALLIC_ROUGHNESS_MAP=0;
+layout (constant_id = 2) const int HAS_EMISSIVE_MAP=0;
+layout (constant_id = 3) const int HAS_BASE_COLOR_MAP=0;
+layout (constant_id = 4) const int HAS_OCCLUSION_MAP=0;
+layout (constant_id = 5) const int HAS_NORMAL_MAP=0;
+layout (constant_id = 6) const int HAS_CLEARCOAT=0;
+layout (constant_id = 7) const int HAS_SHEEN=0;
 
 #include "Functions.glsl"
 #include "Tonemapping.glsl"
