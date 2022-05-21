@@ -138,29 +138,7 @@ void deferredRenderer::UpdateUniformBufferSSAOParams()
 
 void deferredRenderer::BuildQuads()
 {
-    std::vector<vertex> VertexBuffer;
-    VertexBuffer.push_back({ { 1.0f, 1.0f, 0.0f, 1.0f},{ 1.0f, 1.0f, 1.0f , 1.0f},{ 0.0f, 0.0f, 0.0f, 0.0f } });
-    VertexBuffer.push_back({ { 0,      1.0f, 0.0f, 0.0f},{ 1.0f, 1.0f, 1.0f , 1.0f},{ 0.0f, 0.0f, 0.0f, 0.0f } });
-    VertexBuffer.push_back({ { 0,      0,      0.0f, 0.0f},{ 1.0f, 1.0f, 1.0f , 0.0f},{ 0.0f, 0.0f, 0.0f, 0.0f } });
-    VertexBuffer.push_back({ { 1.0f, 0,      0.0f, 1.0f},{ 1.0f, 1.0f, 1.0f, 0.0f },{ 0.0f, 0.0f, 0.0f, 0.0f } });    
-    
-    vulkanTools::CreateBuffer(VulkanDevice,
-                             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-                             &Meshes.Quad.VertexBuffer,
-                             VertexBuffer.size() * sizeof(vertex),
-                             VertexBuffer.data());
-
-    
-    std::vector<uint32_t> IndexBuffer = {0,1,2,  2,3,0};
-    Meshes.Quad.IndexCount = (uint32_t)IndexBuffer.size();
-
-    vulkanTools::CreateBuffer(VulkanDevice,
-                             VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-                             &Meshes.Quad.IndexBuffer,
-                             IndexBuffer.size() * sizeof(uint32_t),
-                             IndexBuffer.data());
+    Meshes.Quad = vulkanTools::BuildQuad(VulkanDevice);
 }
 
 

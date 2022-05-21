@@ -20,5 +20,5 @@ layout (location = 0) out vec2 outUV;
 void main() 
 {
 	outUV = vec2(inPos.w, inNormal.w);
-	gl_Position = ubo.projection * ubo.model * vec4(inPos.xyz, 1.0);
+	gl_Position = vec4(inPos.xyz, 1.0);
 }
