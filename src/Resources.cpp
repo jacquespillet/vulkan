@@ -13,26 +13,26 @@ void resources::AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, s
     VkDescriptorSetLayoutCreateInfo SetLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), static_cast<uint32_t>(SetLayoutBindings.size()));
     DescriptorSetLayouts->Add(Name, SetLayoutCreateInfo);
     
-    std::vector<VkDescriptorSetLayout> AllDescriptorSetLayouts = 
-    {
-        DescriptorSetLayouts->Get(Name)
-    };
-    for(size_t i=0; i<AdditionalDescriptorSetLayouts.size(); i++)
-    {
-        AllDescriptorSetLayouts.push_back(AdditionalDescriptorSetLayouts[i]);
-    }
-
-    //Create pipeline layout associated with it
-    VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo();
-    PipelineLayoutCreateInfo.pSetLayouts=AllDescriptorSetLayouts.data();
-    PipelineLayoutCreateInfo.setLayoutCount=(uint32_t)AllDescriptorSetLayouts.size();
-    PipelineLayouts->Add(Name, PipelineLayoutCreateInfo);
-    
-    
     //Allocate descriptor set
     VkDescriptorSetAllocateInfo DescriptorAllocateInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, nullptr, 1);
     DescriptorAllocateInfo.pSetLayouts=DescriptorSetLayouts->GetPtr(Name);
     VkDescriptorSet TargetDescriptorSet = DescriptorSets->Add(Name, DescriptorAllocateInfo);
+	
+	//Build pipeline layout with the additional descriptor set layouts
+	std::vector<VkDescriptorSetLayout> AllDescriptorSetLayouts =
+	{
+		DescriptorSetLayouts->Get(Name)
+	};
+	for (size_t i = 0; i < AdditionalDescriptorSetLayouts.size(); i++)
+	{
+		AllDescriptorSetLayouts.push_back(AdditionalDescriptorSetLayouts[i]);
+	}
+	VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo();
+	PipelineLayoutCreateInfo.pSetLayouts = AllDescriptorSetLayouts.data();
+	PipelineLayoutCreateInfo.setLayoutCount = (uint32_t)AllDescriptorSetLayouts.size();
+	PipelineLayouts->Add(Name, PipelineLayoutCreateInfo);
+
+
 
     //Write descriptor set
     std::vector<VkWriteDescriptorSet> WriteDescriptorSets(Descriptors.size()); 

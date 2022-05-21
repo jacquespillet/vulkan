@@ -14,23 +14,12 @@ public:
 
     VkDescriptorPool DescriptorPool;
     resources Resources;
-    struct
-    {
-        buffer SceneMatrices;
-    } UniformBuffers;
-    struct 
-    {
-        glm::mat4 Projection;
-        glm::mat4 Model;
-        glm::mat4 View;
-        glm::vec4 CameraPosition;
-    } UBOVS, UBOSceneMatrices;
+
         
     std::vector<VkShaderModule> ShaderModules;
     VkSubmitInfo SubmitInfo;
 
 
-    void UpdateUniformBufferDeferredMatrices();
     void UpdateCamera();
 private:
     void CreateCommandBuffers();

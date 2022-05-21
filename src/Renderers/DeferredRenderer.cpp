@@ -86,26 +86,6 @@ inline float Lerp(float a, float b, float f)
 
 void deferredRenderer::BuildUniformBuffers()
 {
-    //Full screen quad shader
-    vulkanTools::CreateBuffer(VulkanDevice, 
-                                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                &UniformBuffers.FullScreen,
-                                sizeof(UBOVS)
-    );
-        
-    //Deferred vertex shader
-    vulkanTools::CreateBuffer(VulkanDevice, 
-                                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                &UniformBuffers.SceneMatrices,
-                                sizeof(UBOSceneMatrices)
-    );
-
-
-    UpdateUniformBufferScreen();
-    UpdateUniformBufferDeferredMatrices();
-
     //Deferred Frag Shader
     vulkanTools::CreateBuffer(VulkanDevice, 
                                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
@@ -147,33 +127,9 @@ void deferredRenderer::BuildUniformBuffers()
 }
 
 
- void deferredRenderer::UpdateUniformBufferScreen()
-{
-    UBOVS.Projection = glm::ortho(0.0f, 1.0f, 0.0f, 1.0f, -1.0f, 1.0f);
-    UBOVS.Model = glm::mat4(1.0f);
-
-    VK_CALL(UniformBuffers.FullScreen.Map());
-    UniformBuffers.FullScreen.CopyTo(&UBOVS, sizeof(UBOVS));
-    UniformBuffers.FullScreen.Unmap();
-}
-
-void deferredRenderer::UpdateUniformBufferDeferredMatrices()
-{
-    App->Scene->Camera.SetAspectRatio((App->Width - ViewportStart) / App->Height);
-    UBOSceneMatrices.Projection = App->Scene->Camera.GetProjectionMatrix();
-    UBOSceneMatrices.View = App->Scene->Camera.GetViewMatrix();
-    UBOSceneMatrices.Model = glm::mat4(1);
-    
-    UBOSceneMatrices.ViewportDim = glm::vec2((float)App->Width,(float)App->Height);
-    VK_CALL(UniformBuffers.SceneMatrices.Map());
-    UniformBuffers.SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
-    UniformBuffers.SceneMatrices.Unmap();
-}
 
 void deferredRenderer::UpdateUniformBufferSSAOParams()
 {
-    UBOSceneMatrices.Projection =  glm::perspective(glm::radians(50.0f), 1.0f, 0.01f, 100.0f);
-    
     VK_CALL(UniformBuffers.SSAOParams.Map());
     UniformBuffers.SSAOParams.CopyTo(&UBOSSAOParams, sizeof(UBOSSAOParams));
     UniformBuffers.SSAOParams.Unmap();
@@ -254,20 +210,12 @@ void deferredRenderer::BuildLayoutsAndDescriptors()
     //- 1 for the global scene variables : Matrices, lights...
     {
         //TODO: This belongs in the scene, we can keep it there (Being created twice for each renderer !)
-        VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0 );
-        VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(&SetLayoutBindings, 1);
-        RendererDescriptorSetLayout = Resources.DescriptorSetLayouts->Add("Offscreen", DescriptorLayoutCreateInfo);
 
-        //Allocate and write descriptor sets
-        VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &RendererDescriptorSetLayout, 1);
-        VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Add("Offscreen", AllocInfo);
-        VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( RendererDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &UniformBuffers.SceneMatrices.Descriptor);
-        vkUpdateDescriptorSets(Device, 1, &WriteDescriptorSets, 0, nullptr);
-
+        
         //Build pipeline layout
         std::vector<VkDescriptorSetLayout> RendererSetLayouts = 
         {
-            RendererDescriptorSetLayout,
+            App->Scene->Resources.DescriptorSetLayouts->Get("Scene"),
             App->Scene->MaterialDescriptorSetLayout,
             App->Scene->InstanceDescriptorSetLayout
         };
@@ -283,7 +231,6 @@ void deferredRenderer::BuildLayoutsAndDescriptors()
         //Second dimension is actual descriptor set information
         std::vector<descriptor> Descriptors = 
         {
-            descriptor(VK_SHADER_STAGE_VERTEX_BIT, UniformBuffers.FullScreen.Descriptor),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[2].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
@@ -292,7 +239,7 @@ void deferredRenderer::BuildLayoutsAndDescriptors()
         std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts = 
         {
             App->Scene->Cubemap.DescriptorSetLayout,
-            RendererDescriptorSetLayout
+            App->Scene->Resources.DescriptorSetLayouts->Get("Scene"),
         };
         Resources.AddDescriptorSet(VulkanDevice, "Composition", Descriptors, DescriptorPool, AdditionalDescriptorSetLayouts);
     }
@@ -595,7 +542,7 @@ void deferredRenderer::BuildCommandBuffers()
         VkDeviceSize Offsets[1] = {0};
         vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 0, 1, Resources.DescriptorSets->GetPtr("Composition"), 0, nullptr);
         vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 1, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
-        vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 2, 1, Resources.DescriptorSets->GetPtr("Offscreen"), 0, nullptr);
+        vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 2, 1, App->Scene->Resources.DescriptorSets->GetPtr("Scene"), 0, nullptr);
 
         vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Composition.SSAO.Enabled"));
         vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Meshes.Quad.VertexBuffer.Buffer, Offsets);
@@ -637,7 +584,7 @@ void deferredRenderer::BuildDeferredCommandBuffers()
     vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         
-    VkViewport Viewport = vulkanTools::BuildViewport((float)App->Width - ViewportStart, (float)App->Height, 0.0f, 1.0f, ViewportStart, 0);
+    VkViewport Viewport = vulkanTools::BuildViewport((float)App->Width - App->Scene->ViewportStart, (float)App->Height, 0.0f, 1.0f, App->Scene->ViewportStart, 0);
     vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
 
 
@@ -647,7 +594,7 @@ void deferredRenderer::BuildDeferredCommandBuffers()
     VkDeviceSize Offset[1] = {0};
 
     VkPipelineLayout RendererPipelineLayout =  Resources.PipelineLayouts->Get("Offscreen");
-    VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Get("Offscreen");
+    VkDescriptorSet RendererDescriptorSet = App->Scene->Resources.DescriptorSets->Get("Scene");
 
 
 	for (auto &InstanceGroup : App->Scene->Instances)
@@ -778,7 +725,7 @@ void deferredRenderer::BuildDeferredCommandBuffers()
 
 void deferredRenderer::UpdateCamera()
 {
-    UpdateUniformBufferDeferredMatrices();
+    App->Scene->UpdateUniformBufferMatrices();
     UpdateUniformBufferSSAOParams();
 }
 
@@ -797,8 +744,6 @@ void deferredRenderer::Destroy()
     Framebuffers.SSAOBlur.Destroy(VulkanDevice->Device);
     
     Meshes.Quad.Destroy();
-    UniformBuffers.FullScreen.Destroy();
-    UniformBuffers.SceneMatrices.Destroy();
     UniformBuffers.SSAOKernel.Destroy();
     UniformBuffers.SSAOParams.Destroy();
     Resources.Destroy();

@@ -9,7 +9,7 @@ layout (location = 1) in vec4 inNormal;
 layout (location = 2) in vec4 inTangent;
 
 
-layout (binding = 0) uniform UBO 
+layout (set=2, binding = 0) uniform UBO 
 {
 	mat4 projection;
 	mat4 model;

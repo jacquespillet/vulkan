@@ -12,6 +12,18 @@ scene::scene(vulkanApp *App) :
             Queue(App->Queue), TextureLoader(App->TextureLoader)
 {
     this->Textures = new textureList(Device, TextureLoader);
+
+    std::vector<VkDescriptorPoolSize> PoolSizes = 
+    {
+        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1)
+    };
+    VkDescriptorPoolCreateInfo DescriptorPoolInfo = vulkanTools::BuildDescriptorPoolCreateInfo(
+        (uint32_t)PoolSizes.size(),
+        PoolSizes.data(),
+        1
+    );
+    VK_CALL(vkCreateDescriptorPool(Device, &DescriptorPoolInfo, nullptr, &SceneDescriptorPool));    
+    Resources.Init(App->VulkanDevice, SceneDescriptorPool, TextureLoader);
 }
 
 
@@ -146,8 +158,47 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
     //Fill command buffers in the renderers to render it in last
 }
 
+void scene::UpdateUniformBufferMatrices()
+{
+    Camera.SetAspectRatio((App->Width - ViewportStart) / App->Height);
+    
+    UBOSceneMatrices.Projection = App->Scene->Camera.GetProjectionMatrix();
+    UBOSceneMatrices.View = App->Scene->Camera.GetViewMatrix();
+    UBOSceneMatrices.Model = glm::mat4(1);
+    UBOSceneMatrices.CameraPosition = glm::vec4(App->Scene->Camera.worldPosition, 1);
+    
+    VK_CALL(UniformBuffers.SceneMatrices.Map());
+    UniformBuffers.SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
+    UniformBuffers.SceneMatrices.Unmap();
+}
+
+
 void scene::CreateDescriptorSets()
 {
+
+    //Create Camera descriptors
+    {
+        //Matrices uniform buffer
+        vulkanTools::CreateBuffer(App->VulkanDevice, 
+                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                    &UniformBuffers.SceneMatrices,
+                                    sizeof(UBOSceneMatrices)
+        );
+        UpdateUniformBufferMatrices();   
+
+        //Create the scene descriptor set layout
+        VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0 );
+        VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(&SetLayoutBindings, 1);
+        VkDescriptorSetLayout SceneDescriptorSetLayout = Resources.DescriptorSetLayouts->Add("Scene", DescriptorLayoutCreateInfo);
+
+        //Allocate and write descriptor sets
+        VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(SceneDescriptorPool, &SceneDescriptorSetLayout, 1);
+        VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Add("Scene", AllocInfo);
+        VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( RendererDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &UniformBuffers.SceneMatrices.Descriptor);
+        vkUpdateDescriptorSets(Device, 1, &WriteDescriptorSets, 0, nullptr);
+    }
+
     {
         //Create Material descriptor pool
         std::vector<VkDescriptorPoolSize> PoolSizes = 

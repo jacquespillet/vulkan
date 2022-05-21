@@ -8,6 +8,7 @@
 #include "Buffer.h"
 #include "TextureLoader.h"
 #include "Camera.h"
+#include "Resources.h"
 
 class vulkanApp;
 struct descriptor;
@@ -277,6 +278,7 @@ private:
 
     VkDescriptorPool MaterialDescriptorPool;
     VkDescriptorPool InstanceDescriptorPool;
+    VkDescriptorPool SceneDescriptorPool;
 
     
     void LoadMaterials(VkCommandBuffer CommandBuffer);
@@ -297,10 +299,28 @@ public:
     cubemap Cubemap;
     
     textureList *Textures;
+
+    struct
+    {
+        buffer SceneMatrices;
+    } UniformBuffers;
+    struct 
+    {
+        glm::mat4 Projection;
+        glm::mat4 Model;
+        glm::mat4 View;
+        glm::vec4 CameraPosition;
+    } UBOSceneMatrices;    
     
     camera Camera;
     scene(vulkanApp *App);
     
     void Load(std::string FileName, VkCommandBuffer CopyCommand);
     void CreateDescriptorSets();
+
+    
+    void UpdateUniformBufferMatrices();
+    float ViewportStart;
+
+    resources Resources;
 };

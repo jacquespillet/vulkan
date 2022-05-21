@@ -23,8 +23,6 @@ public:
 
     renderer(vulkanApp *App);
 
-    float ViewportStart;
-
     virtual void Render()=0;
     virtual void Setup()=0;
     virtual void Destroy()=0;

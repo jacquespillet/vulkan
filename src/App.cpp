@@ -289,13 +289,13 @@ void vulkanApp::RenderGUI()
 
     renderer *Renderer = Renderers[CurrentRenderer];
 
-    Renderer->ViewportStart=0;
+    Scene->ViewportStart=0;
 
     static int CurrentSceneItemIndex = -1;
     static int CurrentSceneGroupIndex=-1;
     if(ImGui::Begin("Parameters"))
     {
-        Renderer->ViewportStart += GuiWidth;
+        Scene->ViewportStart += GuiWidth;
 
         if (ImGui::BeginTabBar("MyTabBar"))
         {
@@ -361,7 +361,7 @@ void vulkanApp::RenderGUI()
             ImGui::SetNextWindowPos(ImVec2((float)GuiWidth,0), ImGuiCond_Always);
             if(ImGui::Begin(Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].Name.c_str()))
             {
-                Renderer->ViewportStart+=GuiWidth;
+                Scene->ViewportStart+=GuiWidth;
                 if(ImGui::CollapsingHeader("Transform"))
                 {
                     bool UpdateTransform=false;

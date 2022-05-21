@@ -30,7 +30,6 @@ void forwardRenderer::Setup()
     CreateCommandBuffers();
     SetupDescriptorPool();
     Resources.Init(VulkanDevice, DescriptorPool, App->TextureLoader);
-    BuildUniformBuffers();
     BuildLayoutsAndDescriptors();
     BuildPipelines();
     BuildCommandBuffers();
@@ -66,46 +65,8 @@ inline float Lerp(float a, float b, float f)
 }
 
 
-
-void forwardRenderer::BuildUniformBuffers()
-{    
-    //Deferred vertex shader
-    vulkanTools::CreateBuffer(VulkanDevice, 
-                                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                &UniformBuffers.SceneMatrices,
-                                sizeof(UBOSceneMatrices)
-    );
-
-    UpdateUniformBufferDeferredMatrices();
-}
-
-void forwardRenderer::UpdateUniformBufferDeferredMatrices()
-{
-    App->Scene->Camera.SetAspectRatio((App->Width - ViewportStart) / App->Height);
-    
-    UBOSceneMatrices.Projection = App->Scene->Camera.GetProjectionMatrix();
-    UBOSceneMatrices.View = App->Scene->Camera.GetViewMatrix();
-    UBOSceneMatrices.Model = glm::mat4(1);
-    UBOSceneMatrices.CameraPosition = glm::vec4(App->Scene->Camera.worldPosition, 1);
-    VK_CALL(UniformBuffers.SceneMatrices.Map());
-    UniformBuffers.SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
-    UniformBuffers.SceneMatrices.Unmap();
-}
-
-
 void forwardRenderer::BuildLayoutsAndDescriptors()
 {
-    //Create the scene descriptor set layout
-    VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0 );
-    VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(&SetLayoutBindings, 1);
-    VkDescriptorSetLayout RendererDescriptorSetLayout = Resources.DescriptorSetLayouts->Add("Scene", DescriptorLayoutCreateInfo);
-
-    //Allocate and write descriptor sets
-    VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &RendererDescriptorSetLayout, 1);
-    VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Add("Scene", AllocInfo);
-    VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( RendererDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &UniformBuffers.SceneMatrices.Descriptor);
-    vkUpdateDescriptorSets(Device, 1, &WriteDescriptorSets, 0, nullptr);
     
     //Render scene : the pipeline layout contains 4 descriptor sets :
     //- 1 for the global scene variables : Matrices, lights...
@@ -116,7 +77,7 @@ void forwardRenderer::BuildLayoutsAndDescriptors()
         //Build pipeline layout
         std::vector<VkDescriptorSetLayout> RendererSetLayouts = 
         {
-            RendererDescriptorSetLayout,
+            App->Scene->Resources.DescriptorSetLayouts->Get("Scene"),
             App->Scene->MaterialDescriptorSetLayout,
             App->Scene->InstanceDescriptorSetLayout,
             App->Scene->Cubemap.DescriptorSetLayout
@@ -130,7 +91,7 @@ void forwardRenderer::BuildLayoutsAndDescriptors()
         //Build pipeline layout
         std::vector<VkDescriptorSetLayout> RendererSetLayouts = 
         {
-            RendererDescriptorSetLayout,
+            App->Scene->Resources.DescriptorSetLayouts->Get("Scene"),
             App->Scene->Cubemap.DescriptorSetLayout
         };
         VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(RendererSetLayouts.data(), (uint32_t)RendererSetLayouts.size());
@@ -354,7 +315,7 @@ void forwardRenderer::BuildCommandBuffers()
         vkCmdBeginRenderPass(DrawCommandBuffers[i], &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 
-        VkViewport Viewport = vulkanTools::BuildViewport((float)App->Width - ViewportStart, (float)App->Height, 0.0f, 1.0f, ViewportStart, 0);
+        VkViewport Viewport = vulkanTools::BuildViewport((float)App->Width - App->Scene->ViewportStart, (float)App->Height, 0.0f, 1.0f, App->Scene->ViewportStart, 0);
         vkCmdSetViewport(DrawCommandBuffers[i], 0, 1, &Viewport);
 
         VkRect2D Scissor = vulkanTools::BuildRect2D(App->Width,App->Height,0,0);
@@ -363,7 +324,7 @@ void forwardRenderer::BuildCommandBuffers()
         VkDeviceSize Offset[1] = {0};
 
         VkPipelineLayout RendererPipelineLayout =  Resources.PipelineLayouts->Get("Scene");
-        VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Get("Scene");
+        VkDescriptorSet RendererDescriptorSet = App->Scene->Resources.DescriptorSets->Get("Scene");
         for(auto &InstanceGroup : App->Scene->Instances)
         {
             int Flag = InstanceGroup.first;
@@ -400,7 +361,7 @@ void forwardRenderer::BuildCommandBuffers()
 
 void forwardRenderer::UpdateCamera()
 {
-    UpdateUniformBufferDeferredMatrices();
+    App->Scene->UpdateUniformBufferMatrices();
 }
 
 void forwardRenderer::Destroy()
@@ -409,7 +370,6 @@ void forwardRenderer::Destroy()
     {
         vkDestroyShaderModule(Device, ShaderModules[i], nullptr);
     }
-    UniformBuffers.SceneMatrices.Destroy();
     Resources.Destroy();
     vkDestroyDescriptorPool(Device, DescriptorPool, nullptr);
     vkFreeCommandBuffers(Device, App->CommandPool, (uint32_t)DrawCommandBuffers.size(), DrawCommandBuffers.data());

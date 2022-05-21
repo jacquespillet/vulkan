@@ -18,18 +18,9 @@ public:
     resources Resources;
     struct
     {
-        buffer FullScreen;
-        buffer SceneMatrices;
         buffer SSAOKernel;
         buffer SSAOParams;
     } UniformBuffers;
-    struct 
-    {
-        glm::mat4 Projection;
-        glm::mat4 Model;
-        glm::mat4 View;
-        glm::vec2 ViewportDim;
-    } UBOVS, UBOSceneMatrices;
     
     struct
     {
@@ -63,8 +54,6 @@ public:
     bool EnableSSAO=true;
     std::vector<VkShaderModule> ShaderModules;
     VkSubmitInfo SubmitInfo;
-
-    VkDescriptorSetLayout RendererDescriptorSetLayout;
 
 
     void UpdateUniformBufferScreen();

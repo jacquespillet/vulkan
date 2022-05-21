@@ -6,10 +6,10 @@
 const float Exposure=1;
 
 
-layout (set=0, binding = 1) uniform sampler2D samplerPositionDepth;
-layout (set=0, binding = 2) uniform sampler2D samplerNormal;
-layout (set=0, binding = 3) uniform usampler2D samplerAlbedoMetallicRoughnessOcclusionOcclusionStrength;
-layout (set=0, binding = 4) uniform sampler2D samplerSSAO;
+layout (set=0, binding = 0) uniform sampler2D samplerPositionDepth;
+layout (set=0, binding = 1) uniform sampler2D samplerNormal;
+layout (set=0, binding = 2) uniform usampler2D samplerAlbedoMetallicRoughnessOcclusionOcclusionStrength;
+// layout (set=0, binding = 4) uniform sampler2D samplerSSAO;
 
 
 
