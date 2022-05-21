@@ -247,7 +247,7 @@ struct resources
     pipelineList *Pipelines;
     descriptorSetList *DescriptorSets;
 
-    void AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, std::vector<descriptor> &Descriptors, VkDescriptorPool DescriptorPool);
+    void AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, std::vector<descriptor> &Descriptors, VkDescriptorPool DescriptorPool, std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts=std::vector<VkDescriptorSetLayout>());
 
     void Init(vulkanDevice *VulkanDevice, VkDescriptorPool DescriptorPool, textureLoader *TextureLoader)
     {

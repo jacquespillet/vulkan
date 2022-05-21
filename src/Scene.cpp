@@ -246,7 +246,7 @@ void scene::CreateDescriptorSets()
     }    
 
     {
-        //Create Instance descriptor pool
+        //Create Cubemap descriptor pool
         std::vector<VkDescriptorPoolSize> PoolSizes = 
         {
             vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1),

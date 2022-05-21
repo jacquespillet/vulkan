@@ -64,6 +64,8 @@ public:
     std::vector<VkShaderModule> ShaderModules;
     VkSubmitInfo SubmitInfo;
 
+    VkDescriptorSetLayout RendererDescriptorSetLayout;
+
 
     void UpdateUniformBufferScreen();
     void UpdateUniformBufferDeferredMatrices();

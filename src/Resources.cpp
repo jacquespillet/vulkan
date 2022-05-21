@@ -1,6 +1,6 @@
 #include "Resources.h"
 
-void resources::AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, std::vector<descriptor> &Descriptors, VkDescriptorPool DescriptorPool)
+void resources::AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, std::vector<descriptor> &Descriptors, VkDescriptorPool DescriptorPool, std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts)
 {
     //TODO: Store together descriptor set layout and pipeline layout
 
@@ -13,9 +13,19 @@ void resources::AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, s
     VkDescriptorSetLayoutCreateInfo SetLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), static_cast<uint32_t>(SetLayoutBindings.size()));
     DescriptorSetLayouts->Add(Name, SetLayoutCreateInfo);
     
+    std::vector<VkDescriptorSetLayout> AllDescriptorSetLayouts = 
+    {
+        DescriptorSetLayouts->Get(Name)
+    };
+    for(size_t i=0; i<AdditionalDescriptorSetLayouts.size(); i++)
+    {
+        AllDescriptorSetLayouts.push_back(AdditionalDescriptorSetLayouts[i]);
+    }
+
     //Create pipeline layout associated with it
     VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo();
-    PipelineLayoutCreateInfo.pSetLayouts=DescriptorSetLayouts->GetPtr(Name);
+    PipelineLayoutCreateInfo.pSetLayouts=AllDescriptorSetLayouts.data();
+    PipelineLayoutCreateInfo.setLayoutCount=(uint32_t)AllDescriptorSetLayouts.size();
     PipelineLayouts->Add(Name, PipelineLayoutCreateInfo);
     
     

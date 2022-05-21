@@ -30,15 +30,12 @@ layout (location = 3) out mat3 TBN;
 
 void main() 
 {
-	vec4 pos = inPos;
-	gl_Position = SceneUbo.Projection * SceneUbo.View * InstanceUBO.Model * vec4(pos.xyz, 1);
+	gl_Position = SceneUbo.Projection * SceneUbo.View * InstanceUBO.Model * vec4(inPos.xyz, 1);
 	
 	FragUV = vec2(inPos.w, inNormal.w);
-	FragUV.t = 1.0 - FragUV.t;
-
+	
 	// Vertex position in world space
-	FragWorldPos = inPos.xyz;
-	FragWorldPos = vec3(SceneUbo.View * InstanceUBO.Model * inPos);
+	FragWorldPos = (InstanceUBO.Model * vec4(inPos.xyz, 1)).xyz;
 
 
 	FragNormal = normalize((InstanceUBO.Normal * vec4(inNormal.xyz, 0.0)).xyz);

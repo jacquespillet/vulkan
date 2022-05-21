@@ -205,9 +205,9 @@ void vulkanApp::BuildScene()
     //  Scene->Load("resources/models/sponza/sponza.dae", CopyCommand);
     // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
-    // Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
+    Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
-    Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
+    // Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
 
     vkFreeCommandBuffers(VulkanDevice->Device, CommandPool, 1, &CopyCommand);
 }

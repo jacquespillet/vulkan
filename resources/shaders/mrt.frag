@@ -1,5 +1,15 @@
 #version 450
 
+
+
+layout (set=0, binding = 0) uniform UBO 
+{
+	mat4 Projection;
+	mat4 model;
+	mat4 View;
+	vec4 CameraPosition;
+} SceneUbo;
+
 layout (set=1, binding = 0) uniform materialUBO 
 {
     int BaseColorTextureID;
@@ -36,6 +46,8 @@ layout (set=1, binding = 0) uniform materialUBO
 layout (set=1, binding = 1) uniform sampler2D samplerColor;
 layout (set=1, binding = 2) uniform sampler2D samplerSpecular;
 layout (set=1, binding = 3) uniform sampler2D samplerNormal;
+layout (set=1, binding = 4) uniform sampler2D samplerOcclusion;
+
 
 
 
@@ -45,9 +57,9 @@ layout (location = 1) in vec2 FragUv;
 layout (location = 2) in vec3 FragWorldPos;
 layout (location = 3) in mat3 TBN;
 
+layout (location = 2) out uvec4 outAlbedoMetallicRoughnessOcclusionOcclusionStrength;
 layout (location = 0) out vec4 outPositionDepth;
-layout (location = 2) out uvec4 outAlbedoRoughness;
-layout (location = 1) out vec4 outNormalMetallic;
+layout (location = 1) out vec4 outNormal;
 
 
 layout (constant_id = 0) const float MASK = 0;
@@ -60,17 +72,41 @@ layout (constant_id = 6) const int HAS_CLEARCOAT=0;
 layout (constant_id = 7) const int HAS_SHEEN=0;
 
 #include "Functions.glsl"
-#include "Material.glsl"
+#include "MaterialForward.glsl"
 
 void main() 
 {
-	// outPosition = vec4(FragWorldPos, linearDepth(gl_FragCoord.z));
-	outPositionDepth = vec4(FragWorldPos, 0);
+    vec4 BaseColor = GetBaseColor();
+    materialInfo MaterialInfo;
+
+    //Metallic Roughness
+    float Metallic = MaterialUBO.Metallic;
+    float PerceptualRoughness = MaterialUBO.Roughness;
+    if(HAS_METALLIC_ROUGHNESS_MAP>0 &&  MaterialUBO.UseMetallicRoughnessMap >0)
+    {
+        vec4 mrSample = texture(samplerSpecular, FragUv);
+        PerceptualRoughness *= mrSample.g;
+        Metallic *= mrSample.b;
+    }
+
+    //Occlusion
+    float AmbientOcclusion = 1.0;
+    float OcclusionStrength = MaterialUBO.OcclusionStrength;
+    if(HAS_OCCLUSION_MAP > 0 &&  MaterialUBO.UseOcclusionMap>0)
+    {
+        AmbientOcclusion = texture(samplerOcclusion, FragUv).r;
+    }    
+	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.r = packHalf2x16(BaseColor.rg);
+	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.g = packHalf2x16(BaseColor.ba);
+	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.b = packHalf2x16(vec2(Metallic, PerceptualRoughness));
+	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.a = packHalf2x16(vec2(AmbientOcclusion, OcclusionStrength));
 	
-	float specular = texture(samplerSpecular, FragUv).r;
+    
+    vec3 View = normalize(SceneUbo.CameraPosition.xyz - FragWorldPos);
+    normalInfo NormalInfo = getNormalInfo(View);
+    outNormal.xyz = NormalInfo.n;
 	
-	vec4 color = texture(samplerColor, FragUv);
-	outAlbedoRoughness.r = packHalf2x16(color.rg);
-	outAlbedoRoughness.g = packHalf2x16(color.ba);
-	outAlbedoRoughness.b = packHalf2x16(vec2(specular, 0.0));
+    //Change BaseColor based on debug channels
+    outPositionDepth = vec4(FragWorldPos, 0);
+
 }

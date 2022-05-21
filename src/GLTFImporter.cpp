@@ -230,10 +230,12 @@ namespace GLTFImporter
                 {
                     TexName = "Dummy.Specular"; //Black texture
                 }
-                Materials[i].Emission = Textures->Get(TexName);                
+                Materials[i].Emission = Textures->Get(TexName);       
+                Materials[i].MaterialData.EmissiveStrength=1;         
             }
             else
             {
+                Materials[i].MaterialData.EmissiveStrength=0;         
                 Materials[i].Emission = Textures->Get("Dummy.Specular");                
                 Materials[i].MaterialData.UseEmissionMap=0;
             }            

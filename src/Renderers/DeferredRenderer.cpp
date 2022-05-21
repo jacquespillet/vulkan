@@ -253,13 +253,13 @@ void deferredRenderer::BuildLayoutsAndDescriptors()
     //- 1 for all the material data (Textures, properties...)
     //- 1 for the global scene variables : Matrices, lights...
     {
-        //Create the materials descriptor sets
+        //TODO: This needs to be done in the scene, only once!
         App->Scene->CreateDescriptorSets();
 
-        //Create the scene descriptor set layout
-        VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0 );
+        //TODO: This belongs in the scene, we can keep it there (Being created twice for each renderer !)
+        VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0 );
         VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(&SetLayoutBindings, 1);
-        VkDescriptorSetLayout RendererDescriptorSetLayout = Resources.DescriptorSetLayouts->Add("Offscreen", DescriptorLayoutCreateInfo);
+        RendererDescriptorSetLayout = Resources.DescriptorSetLayouts->Add("Offscreen", DescriptorLayoutCreateInfo);
 
         //Allocate and write descriptor sets
         VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &RendererDescriptorSetLayout, 1);
@@ -280,16 +280,24 @@ void deferredRenderer::BuildLayoutsAndDescriptors()
 
     //Composition
     {
+        //Refactor that :
+        //Have a vector of vector of descriptor.
+        //First dimension is descriptor set layouts,
+        //Second dimension is actual descriptor set information
         std::vector<descriptor> Descriptors = 
         {
             descriptor(VK_SHADER_STAGE_VERTEX_BIT, UniformBuffers.FullScreen.Descriptor),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[2].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.SSAOBlur._Attachments[0].ImageView, Framebuffers.SSAOBlur.Sampler)
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.SSAOBlur._Attachments[0].ImageView, Framebuffers.SSAOBlur.Sampler),
         };
-        
-        Resources.AddDescriptorSet(VulkanDevice, "Composition", Descriptors, DescriptorPool);
+        std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts = 
+        {
+            App->Scene->Cubemap.DescriptorSetLayout,
+            RendererDescriptorSetLayout
+        };
+        Resources.AddDescriptorSet(VulkanDevice, "Composition", Descriptors, DescriptorPool, AdditionalDescriptorSetLayouts);
     }
 
     //SSAO Pass
@@ -589,7 +597,9 @@ void deferredRenderer::BuildCommandBuffers()
 
         VkDeviceSize Offsets[1] = {0};
         vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 0, 1, Resources.DescriptorSets->GetPtr("Composition"), 0, nullptr);
-        
+        vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 1, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
+        vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 2, 1, Resources.DescriptorSets->GetPtr("Offscreen"), 0, nullptr);
+
         vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Composition.SSAO.Enabled"));
         vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Meshes.Quad.VertexBuffer.Buffer, Offsets);
         vkCmdBindIndexBuffer(DrawCommandBuffers[i], Meshes.Quad.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -648,8 +658,7 @@ void deferredRenderer::BuildDeferredCommandBuffers()
 		int Flag = InstanceGroup.first;
 		vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get(Flag));
 		vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
-		//vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 3, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
-
+		
 		for (auto Instance : InstanceGroup.second)
 		{
 			vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
@@ -714,7 +723,8 @@ void deferredRenderer::BuildDeferredCommandBuffers()
     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-    if(EnableSSAO)
+    //No ssao for now
+    if(false)
     {
         ClearValues[0].color = {{0.0f,0.0f,0.0f,0.0f}};
         ClearValues[1].depthStencil = {1.0f, 0};
@@ -741,13 +751,11 @@ void deferredRenderer::BuildDeferredCommandBuffers()
         vkCmdDraw(OffscreenCommandBuffer, 3, 1, 0, 0);
         vkCmdEndRenderPass(OffscreenCommandBuffer);
         
-
-
-        vulkanTools::TransitionImageLayout(OffscreenCommandBuffer,
-        Framebuffers.SSAO._Attachments[0].Image, 
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		vulkanTools::TransitionImageLayout(OffscreenCommandBuffer,
+			Framebuffers.SSAO._Attachments[0].Image,
+			VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                 
         RenderPassBeginInfo.framebuffer = Framebuffers.SSAO.Framebuffer;
         RenderPassBeginInfo.renderPass = Framebuffers.SSAO.RenderPass;

@@ -84,7 +84,7 @@ layout (constant_id = 7) const int HAS_SHEEN=0;
 
 #include "Functions.glsl"
 #include "Tonemapping.glsl"
-#include "Material.glsl"
+#include "MaterialForward.glsl"
 #include "IBL.glsl"
 
 void main() 

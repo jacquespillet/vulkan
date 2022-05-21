@@ -99,6 +99,7 @@ materialInfo GetMetallicRoughnessInfo(materialInfo info)
     return info;
 }
 
+
 vec4 GetBaseColor()
 {
     vec4 BaseColor = vec4(1);
