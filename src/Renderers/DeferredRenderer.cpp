@@ -253,9 +253,6 @@ void deferredRenderer::BuildLayoutsAndDescriptors()
     //- 1 for all the material data (Textures, properties...)
     //- 1 for the global scene variables : Matrices, lights...
     {
-        //TODO: This needs to be done in the scene, only once!
-        App->Scene->CreateDescriptorSets();
-
         //TODO: This belongs in the scene, we can keep it there (Being created twice for each renderer !)
         VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0 );
         VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(&SetLayoutBindings, 1);

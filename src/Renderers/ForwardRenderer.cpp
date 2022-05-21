@@ -96,9 +96,6 @@ void forwardRenderer::UpdateUniformBufferDeferredMatrices()
 
 void forwardRenderer::BuildLayoutsAndDescriptors()
 {
-    //Create the material, instances, cubemap... descriptor sets
-    App->Scene->CreateDescriptorSets();
-
     //Create the scene descriptor set layout
     VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0 );
     VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(&SetLayoutBindings, 1);

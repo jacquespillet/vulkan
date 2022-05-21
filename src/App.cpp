@@ -210,6 +210,8 @@ void vulkanApp::BuildScene()
     // Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
 
     vkFreeCommandBuffers(VulkanDevice->Device, CommandPool, 1, &CopyCommand);
+
+    Scene->CreateDescriptorSets();
 }
 
 void vulkanApp::BuildVertexDescriptions()
