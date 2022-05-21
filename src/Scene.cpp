@@ -49,6 +49,27 @@ void cubemap::CreateDescriptorSet(vulkanDevice *VulkanDevice)
 
 }    
 
+void cubemap::Load(std::string FileName, textureLoader *TextureLoader, vulkanDevice *VulkanDevice, VkCommandBuffer CommandBuffer, VkQueue Queue)
+{
+    TextureLoader->LoadCubemap(FileName, &Texture);
+    GLTFImporter::LoadMesh("resources/models/Cube/Cube.gltf", Mesh, VulkanDevice, CommandBuffer, Queue);
+
+    vulkanTools::CreateBuffer(VulkanDevice, 
+                                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                &UniformBuffer,
+                                sizeof(cubemap::uniformData)
+    );        
+    UniformData.modelMatrix = glm::scale(glm::mat4(1), glm::vec3(100));
+    UniformBuffer.Map();
+    UniformBuffer.CopyTo(&UniformData, sizeof(cubemap::uniformData));
+    UniformBuffer.Unmap();
+
+    IBLHelper::CalculateIrradianceMap(VulkanDevice, CommandBuffer, Queue, &Texture, &IrradianceMap);        
+    IBLHelper::CalculatePrefilteredMap(VulkanDevice, CommandBuffer, Queue, &Texture, &PrefilteredMap);        
+    IBLHelper::CalculateBRDFLUT(VulkanDevice, CommandBuffer, Queue, &BRDFLUT);        
+}
+
 scene::scene(vulkanApp *App) :
             App(App), Device(App->Device), 
             Queue(App->Queue), TextureLoader(App->TextureLoader)
@@ -58,27 +79,8 @@ scene::scene(vulkanApp *App) :
 void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
 {
     Resources.Init(App->VulkanDevice, VK_NULL_HANDLE, TextureLoader);       
-
-    { //Cubemap
-        TextureLoader->LoadCubemap("resources/belfast_farmhouse_4k.hdr", &Cubemap.Texture);
-        GLTFImporter::LoadMesh("resources/models/Cube/Cube.gltf", Cubemap.Mesh, App->VulkanDevice, CopyCommand, Queue);
-
-        vulkanTools::CreateBuffer(App->VulkanDevice, 
-                                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                    &Cubemap.UniformBuffer,
-                                    sizeof(cubemap::uniformData)
-        );        
-        Cubemap.UniformData.modelMatrix = glm::scale(glm::mat4(1), glm::vec3(100));
-        Cubemap.UniformBuffer.Map();
-        Cubemap.UniformBuffer.CopyTo(&Cubemap.UniformData, sizeof(cubemap::uniformData));
-        Cubemap.UniformBuffer.Unmap();
-
-        IBLHelper::CalculateIrradianceMap(App->VulkanDevice, CopyCommand, Queue, &Cubemap.Texture, &Cubemap.IrradianceMap);        
-        IBLHelper::CalculatePrefilteredMap(App->VulkanDevice, CopyCommand, Queue, &Cubemap.Texture, &Cubemap.PrefilteredMap);        
-        IBLHelper::CalculateBRDFLUT(App->VulkanDevice, CopyCommand, Queue, &Cubemap.BRDFLUT);        
-    }
-
+    Cubemap.Load("resources/belfast_farmhouse_4k.hdr", TextureLoader, App->VulkanDevice, CopyCommand, Queue);
+    
     { //Scene
 
         std::vector<vertex> GVertices;

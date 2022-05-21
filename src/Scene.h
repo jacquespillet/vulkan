@@ -262,6 +262,7 @@ struct cubemap
 
     buffer UniformBuffer;
 
+    void Load(std::string FileName, textureLoader *TextureLoader, vulkanDevice *VulkanDevice, VkCommandBuffer CommandBuffer, VkQueue Queue);
     void CreateDescriptorSet(vulkanDevice *VulkanDevice);
     void Destroy(vulkanDevice *VulkanDevice);
 };
