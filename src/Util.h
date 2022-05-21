@@ -31,4 +31,51 @@ namespace util
         translation->y = matrix[3][1];
         translation->z = matrix[3][2];
     }
+    
+    glm::mat4 QuatToMat(glm::quat Quaternion)
+    {
+        glm::mat4 out;
+        float x = Quaternion.x;
+        float y = Quaternion.y;
+        float z = Quaternion.z;
+        float w = Quaternion.w;
+
+        const float x2 = x + x;
+        const float y2 = y + y;
+        const float z2 = z + z;
+
+        const float xx = x * x2;
+        const float xy = x * y2;
+        const float xz = x * z2;
+
+        const float yy = y * y2;
+        const float yz = y * z2;
+        const float zz = z * z2;
+
+        const float wx = w * x2;
+        const float wy = w * y2;
+        const float wz = w * z2;
+
+        out[0][0] = 1.0f - (yy + zz);
+        out[0][1] = xy + wz;
+        out[0][2] = xz - wy;
+        out[0][3] = 0.0f;
+
+        out[1][0] = xy - wz;
+        out[1][1] = 1.0f - (xx + zz);
+        out[1][2] = yz + wx;
+        out[1][3] = 0.0f;
+
+        out[2][0] = xz + wy;
+        out[2][1] = yz - wx;
+        out[2][2] = 1.0f - (xx + yy);
+        out[2][3] = 0.0f;
+
+        out[3][0] = 0;
+        out[3][1] = 0;
+        out[3][2] = 0;
+        out[3][3] = 1.0f;
+
+        return out;        
+    }
 }

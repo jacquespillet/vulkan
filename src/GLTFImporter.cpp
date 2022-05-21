@@ -282,7 +282,7 @@ namespace GLTFImporter
     }    
 
 
-    void LoadMeshes(tinygltf::Model &GLTFModel, std::vector<sceneMesh> &Meshes, std::vector<uint32_t> &GIndices, std::vector<vertex> &GVertices, std::vector<sceneMaterial> &Materials, std::vector<std::vector<sceneMesh*>> &InstanceMapping)
+    void LoadMeshes(tinygltf::Model &GLTFModel, std::vector<sceneMesh> &Meshes, std::vector<uint32_t> &GIndices, std::vector<vertex> &GVertices, std::vector<sceneMaterial> &Materials, std::vector<std::vector<uint32_t>> &InstanceMapping)
     {
         uint32_t GIndexBase=0;
         InstanceMapping.resize(GLTFModel.meshes.size());
@@ -328,7 +328,7 @@ namespace GLTFImporter
                 tinygltf::BufferView NormalBufferView;
                 const uint8_t *NormalBufferAddress=0;
                 int NormalStride=0;
-                if(NormalIndex > 0)
+                if(NormalIndex >= 0)
                 {
                     NormalAccessor = GLTFModel.accessors[NormalIndex];
                     NormalBufferView = GLTFModel.bufferViews[NormalAccessor.bufferView];
@@ -344,7 +344,7 @@ namespace GLTFImporter
                 tinygltf::BufferView TangentBufferView;
                 const uint8_t *TangentBufferAddress=0;
                 int TangentStride=0;
-                if(TangentIndex > 0)
+                if(TangentIndex >= 0)
                 {
                     TangentAccessor = GLTFModel.accessors[TangentIndex];
                     TangentBufferView = GLTFModel.bufferViews[TangentAccessor.bufferView];
@@ -361,7 +361,7 @@ namespace GLTFImporter
                 tinygltf::BufferView UVBufferView;
                 const uint8_t *UVBufferAddress=0;
                 int UVStride=0;
-                if(UVIndex > 0)
+                if(UVIndex >= 0)
                 {
                     UVAccessor = GLTFModel.accessors[UVIndex];
                     UVBufferView = GLTFModel.bufferViews[UVAccessor.bufferView];
@@ -396,13 +396,13 @@ namespace GLTFImporter
                         memcpy(&Position, address, 12);
                     }
 
-                    if(NormalIndex>0)
+                    if(NormalIndex>=0)
                     {
                         const uint8_t *address = NormalBufferAddress + NormalBufferView.byteOffset + NormalAccessor.byteOffset + (k * NormalStride);
                         memcpy(&Normal, address, 12);
                     }
 
-                    if(TangentIndex>0)
+                    if(TangentIndex>=0)
                     {
                         glm::vec4 Tangent;
                         const uint8_t *address = TangentBufferAddress + TangentBufferView.byteOffset + TangentAccessor.byteOffset + (k * TangentStride);
@@ -410,7 +410,7 @@ namespace GLTFImporter
                         Tangents.push_back(Tangent);
                     }
 
-                    if(UVIndex>0)
+                    if(UVIndex>=0)
                     {
                         const uint8_t *address = UVBufferAddress + UVBufferView.byteOffset + UVAccessor.byteOffset + (k * UVStride);
                         memcpy(&UV, address, 8);
@@ -458,7 +458,7 @@ namespace GLTFImporter
 
                 Meshes[BaseIndex + j].IndexBase = GIndexBase;
                 Meshes[BaseIndex + j].Material = &Materials[GLTFPrimitive.material];
-                InstanceMapping[MeshIndex][j] = &Meshes[BaseIndex + j];
+                InstanceMapping[MeshIndex][j] = BaseIndex + j;
 
                 uint32_t VertexBase = (uint32_t) GVertices.size();
                 for (size_t k = 0; k < Indices.size(); k++)
@@ -659,6 +659,7 @@ namespace GLTFImporter
                     glm::vec4 Normal = glm::vec4(Normals[indices[k]].x,Normals[indices[k]].y, Normals[indices[k]].z, UV.y);                    
                     glm::vec4 Tangent = Tangents[indices[k]];
                     UV.y *= -1;
+                    
 
                     Mesh.Vertices.push_back({
                         Position, 
@@ -676,7 +677,7 @@ namespace GLTFImporter
         }
     }    
 
-    void TraverseNodes(tinygltf::Model &GLTFModel, uint32_t nodeIndex, glm::mat4 parentTransform, std::vector<sceneMesh> &Meshes, std::unordered_map<int, std::vector<instance>> &Instances, std::vector<std::vector<sceneMesh*>> &InstanceMapping)
+    void TraverseNodes(tinygltf::Model &GLTFModel, uint32_t nodeIndex, glm::mat4 parentTransform, std::vector<sceneMesh> &Meshes, std::unordered_map<int, std::vector<instance>> &Instances, std::vector<std::vector<uint32_t>> &InstanceMapping)
     {
         tinygltf::Node GLTFNode = GLTFModel.nodes[nodeIndex];
 
@@ -700,8 +701,9 @@ namespace GLTFImporter
 
             if(GLTFNode.rotation.size() > 0)
             {
-                glm::quat q((float)GLTFNode.rotation[3], (float)GLTFNode.rotation[0], (float)GLTFNode.rotation[1], (float)GLTFNode.rotation[2]);
-                rotation = glm::toMat4(q);
+                glm::quat Quat((float)GLTFNode.rotation[3], (float)GLTFNode.rotation[0], (float)GLTFNode.rotation[1], (float)GLTFNode.rotation[2]);
+                rotation = glm::toMat4(Quat);
+
             }
 
             if(GLTFNode.scale.size() > 0)
@@ -714,7 +716,7 @@ namespace GLTFImporter
             LocalTransform = scale * rotation * translate;
         }
 
-        glm::mat4 Transform = LocalTransform * parentTransform;
+        glm::mat4 Transform = parentTransform * LocalTransform;
 
 
         //Leaf node
@@ -725,7 +727,8 @@ namespace GLTFImporter
             {
                 instance Instance = {};
                 Instance.InstanceData.Transform = Transform;
-                Instance.Mesh = InstanceMapping[GLTFNode.mesh][i];
+                uint32_t Inx = InstanceMapping[GLTFNode.mesh][i];
+                Instance.Mesh = &Meshes[Inx];
                 Instance.Name = GLTFNode.name;
                 if(strcmp(Instance.Name.c_str(), "") == 0)
                 {
@@ -746,7 +749,7 @@ namespace GLTFImporter
 
     }
 
-    void LoadInstances(tinygltf::Model &GLTFModel, std::vector<sceneMesh> &Meshes, std::unordered_map<int, std::vector<instance>> &Instances,  std::vector<std::vector<sceneMesh*>> &InstanceMapping)
+    void LoadInstances(tinygltf::Model &GLTFModel, std::vector<sceneMesh> &Meshes, std::unordered_map<int, std::vector<instance>> &Instances,  std::vector<std::vector<uint32_t>> &InstanceMapping)
     {
         glm::mat4 RootTransform(1.0f);
         const tinygltf::Scene GLTFScene = GLTFModel.scenes[GLTFModel.defaultScene];
@@ -785,7 +788,7 @@ namespace GLTFImporter
         }
 
         // InstanceMap->clear();
-        std::vector<std::vector<sceneMesh*>> InstanceMapping;
+        std::vector<std::vector<uint32_t>> InstanceMapping;
         LoadTextures(GLTFModel, Textures);
         LoadMaterials(GLTFModel, Materials, Textures);
         LoadMeshes(GLTFModel, Meshes, GIndices, GVertices, Materials, InstanceMapping);

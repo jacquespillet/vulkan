@@ -205,7 +205,8 @@ void vulkanApp::BuildScene()
     //  Scene->Load("resources/models/sponza/sponza.dae", CopyCommand);
     // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
-    Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
+    // Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
+    Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
 
     vkFreeCommandBuffers(VulkanDevice->Device, CommandPool, 1, &CopyCommand);
 }
@@ -392,6 +393,12 @@ void vulkanApp::RenderGUI()
 
                     UpdateMaterial |= ImGui::DragFloat("Opacity", &Material->Opacity, 0.01f, 0, 1);
                     UpdateMaterial |= ImGui::DragFloat("Alpha Cutoff", &Material->AlphaCutoff, 0.01f, 0, 1);
+                    ImGui::Separator();
+
+                    UpdateMaterial |= ImGui::ColorPicker3("Emission", &Material->Emission[0]);
+                    UpdateMaterial |= ImGui::DragFloat("Emissive Strength", &Material->EmissiveStrength, 0.01f, 0, 5);
+                    UpdateMaterial |= ImGui::Checkbox("Use Emission Map", (bool*)&Material->UseEmissionMap);
+
                     ImGui::Separator();
 
 

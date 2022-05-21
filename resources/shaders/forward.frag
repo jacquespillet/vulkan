@@ -39,6 +39,7 @@ layout (set=1, binding = 1) uniform sampler2D samplerColor;
 layout (set=1, binding = 2) uniform sampler2D samplerSpecular;
 layout (set=1, binding = 3) uniform sampler2D samplerNormal;
 layout (set=1, binding = 4) uniform sampler2D samplerOcclusion;
+layout (set=1, binding = 5) uniform sampler2D samplerEmission;
 
 
 layout (set=0, binding = 0) uniform UBO 
@@ -152,13 +153,11 @@ void main()
         FinalClearcoat = mix(FinalClearcoat, FinalClearcoat * AmbientOcclusion, MaterialUBO.OcclusionStrength);
     }
 
-//     FinalEmissive = _Emission * _EmissiveStrength;
-// #ifdef HAS_EMISSIVE_MAP
-//     if(_UseEmissionMap > 0)
-//     {
-//         FinalEmissive *= texture(_MapsTextureArray, vec3(FragUv, _EmissionMapTextureID)).rgb;
-//     }
-// #endif
+    FinalEmissive = MaterialUBO.Emission * MaterialUBO.EmissiveStrength;
+    if(HAS_EMISSIVE_MAP > 0 && MaterialUBO.UseEmissionMap>0)
+    {
+        FinalEmissive *= texture(samplerEmission, FragUv).rgb;
+    }
 
 //     // // Layer blending
 

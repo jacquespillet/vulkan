@@ -96,7 +96,7 @@ struct materialData
     glm::vec3 BaseColor = glm::vec3(1,1,1);
     float Opacity=1;
     
-    glm::vec3 Emission;
+    glm::vec3 Emission = glm::vec3(1,1,1);
     float Exposure=1;
 };
 
