@@ -10,6 +10,7 @@ deferredRenderer::deferredRenderer(vulkanApp *App) : renderer(App) {}
 
 void deferredRenderer::Render()
 {
+    BuildCommandBuffers();
     UpdateCamera();
 
     VK_CALL(App->Swapchain.AcquireNextImage(App->Semaphores.PresentComplete, &App->CurrentBuffer));
@@ -157,8 +158,9 @@ void deferredRenderer::BuildUniformBuffers()
 
 void deferredRenderer::UpdateUniformBufferDeferredMatrices()
 {
-    UBOSceneMatrices.Projection = Camera.GetProjectionMatrix();
-    UBOSceneMatrices.View = Camera.GetViewMatrix();
+    App->Scene->Camera.SetAspectRatio((App->Width - ViewportStart) / App->Height);
+    UBOSceneMatrices.Projection = App->Scene->Camera.GetProjectionMatrix();
+    UBOSceneMatrices.View = App->Scene->Camera.GetViewMatrix();
     UBOSceneMatrices.Model = glm::mat4(1);
     
     UBOSceneMatrices.ViewportDim = glm::vec2((float)App->Width,(float)App->Height);
@@ -415,19 +417,26 @@ void deferredRenderer::BuildPipelines()
     {
         struct specializationData
         {
-            float ZNear;
-            float ZFar;
-            int32_t Discard=0;
+            int Mask=0;
+            int HasMetallicRoughnessMap = 0;
+            int HasEmissiveMap = 0;
+            int HasBaseColorMap = 0;
+            int HasOcclusionMap = 0;
+            int HasNormalMap = 0;
+            int HasClearCoat = 0;
+            int HasSheen = 0;
         } SpecializationData;
-
-        SpecializationData.ZNear = 0.01f;
-        SpecializationData.ZFar = 100;
 
         std::vector<VkSpecializationMapEntry> SpecializationMapEntries = 
         {
-            vulkanTools::BuildSpecializationMapEntry(0, offsetof(specializationData, ZNear), sizeof(float)),
-            vulkanTools::BuildSpecializationMapEntry(1, offsetof(specializationData, ZFar), sizeof(float)),
-            vulkanTools::BuildSpecializationMapEntry(2, offsetof(specializationData, Discard), sizeof(int32_t))
+            vulkanTools::BuildSpecializationMapEntry(0, offsetof(specializationData, Mask), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(1, offsetof(specializationData, HasMetallicRoughnessMap), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(2, offsetof(specializationData, HasEmissiveMap), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(3, offsetof(specializationData, HasBaseColorMap), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(4, offsetof(specializationData, HasOcclusionMap), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(5, offsetof(specializationData, HasNormalMap), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(6, offsetof(specializationData, HasClearCoat), sizeof(int)),
+            vulkanTools::BuildSpecializationMapEntry(7, offsetof(specializationData, HasSheen), sizeof(int))
         };
         VkSpecializationInfo SpecializationInfo = vulkanTools::BuildSpecializationInfo(
             (uint32_t)SpecializationMapEntries.size(),
@@ -435,6 +444,7 @@ void deferredRenderer::BuildPipelines()
             sizeof(SpecializationData),
             &SpecializationData
         );
+
         ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/mrt.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
         ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/mrt.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
         ShaderStages[1].pSpecializationInfo = &SpecializationInfo;
@@ -453,13 +463,35 @@ void deferredRenderer::BuildPipelines()
         };
         ColorBlendState.attachmentCount=(uint32_t)BlendAttachmentStates.size();
         ColorBlendState.pAttachments=BlendAttachmentStates.data();
-        Resources.Pipelines->Add("Scene.Solid", PipelineCreateInfo, App->PipelineCache);
-        
-        //Transparents
-        DepthStencilState.depthWriteEnable=VK_FALSE;
-        RasterizationState.cullMode=VK_CULL_MODE_NONE;
-        SpecializationData.Discard=1;
-        Resources.Pipelines->Add("Scene.Blend", PipelineCreateInfo, App->PipelineCache);
+
+        for(int i=0; i<App->Scene->Materials.size(); i++)
+        {
+            int MatFlags = App->Scene->Materials[i].Flags;
+            if(!Resources.Pipelines->Present(MatFlags))
+            {
+                if(MatFlags & materialFlags::Opaque) 
+                {
+                    SpecializationData.Mask=0;
+                    RasterizationState.cullMode=VK_CULL_MODE_BACK_BIT;
+                }
+                if(MatFlags & materialFlags::Mask) 
+                {
+                    SpecializationData.Mask=1;
+                    RasterizationState.cullMode=VK_CULL_MODE_NONE;
+                }
+
+                if(MatFlags & materialFlags::HasBaseColorMap)SpecializationData.HasBaseColorMap=1;
+                if(MatFlags & materialFlags::HasEmissiveMap)SpecializationData.HasEmissiveMap=1;
+                if(MatFlags & materialFlags::HasMetallicRoughnessMap)SpecializationData.HasMetallicRoughnessMap=1;
+                if(MatFlags & materialFlags::HasOcclusionMap)SpecializationData.HasOcclusionMap=1;
+                if(MatFlags & materialFlags::HasNormalMap)SpecializationData.HasNormalMap=1;
+                if(MatFlags & materialFlags::HasClearCoat)SpecializationData.HasClearCoat=1;
+                if(MatFlags & materialFlags::HasSheen)SpecializationData.HasSheen=1;
+                
+                Resources.Pipelines->Add(MatFlags, PipelineCreateInfo, App->PipelineCache);
+            }
+        }        
+
     }
 
     //SSAO
@@ -521,6 +553,8 @@ void deferredRenderer::BuildPipelines()
 
 void deferredRenderer::BuildCommandBuffers()
 {
+    App->ImGuiHelper->UpdateBuffers();
+    
     VkCommandBufferBeginInfo CommandBufferInfo = vulkanTools::BuildCommandBufferBeginInfo();
 
     VkClearValue ClearValues[2];
@@ -558,6 +592,9 @@ void deferredRenderer::BuildCommandBuffers()
         vkCmdBindIndexBuffer(DrawCommandBuffers[i], Meshes.Quad.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(DrawCommandBuffers[i], 6, 1, 0, 0, 1);
 
+
+        App->ImGuiHelper->DrawFrame(DrawCommandBuffers[i]);
+
         vkCmdEndRenderPass(DrawCommandBuffers[i]);
 
         VK_CALL(vkEndCommandBuffer(DrawCommandBuffers[i]));
@@ -589,21 +626,46 @@ void deferredRenderer::BuildDeferredCommandBuffers()
     
     vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    VkViewport Viewport = vulkanTools::BuildViewport((float)Framebuffers.Offscreen.Width, (float)Framebuffers.Offscreen.Height, 0.0f, 1.0f);
+        
+    VkViewport Viewport = vulkanTools::BuildViewport((float)App->Width - ViewportStart, (float)App->Height, 0.0f, 1.0f, ViewportStart, 0);
     vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
+
 
     VkRect2D Scissor = vulkanTools::BuildRect2D(Framebuffers.Offscreen.Width,Framebuffers.Offscreen.Height,0,0);
     vkCmdSetScissor(OffscreenCommandBuffer, 0, 1, &Scissor);
 
     VkDeviceSize Offset[1] = {0};
 
-    vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Scene.Solid"));
+    VkPipelineLayout RendererPipelineLayout =  Resources.PipelineLayouts->Get("Offscreen");
+    VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Get("Offscreen");
 
-    vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &App->Scene->VertexBuffer.Buffer, Offset);
-    vkCmdBindIndexBuffer(OffscreenCommandBuffer, App->Scene->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
-    // VkPipelineLayout RendererPipelineLayout =  Resources.PipelineLayouts->Get("Offscreen");
-    // VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Get("Offscreen");
+	for (auto &InstanceGroup : App->Scene->Instances)
+	{
+		int Flag = InstanceGroup.first;
+		vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get(Flag));
+		vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
+		//vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 3, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
+
+		for (auto Instance : InstanceGroup.second)
+		{
+			vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
+			vkCmdBindIndexBuffer(OffscreenCommandBuffer, Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+
+			vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
+			vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
+			vkCmdDrawIndexed(OffscreenCommandBuffer, Instance.Mesh->IndexCount, 1, 0, 0, 0);
+		}
+	}
+
+	//{ //Cubemap
+	//	vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Cubemap"));
+	//	vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &App->Scene->Cubemap.Mesh.VertexBuffer.Buffer, Offset);
+	//	vkCmdBindIndexBuffer(DrawCommandBuffers[i], App->Scene->Cubemap.Mesh.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+	//	vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Cubemap"), 0, 1, &RendererDescriptorSet, 0, nullptr);
+	//	vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Cubemap"), 1, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
+	//	vkCmdDrawIndexed(DrawCommandBuffers[i], App->Scene->Cubemap.Mesh.IndexCount, 1, 0, 0, 0);
+	//}
 
     // for(auto Instance : App->Scene->Instances)
     // {
@@ -664,7 +726,8 @@ void deferredRenderer::BuildDeferredCommandBuffers()
         vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         
-        Viewport = vulkanTools::BuildViewport((float)Framebuffers.SSAO.Width, (float)Framebuffers.SSAO.Height, 0.0f, 1.0f);
+        
+        Viewport = vulkanTools::BuildViewport((float)App->Width - ViewportStart, (float)App->Height, 0.0f, 1.0f, ViewportStart, 0);
         vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
 
         Scissor = vulkanTools::BuildRect2D(Framebuffers.SSAO.Width,Framebuffers.SSAO.Height,0,0);
@@ -690,7 +753,7 @@ void deferredRenderer::BuildDeferredCommandBuffers()
         vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         
-        Viewport = vulkanTools::BuildViewport((float)Framebuffers.SSAOBlur.Width, (float)Framebuffers.SSAOBlur.Height, 0.0f, 1.0f);
+        Viewport = vulkanTools::BuildViewport((float)App->Width - ViewportStart, (float)App->Height, 0.0f, 1.0f, ViewportStart, 0);
         vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
 
         Scissor = vulkanTools::BuildRect2D(Framebuffers.SSAOBlur.Width,Framebuffers.SSAOBlur.Height,0,0);

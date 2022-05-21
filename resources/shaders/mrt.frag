@@ -1,86 +1,76 @@
 #version 450
 
-layout (set=1, binding = 0) uniform sampler2D samplerColor;
-layout (set=1, binding = 1) uniform sampler2D samplerSpecular;
-layout (set=1, binding = 2) uniform sampler2D samplerNormal;
-layout (set=1, binding = 3) uniform materialUBO 
+layout (set=1, binding = 0) uniform materialUBO 
 {
     int BaseColorTextureID;
     int MetallicRoughnessTextureID;
     int NormalMapTextureID;
     int EmissionMapTextureID;
+    
     int OcclusionMapTextureID;
-    int UseBaseColor;
-    int UseMetallicRoughness;
+    int UseBaseColorMap;
+    int UseMetallicRoughnessMap;
     int UseNormalMap;
+
     int UseEmissionMap;
     int UseOcclusionMap;
+    int AlphaMode;
+    int DebugChannel;
+
     float Roughness;
     float AlphaCutoff;
+    float ClearcoatRoughness;
+    float padding1;
+    
     float Metallic;
     float OcclusionStrength;
     float EmissiveStrength;
     float ClearcoatFactor;
-    float ClearcoatRoughness;
-    float Exposure;
-    float Opacity;
-    int AlphaMode;
+    
     vec3 BaseColor;
-    vec3 Emission;    
+    float Opacity;
+    
+    vec3 Emission;
+    float Exposure;   
 } MaterialUBO;
+layout (set=1, binding = 1) uniform sampler2D samplerColor;
+layout (set=1, binding = 2) uniform sampler2D samplerSpecular;
+layout (set=1, binding = 3) uniform sampler2D samplerNormal;
 
 
-layout (location = 0) in vec3 inNormal;
-layout (location = 1) in vec2 inUV;
-layout (location = 2) in vec3 inColor;
-layout (location = 3) in vec3 inWorldPos;
-layout (location = 4) in vec3 inTangent;
-layout (location = 5) in vec3 inBitangent;
 
-layout (location = 0) out vec4 outPosition;
-layout (location = 1) out vec4 outNormal;
-layout (location = 2) out uvec4 outAlbedo;
 
-layout (constant_id = 0) const float NEAR_PLANE = 0.1f;
-layout (constant_id = 1) const float FAR_PLANE = 64.0f;
-layout (constant_id = 2) const int ENABLE_DISCARD = 0;
+layout (location = 0) in vec3 FragNormal;
+layout (location = 1) in vec2 FragUv;
+layout (location = 2) in vec3 FragWorldPos;
+layout (location = 3) in mat3 TBN;
 
-float linearDepth(float depth)
-{
-	float z = depth * 2.0f - 1.0f; 
-	return (2.0f * NEAR_PLANE * FAR_PLANE) / (FAR_PLANE + NEAR_PLANE - z * (FAR_PLANE - NEAR_PLANE));	
-}
+layout (location = 0) out vec4 outPositionDepth;
+layout (location = 2) out uvec4 outAlbedoRoughness;
+layout (location = 1) out vec4 outNormalMetallic;
+
+
+layout (constant_id = 0) const float MASK = 0;
+layout (constant_id = 1) const int HAS_METALLIC_ROUGHNESS_MAP=0;
+layout (constant_id = 2) const int HAS_EMISSIVE_MAP=0;
+layout (constant_id = 3) const int HAS_BASE_COLOR_MAP=0;
+layout (constant_id = 4) const int HAS_OCCLUSION_MAP=0;
+layout (constant_id = 5) const int HAS_NORMAL_MAP=0;
+layout (constant_id = 6) const int HAS_CLEARCOAT=0;
+layout (constant_id = 7) const int HAS_SHEEN=0;
+
+#include "Functions.glsl"
+#include "Material.glsl"
 
 void main() 
 {
-	outPosition = vec4(inWorldPos, linearDepth(gl_FragCoord.z));
-
-	vec4 color = texture(samplerColor, inUV);
-
-	// Discard by alpha for transparent objects if enabled via specialization constant
-	if (ENABLE_DISCARD == 0)
-	{
-		vec3 N = normalize(inNormal);
-		vec3 B = normalize(inBitangent);
-		vec3 T = normalize(inTangent);
-		mat3 TBN = mat3(T, B, N);
-		vec3 nm = texture(samplerNormal, inUV).xyz * 2.0 - vec3(1.0);
-		nm = TBN * normalize(nm);
-		outNormal = vec4(nm * 0.5 + 0.5, 0.0);
-	}
-	else
-	{
-		outNormal = vec4(normalize(inNormal) * 0.5 + 0.5, 0.0);
-		if (color.a < 0.5)
-		{
-			discard;
-		}
-	}
-
-	// Pack
-	float specular = texture(samplerSpecular, inUV).r;
-
-	outAlbedo.r = packHalf2x16(color.rg);
-	outAlbedo.g = packHalf2x16(color.ba);
-	outAlbedo.b = packHalf2x16(vec2(specular, 0.0));
+	// outPosition = vec4(FragWorldPos, linearDepth(gl_FragCoord.z));
+	outPositionDepth = vec4(FragWorldPos, 0);
+	
+	float specular = texture(samplerSpecular, FragUv).r;
+	
+	vec4 color = texture(samplerColor, FragUv);
+	outAlbedoRoughness.r = packHalf2x16(color.rg);
+	outAlbedoRoughness.g = packHalf2x16(color.ba);
+	outAlbedoRoughness.b = packHalf2x16(vec2(specular, 0.0));
 }

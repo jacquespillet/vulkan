@@ -7,6 +7,7 @@
 
 #include "Buffer.h"
 #include "TextureLoader.h"
+#include "Camera.h"
 
 class vulkanApp;
 struct descriptor;
@@ -140,6 +141,7 @@ struct sceneMaterial
 
     VkDescriptorSet DescriptorSet;
 
+
     int Flags;
 
     void CalculateFlags()
@@ -272,6 +274,7 @@ private:
     
     
 
+
     VkDescriptorPool MaterialDescriptorPool;
     VkDescriptorPool InstanceDescriptorPool;
 
@@ -295,6 +298,7 @@ public:
     
     textureList *Textures;
     
+    camera Camera;
     scene(vulkanApp *App);
     
     void Load(std::string FileName, VkCommandBuffer CopyCommand);

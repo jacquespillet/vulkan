@@ -10,6 +10,7 @@ public:
     void Render() override;
     void Setup() override;    
     void Destroy() override;    
+    void RenderGUI() override{};
 
     std::vector<VkCommandBuffer> DrawCommandBuffers;
 

@@ -206,7 +206,8 @@ void vulkanApp::BuildScene()
     // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
-    Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
+    // Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
+    Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
 
     vkFreeCommandBuffers(VulkanDevice->Device, CommandPool, 1, &CopyCommand);
 }
@@ -252,9 +253,12 @@ void vulkanApp::CreateGeneralResources()
 	ImGuiHelper->InitResources(RenderPass, Queue);
     ImGuiHelper->InitStyle();
 
-    // Renderer = new deferredRenderer(this);
-    Renderer = new forwardRenderer(this);
-    Renderer->Setup();
+    Renderers.push_back(new forwardRenderer(this));
+    Renderers.push_back(new deferredRenderer(this));
+    for(int i=0; i<Renderers.size(); i++)
+    {
+        Renderers[i]->Setup();
+    }
 }
 
 void vulkanApp::Initialize(HWND Window)
@@ -280,6 +284,8 @@ void vulkanApp::RenderGUI()
     ImGui::NewFrame();
     ImGui::SetNextWindowSize(ImVec2(GuiWidth, (float)Height));
     ImGui::SetNextWindowPos(ImVec2(0,0), ImGuiCond_Always);
+
+    renderer *Renderer = Renderers[CurrentRenderer];
 
     Renderer->ViewportStart=0;
 
@@ -331,8 +337,11 @@ void vulkanApp::RenderGUI()
             }
             if (ImGui::BeginTabItem("Renderer"))
             {
-                ImGui::Text("This is the Broccoli tab!\nblah blah blah blah blah");
-                ImGui::EndTabItem();
+                static int RendererInx = 0;
+                ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0\0");
+                CurrentRenderer = RendererInx;   
+                
+                ImGui::EndTabItem();             
             }
             if (ImGui::BeginTabItem("Lights"))
             {
@@ -436,8 +445,8 @@ void vulkanApp::RenderGUI()
     // ImGui::ShowDemoWindow();
 
     Renderer->RenderGUI();
-    if(ImGui::IsAnyItemHovered() || ImGui::IsAnyItemActive() || ImGui::IsAnyItemFocused()) Renderer->Camera.Locked=true;
-    else Renderer->Camera.Locked=false;
+    if(ImGui::IsAnyItemHovered() || ImGui::IsAnyItemActive() || ImGui::IsAnyItemFocused()) Scene->Camera.Locked=true;
+    else Scene->Camera.Locked=false;
     
 
     // Render to generate draw buffers
@@ -448,12 +457,12 @@ void vulkanApp::RenderGUI()
 void vulkanApp::Render()
 {
     RenderGUI();
-    Renderer->Render();
+    Renderers[CurrentRenderer]->Render();
 }
 
 void vulkanApp::MouseMove(float XPosition, float YPosition)
 {
-    Renderer->Camera.mouseMoveEvent(XPosition, YPosition);
+    Scene->Camera.mouseMoveEvent(XPosition, YPosition);
     Mouse.PosX = XPosition;
     Mouse.PosY = YPosition;
 }
@@ -464,25 +473,27 @@ void vulkanApp::MouseAction(int Button, int Action, int Mods)
     {
         if(Button==0) Mouse.Left=true;
         if(Button==1) Mouse.Right=true;
-        Renderer->Camera.mousePressEvent(Button);
+        Scene->Camera.mousePressEvent(Button);
     }
     else if(Action == GLFW_RELEASE)
     {
         if(Button==0) Mouse.Left=false;
         if(Button==1) Mouse.Right=false;
-        Renderer->Camera.mouseReleaseEvent(Button);
+        Scene->Camera.mouseReleaseEvent(Button);
     }
 }
 
 void vulkanApp::Scroll(float YOffset)
 {
-    Renderer->Camera.Scroll(YOffset);
+    Scene->Camera.Scroll(YOffset);
 }
 
 void vulkanApp::DestroyGeneralResources()
 {
-    
-    Renderer->Destroy(); 
+    for(size_t i=0; i<Renderers.size(); i++)
+    {
+        Renderers[i]->Destroy(); 
+    }
 
     Scene->Destroy();
     
@@ -520,7 +531,11 @@ void vulkanApp::Destroy()
 //    vulkanDebug::DestroyDebugReportCallback(Instance, vulkanDebug::DebugReportCallback, nullptr);
     vkDestroyInstance(Instance, nullptr);
 
-    delete Renderer;
+    for(size_t i=0; i<Renderers.size(); i++)
+    {
+        delete Renderers[i];
+    }
+
     delete TextureLoader;
     delete Scene;
     system("pause");

@@ -82,12 +82,12 @@ void forwardRenderer::BuildUniformBuffers()
 
 void forwardRenderer::UpdateUniformBufferDeferredMatrices()
 {
-    Camera.SetAspectRatio((App->Width - ViewportStart) / App->Height);
+    App->Scene->Camera.SetAspectRatio((App->Width - ViewportStart) / App->Height);
     
-    UBOSceneMatrices.Projection = Camera.GetProjectionMatrix();
-    UBOSceneMatrices.View = Camera.GetViewMatrix();
+    UBOSceneMatrices.Projection = App->Scene->Camera.GetProjectionMatrix();
+    UBOSceneMatrices.View = App->Scene->Camera.GetViewMatrix();
     UBOSceneMatrices.Model = glm::mat4(1);
-    UBOSceneMatrices.CameraPosition = glm::vec4(Camera.worldPosition, 1);
+    UBOSceneMatrices.CameraPosition = glm::vec4(App->Scene->Camera.worldPosition, 1);
     VK_CALL(UniformBuffers.SceneMatrices.Map());
     UniformBuffers.SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
     UniformBuffers.SceneMatrices.Unmap();

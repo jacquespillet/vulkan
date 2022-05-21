@@ -101,7 +101,9 @@ public:
     } VerticesDescription;
     scene *Scene;
     uint32_t Width, Height;
-    renderer *Renderer;
+
+    std::vector<renderer*> Renderers;
+    int CurrentRenderer=0;
 
     ImGUI *ImGuiHelper;
 

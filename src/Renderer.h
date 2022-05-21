@@ -20,7 +20,6 @@ public:
     vulkanApp *App;
     VkDevice Device;
     vulkanDevice *VulkanDevice;
-    camera Camera;
 
     renderer(vulkanApp *App);
 
