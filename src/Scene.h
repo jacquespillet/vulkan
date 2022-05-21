@@ -298,10 +298,8 @@ public:
     
     textureList *Textures;
 
-    struct
-    {
-        buffer SceneMatrices;
-    } UniformBuffers;
+    buffer SceneMatrices;
+    
     struct 
     {
         glm::mat4 Projection;

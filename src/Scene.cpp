@@ -167,9 +167,9 @@ void scene::UpdateUniformBufferMatrices()
     UBOSceneMatrices.Model = glm::mat4(1);
     UBOSceneMatrices.CameraPosition = glm::vec4(App->Scene->Camera.worldPosition, 1);
     
-    VK_CALL(UniformBuffers.SceneMatrices.Map());
-    UniformBuffers.SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
-    UniformBuffers.SceneMatrices.Unmap();
+    VK_CALL(SceneMatrices.Map());
+    SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
+    SceneMatrices.Unmap();
 }
 
 
@@ -182,7 +182,7 @@ void scene::CreateDescriptorSets()
         vulkanTools::CreateBuffer(App->VulkanDevice, 
                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                    &UniformBuffers.SceneMatrices,
+                                    &SceneMatrices,
                                     sizeof(UBOSceneMatrices)
         );
         UpdateUniformBufferMatrices();   
@@ -195,7 +195,7 @@ void scene::CreateDescriptorSets()
         //Allocate and write descriptor sets
         VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(SceneDescriptorPool, &SceneDescriptorSetLayout, 1);
         VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Add("Scene", AllocInfo);
-        VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( RendererDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &UniformBuffers.SceneMatrices.Descriptor);
+        VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( RendererDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &SceneMatrices.Descriptor);
         vkUpdateDescriptorSets(Device, 1, &WriteDescriptorSets, 0, nullptr);
     }
 
@@ -362,6 +362,7 @@ void sceneMesh::Destroy()
 
 void scene::Destroy()
 {
+    SceneMatrices.Destroy();
     Resources.Destroy();
     Cubemap.Destroy(App->VulkanDevice);
 
@@ -388,6 +389,7 @@ void scene::Destroy()
 
     vkDestroyDescriptorPool(Device, InstanceDescriptorPool, nullptr);
     vkDestroyDescriptorPool(Device, MaterialDescriptorPool, nullptr);
+    vkDestroyDescriptorPool(Device, SceneDescriptorPool, nullptr);
 
     Textures->Destroy();
     delete Textures;

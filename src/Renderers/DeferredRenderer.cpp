@@ -47,6 +47,10 @@ void deferredRenderer::Setup()
     BuildOffscreenBuffers();
     BuildLayoutsAndDescriptors();
     BuildPipelines();
+    
+    VkSemaphoreCreateInfo SemaphoreCreateInfo = vulkanTools::BuildSemaphoreCreateInfo();
+    VK_CALL(vkCreateSemaphore(Device, &SemaphoreCreateInfo, nullptr, &OffscreenSemaphore));
+
     BuildCommandBuffers();
     BuildDeferredCommandBuffers();
 }
@@ -533,9 +537,6 @@ void deferredRenderer::BuildCommandBuffers()
 
 void deferredRenderer::BuildDeferredCommandBuffers()
 {
-    VkSemaphoreCreateInfo SemaphoreCreateInfo = vulkanTools::BuildSemaphoreCreateInfo();
-    VK_CALL(vkCreateSemaphore(Device, &SemaphoreCreateInfo, nullptr, &OffscreenSemaphore));
-
     VkCommandBufferBeginInfo CommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
     VK_CALL(vkBeginCommandBuffer(OffscreenCommandBuffer, &CommandBufferBeginInfo));
     
