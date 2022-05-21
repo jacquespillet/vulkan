@@ -262,6 +262,7 @@ struct cubemap
 
     buffer UniformBuffer;
 
+    void CreateDescriptorSet(vulkanDevice *VulkanDevice);
     void Destroy(vulkanDevice *VulkanDevice);
 };
 
