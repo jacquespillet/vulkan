@@ -183,19 +183,14 @@ void deferredRenderer::BuildOffscreenBuffers()
 
 void deferredRenderer::BuildLayoutsAndDescriptors()
 {
-    //Render scene (Gbuffer) : the pipeline layout contains 2 descriptor sets :
-    //- 1 for all the material data (Textures, properties...)
-    //- 1 for the global scene variables : Matrices, lights...
-    {
-        //TODO: This belongs in the scene, we can keep it there (Being created twice for each renderer !)
-
-        
+    //Render scene (Gbuffer)
+    {        
         //Build pipeline layout
         std::vector<VkDescriptorSetLayout> RendererSetLayouts = 
         {
             App->Scene->Resources.DescriptorSetLayouts->Get("Scene"),
-            App->Scene->MaterialDescriptorSetLayout,
-            App->Scene->InstanceDescriptorSetLayout
+            App->Scene->Resources.DescriptorSetLayouts->Get("Material"),
+            App->Scene->Resources.DescriptorSetLayouts->Get("Instances")
         };
         VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(RendererSetLayouts.data(), (uint32_t)RendererSetLayouts.size());
         Resources.PipelineLayouts->Add("Offscreen", pPipelineLayoutCreateInfo);

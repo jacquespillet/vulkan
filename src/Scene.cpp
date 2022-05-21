@@ -223,12 +223,12 @@ void scene::CreateDescriptorSets()
         SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4 ));
         SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 5 ));
         VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), (uint32_t)SetLayoutBindings.size());
-        VK_CALL(vkCreateDescriptorSetLayout(Device, &DescriptorLayoutCreateInfo, nullptr, &MaterialDescriptorSetLayout));
-
+        Resources.DescriptorSetLayouts->Add("Material", DescriptorLayoutCreateInfo);
+        
         //Write descriptor sets
         for(uint32_t i=0; i<Materials.size(); i++)
         {
-            VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(MaterialDescriptorPool, &MaterialDescriptorSetLayout, 1);
+            VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(MaterialDescriptorPool, Resources.DescriptorSetLayouts->GetPtr("Material"), 1);
             VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &Materials[i].DescriptorSet));
 
             std::vector<VkWriteDescriptorSet> WriteDescriptorSets;
@@ -277,14 +277,13 @@ void scene::CreateDescriptorSets()
         std::vector<VkDescriptorSetLayoutBinding> SetLayoutBindings;
         SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0 ));
         VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), (uint32_t)SetLayoutBindings.size());
-        VK_CALL(vkCreateDescriptorSetLayout(Device, &DescriptorLayoutCreateInfo, nullptr, &InstanceDescriptorSetLayout));
-
+        Resources.DescriptorSetLayouts->Add("Instances", DescriptorLayoutCreateInfo);
         //Write descriptor sets
         for(auto &InstanceGroup : Instances)
         {
             for(uint32_t i=0; i<InstanceGroup.second.size(); i++)
             {
-                VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(InstanceDescriptorPool, &InstanceDescriptorSetLayout, 1);
+                VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(InstanceDescriptorPool, Resources.DescriptorSetLayouts->GetPtr("Instances"), 1);
                 VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &InstanceGroup.second[i].DescriptorSet));
 
                 std::vector<VkWriteDescriptorSet> WriteDescriptorSets;
@@ -363,6 +362,7 @@ void sceneMesh::Destroy()
 
 void scene::Destroy()
 {
+    Resources.Destroy();
     Cubemap.Destroy(App->VulkanDevice);
 
     VertexBuffer.Destroy();
@@ -386,8 +386,6 @@ void scene::Destroy()
         }
     }
 
-    vkDestroyDescriptorSetLayout(Device, InstanceDescriptorSetLayout, nullptr);
-    vkDestroyDescriptorSetLayout(Device, MaterialDescriptorSetLayout, nullptr);
     vkDestroyDescriptorPool(Device, InstanceDescriptorPool, nullptr);
     vkDestroyDescriptorPool(Device, MaterialDescriptorPool, nullptr);
 

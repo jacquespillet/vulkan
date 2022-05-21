@@ -288,14 +288,12 @@ private:
 public:
     void Destroy();
     
-    VkDescriptorSetLayout MaterialDescriptorSetLayout;
-    VkDescriptorSetLayout InstanceDescriptorSetLayout;
-    
     buffer VertexBuffer;
     buffer IndexBuffer;
     std::vector<sceneMaterial> Materials;
     std::vector<sceneMesh> Meshes;
     std::unordered_map<int, std::vector<instance>> Instances;
+    
     cubemap Cubemap;
     
     textureList *Textures;

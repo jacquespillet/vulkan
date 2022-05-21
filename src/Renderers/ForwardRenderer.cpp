@@ -78,8 +78,8 @@ void forwardRenderer::BuildLayoutsAndDescriptors()
         std::vector<VkDescriptorSetLayout> RendererSetLayouts = 
         {
             App->Scene->Resources.DescriptorSetLayouts->Get("Scene"),
-            App->Scene->MaterialDescriptorSetLayout,
-            App->Scene->InstanceDescriptorSetLayout,
+            App->Scene->Resources.DescriptorSetLayouts->Get("Material"),
+            App->Scene->Resources.DescriptorSetLayouts->Get("Instances"),
             App->Scene->Cubemap.DescriptorSetLayout
         };
         VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(RendererSetLayouts.data(), (uint32_t)RendererSetLayouts.size());
