@@ -10,26 +10,13 @@
 scene::scene(vulkanApp *App) :
             App(App), Device(App->Device), 
             Queue(App->Queue), TextureLoader(App->TextureLoader)
-{
-    this->Textures = new textureList(Device, TextureLoader);
-
-    std::vector<VkDescriptorPoolSize> PoolSizes = 
-    {
-        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1)
-    };
-    VkDescriptorPoolCreateInfo DescriptorPoolInfo = vulkanTools::BuildDescriptorPoolCreateInfo(
-        (uint32_t)PoolSizes.size(),
-        PoolSizes.data(),
-        1
-    );
-    VK_CALL(vkCreateDescriptorPool(Device, &DescriptorPoolInfo, nullptr, &SceneDescriptorPool));    
-    Resources.Init(App->VulkanDevice, SceneDescriptorPool, TextureLoader);
-}
+{}
 
 
 void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
 {
-    
+    Resources.Init(App->VulkanDevice, VK_NULL_HANDLE, TextureLoader);       
+
     { //Cubemap
         TextureLoader->LoadCubemap("resources/belfast_farmhouse_4k.hdr", &Cubemap.Texture);
         GLTFImporter::LoadMesh("resources/models/Cube/Cube.gltf", Cubemap.Mesh);
@@ -77,11 +64,13 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
         std::string Extension = FileName.substr(FileName.find_last_of(".") + 1);
         if(Extension == "gltf" || Extension == "glb")
         {
-            GLTFImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Textures);    
+            GLTFImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Resources.Textures
+            );    
         }
         else
         {
-            assimpImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Textures);    
+            assimpImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Resources.Textures
+            );    
         }
 
 
@@ -95,6 +84,7 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
                                      &Materials[i].MaterialData);             
         }
         
+        NumInstances=0;
         for(auto &InstanceGroup : Instances)
         {
             for (size_t i = 0; i < InstanceGroup.second.size(); i++)
@@ -106,6 +96,7 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
                                         sizeof(InstanceGroup.second[i].InstanceData),
                                         &InstanceGroup.second[i].InstanceData);   
             }
+            NumInstances += InstanceGroup.second.size();
         }
 
         for(uint32_t i=0; i<Meshes.size(); i++)
@@ -155,7 +146,20 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
         ); 
     }
 
-    //Fill command buffers in the renderers to render it in last
+    std::vector<VkDescriptorPoolSize> PoolSizes = 
+    {
+        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1),
+        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  (uint32_t)Materials.size() * 5),
+        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  (uint32_t)Materials.size()),
+        vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  (uint32_t)NumInstances)
+    };
+    VkDescriptorPoolCreateInfo DescriptorPoolInfo = vulkanTools::BuildDescriptorPoolCreateInfo(
+        (uint32_t)PoolSizes.size(),
+        PoolSizes.data(),
+        3
+    );
+    VK_CALL(vkCreateDescriptorPool(Device, &DescriptorPoolInfo, nullptr, &DescriptorPool));    
+    Resources.DescriptorSets->DescriptorPool = DescriptorPool;
 }
 
 void scene::UpdateUniformBufferMatrices()
@@ -175,7 +179,6 @@ void scene::UpdateUniformBufferMatrices()
 
 void scene::CreateDescriptorSets()
 {
-
     //Create Camera descriptors
     {
         //Matrices uniform buffer
@@ -193,27 +196,13 @@ void scene::CreateDescriptorSets()
         VkDescriptorSetLayout SceneDescriptorSetLayout = Resources.DescriptorSetLayouts->Add("Scene", DescriptorLayoutCreateInfo);
 
         //Allocate and write descriptor sets
-        VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(SceneDescriptorPool, &SceneDescriptorSetLayout, 1);
+        VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &SceneDescriptorSetLayout, 1);
         VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Add("Scene", AllocInfo);
         VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( RendererDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &SceneMatrices.Descriptor);
         vkUpdateDescriptorSets(Device, 1, &WriteDescriptorSets, 0, nullptr);
     }
 
     {
-        //Create Material descriptor pool
-        std::vector<VkDescriptorPoolSize> PoolSizes = 
-        {
-            vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  (uint32_t)Materials.size() * 5),
-            vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  (uint32_t)Materials.size())
-        };
-        VkDescriptorPoolCreateInfo DescriptorPoolInfo = vulkanTools::BuildDescriptorPoolCreateInfo(
-            (uint32_t)PoolSizes.size(),
-            PoolSizes.data(),
-            (uint32_t)Materials.size()
-        );
-        VK_CALL(vkCreateDescriptorPool(Device, &DescriptorPoolInfo, nullptr, &MaterialDescriptorPool));
-
-
         //Create descriptor set layout
         std::vector<VkDescriptorSetLayoutBinding> SetLayoutBindings;
         SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ));
@@ -228,7 +217,7 @@ void scene::CreateDescriptorSets()
         //Write descriptor sets
         for(uint32_t i=0; i<Materials.size(); i++)
         {
-            VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(MaterialDescriptorPool, Resources.DescriptorSetLayouts->GetPtr("Material"), 1);
+            VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, Resources.DescriptorSetLayouts->GetPtr("Material"), 1);
             VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &Materials[i].DescriptorSet));
 
             std::vector<VkWriteDescriptorSet> WriteDescriptorSets;
@@ -255,24 +244,6 @@ void scene::CreateDescriptorSets()
     }
 
     {
-        //Create Instance descriptor pool
-		size_t NumInstances = 0;
-		for (auto &InstanceGroup : Instances)
-		{
-			NumInstances += InstanceGroup.second.size();
-		}
-        std::vector<VkDescriptorPoolSize> PoolSizes = 
-        {
-            vulkanTools::BuildDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  (uint32_t)NumInstances)
-        };
-        VkDescriptorPoolCreateInfo DescriptorPoolInfo = vulkanTools::BuildDescriptorPoolCreateInfo(
-            (uint32_t)PoolSizes.size(),
-            PoolSizes.data(),
-            (uint32_t)NumInstances
-        );
-        VK_CALL(vkCreateDescriptorPool(Device, &DescriptorPoolInfo, nullptr, &InstanceDescriptorPool));
-
-
         //Create descriptor set layout
         std::vector<VkDescriptorSetLayoutBinding> SetLayoutBindings;
         SetLayoutBindings.push_back(vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0 ));
@@ -283,7 +254,7 @@ void scene::CreateDescriptorSets()
         {
             for(uint32_t i=0; i<InstanceGroup.second.size(); i++)
             {
-                VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(InstanceDescriptorPool, Resources.DescriptorSetLayouts->GetPtr("Instances"), 1);
+                VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, Resources.DescriptorSetLayouts->GetPtr("Instances"), 1);
                 VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &InstanceGroup.second[i].DescriptorSet));
 
                 std::vector<VkWriteDescriptorSet> WriteDescriptorSets;
@@ -376,21 +347,16 @@ void scene::Destroy()
     for(size_t i=0; i<Materials.size(); i++)
     {
         Materials[i].UniformBuffer.Destroy();
-        vkFreeDescriptorSets(Device, MaterialDescriptorPool, 1, &Materials[i].DescriptorSet);
+        vkFreeDescriptorSets(Device, DescriptorPool, 1, &Materials[i].DescriptorSet);
     }
     for(auto &InstanceGroup : Instances)
     {
         for(size_t i=0; i<InstanceGroup.second.size(); i++)
         {
             InstanceGroup.second[i].UniformBuffer.Destroy();
-            vkFreeDescriptorSets(Device, InstanceDescriptorPool, 1, &InstanceGroup.second[i].DescriptorSet);
+            vkFreeDescriptorSets(Device, DescriptorPool, 1, &InstanceGroup.second[i].DescriptorSet);
         }
     }
 
-    vkDestroyDescriptorPool(Device, InstanceDescriptorPool, nullptr);
-    vkDestroyDescriptorPool(Device, MaterialDescriptorPool, nullptr);
-    vkDestroyDescriptorPool(Device, SceneDescriptorPool, nullptr);
-
-    Textures->Destroy();
-    delete Textures;
+    vkDestroyDescriptorPool(Device, DescriptorPool, nullptr);
 }

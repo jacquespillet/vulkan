@@ -246,7 +246,7 @@ struct resources
     pipelineLayoutList *PipelineLayouts;
     pipelineList *Pipelines;
     descriptorSetList *DescriptorSets;
-
+    textureList *Textures;
     void AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, std::vector<descriptor> &Descriptors, VkDescriptorPool DescriptorPool, std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts=std::vector<VkDescriptorSetLayout>());
 
     void Init(vulkanDevice *VulkanDevice, VkDescriptorPool DescriptorPool, textureLoader *TextureLoader)
@@ -255,7 +255,7 @@ struct resources
         Pipelines = new pipelineList(VulkanDevice->Device);
         DescriptorSetLayouts = new descriptorSetLayoutList(VulkanDevice->Device);
         DescriptorSets = new descriptorSetList(VulkanDevice->Device, DescriptorPool);
-        
+        Textures = new textureList(VulkanDevice->Device, TextureLoader);
     }
 
     void Destroy()
@@ -264,9 +264,11 @@ struct resources
         DescriptorSetLayouts->Destroy();
         PipelineLayouts->Destroy();
         Pipelines->Destroy();
+        Textures->Destroy();
         delete PipelineLayouts;
         delete Pipelines;
         delete DescriptorSetLayouts;
         delete DescriptorSets;
+        delete Textures;
     }
 };

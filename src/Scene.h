@@ -273,13 +273,7 @@ private:
     textureLoader *TextureLoader;
     vulkanApp *App;
     
-    
-
-
-    VkDescriptorPool MaterialDescriptorPool;
-    VkDescriptorPool InstanceDescriptorPool;
-    VkDescriptorPool SceneDescriptorPool;
-
+    VkDescriptorPool DescriptorPool;
     
     void LoadMaterials(VkCommandBuffer CommandBuffer);
     void LoadMeshes(VkCommandBuffer CommandBuffer);
@@ -290,14 +284,14 @@ public:
     
     buffer VertexBuffer;
     buffer IndexBuffer;
+    
+    size_t NumInstances=0;
     std::vector<sceneMaterial> Materials;
     std::vector<sceneMesh> Meshes;
     std::unordered_map<int, std::vector<instance>> Instances;
     
     cubemap Cubemap;
     
-    textureList *Textures;
-
     buffer SceneMatrices;
     
     struct 
