@@ -11,6 +11,7 @@ deferredRenderer::deferredRenderer(vulkanApp *App) : renderer(App) {}
 void deferredRenderer::Render()
 {
     BuildCommandBuffers();
+    BuildDeferredCommandBuffers();
     UpdateCamera();
 
     VK_CALL(App->Swapchain.AcquireNextImage(App->Semaphores.PresentComplete, &App->CurrentBuffer));
@@ -553,7 +554,6 @@ void deferredRenderer::BuildPipelines()
 
 void deferredRenderer::BuildCommandBuffers()
 {
-    App->ImGuiHelper->UpdateBuffers();
     
     VkCommandBufferBeginInfo CommandBufferInfo = vulkanTools::BuildCommandBufferBeginInfo();
 
@@ -575,14 +575,17 @@ void deferredRenderer::BuildCommandBuffers()
     {
         RenderPassBeginInfo.framebuffer = App->AppFramebuffers[i];
         VK_CALL(vkBeginCommandBuffer(DrawCommandBuffers[i], &CommandBufferInfo));
+		
+		App->ImGuiHelper->UpdateBuffers();
         
-        vkCmdBeginRenderPass(DrawCommandBuffers[i], &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        VkViewport Viewport = vulkanTools::BuildViewport((float)App->Width, (float)App->Height, 0.0f, 1.0f);
+        VkViewport Viewport = vulkanTools::BuildViewport((float)App->Width, (float)App->Height, 0.0f, 1.0f, 0, 0);
         vkCmdSetViewport(DrawCommandBuffers[i], 0, 1, &Viewport);
-
         VkRect2D Scissor = vulkanTools::BuildRect2D(App->Width, App->Height, 0, 0);
         vkCmdSetScissor(DrawCommandBuffers[i], 0, 1, &Scissor);
+
+        vkCmdBeginRenderPass(DrawCommandBuffers[i], &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        
 
         VkDeviceSize Offsets[1] = {0};
         vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 0, 1, Resources.DescriptorSets->GetPtr("Composition"), 0, nullptr);
@@ -727,7 +730,7 @@ void deferredRenderer::BuildDeferredCommandBuffers()
 
         
         
-        Viewport = vulkanTools::BuildViewport((float)App->Width - ViewportStart, (float)App->Height, 0.0f, 1.0f, ViewportStart, 0);
+        Viewport = vulkanTools::BuildViewport((float)Framebuffers.Offscreen.Width, (float)Framebuffers.Offscreen.Height, 0.0f, 1.0f, 0, 0);
         vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
 
         Scissor = vulkanTools::BuildRect2D(Framebuffers.SSAO.Width,Framebuffers.SSAO.Height,0,0);
@@ -753,7 +756,7 @@ void deferredRenderer::BuildDeferredCommandBuffers()
         vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         
-        Viewport = vulkanTools::BuildViewport((float)App->Width - ViewportStart, (float)App->Height, 0.0f, 1.0f, ViewportStart, 0);
+        Viewport = vulkanTools::BuildViewport((float)Framebuffers.Offscreen.Width, (float)Framebuffers.Offscreen.Height, 0.0f, 1.0f, 0, 0);
         vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
 
         Scissor = vulkanTools::BuildRect2D(Framebuffers.SSAOBlur.Width,Framebuffers.SSAOBlur.Height,0,0);
