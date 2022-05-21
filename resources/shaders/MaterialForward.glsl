@@ -47,7 +47,7 @@ struct normalInfo {
 };
 
 // Get normal, tangent and bitangent vectors.
-normalInfo getNormalInfo(vec3 v)
+normalInfo getNormalInfo()
 {
     vec3 n, t, b, ng;
    

@@ -9,7 +9,7 @@ const float Exposure=1;
 layout (set=0, binding = 0) uniform sampler2D samplerPositionDepth;
 layout (set=0, binding = 1) uniform sampler2D samplerNormal;
 layout (set=0, binding = 2) uniform usampler2D samplerAlbedoMetallicRoughnessOcclusionOcclusionStrength;
-// layout (set=0, binding = 4) uniform sampler2D samplerSSAO;
+layout (set=0, binding = 3) uniform sampler2D samplerEmission;
 
 
 
@@ -34,7 +34,6 @@ layout (location = 0) in vec2 inUV;
 
 layout (location = 0) out vec4 outFragcolor;
 
-#define DEFERRED 1
 #include "Functions.glsl"
 #include "MaterialDeferred.glsl"
 #include "IBL.glsl"
@@ -46,7 +45,7 @@ void main()
 	vec3 Position = PositionDepth.xyz;
 	float Depth = PositionDepth.w;
 
-	vec3 Normal = texture(samplerNormal, inUV).xyz;
+	vec3 Normal = texture(samplerNormal, inUV).xyz * 2.0 - 1.0;
 
 	ivec2 texDim = textureSize(samplerAlbedoMetallicRoughnessOcclusionOcclusionStrength, 0);
 	uvec4 albedo = texelFetch(samplerAlbedoMetallicRoughnessOcclusionOcclusionStrength, ivec2(inUV.st * texDim ), 0);
@@ -63,6 +62,9 @@ void main()
 	OcclusionOcclusionStrength = unpackHalf2x16(albedo.a);
 	float AmbientOcclusion = OcclusionOcclusionStrength.x;
 	float OcclusionStrength = OcclusionOcclusionStrength.y;
+
+	
+	vec3 Emission = texture(samplerEmission, inUV).xyz;
 
 	materialInfo MaterialInfo;
     MaterialInfo.BaseColor = BaseColor.rgb;
@@ -96,13 +98,8 @@ void main()
 	// FinalSheen = mix(FinalSheen, FinalSheen * AmbientOcclusion, MaterialUBO.OcclusionStrength);
 	// FinalClearcoat = mix(FinalClearcoat, FinalClearcoat * AmbientOcclusion, MaterialUBO.OcclusionStrength);
 
-
-    // FinalEmissive = MaterialUBO.Emission * MaterialUBO.EmissiveStrength;
-    // if(HAS_EMISSIVE_MAP > 0 && MaterialUBO.UseEmissionMap>0)
-    // {
-    //     FinalEmissive *= texture(samplerEmission, FragUv).rgb;
-    // }
-
+    FinalEmissive = Emission;
+    
 //     // // Layer blending
 
 //     //TODO(Jacques): Clearcoat
@@ -117,6 +114,6 @@ void main()
     vec3 Color = vec3(0);
     Color = FinalEmissive + FinalDiffuse + FinalSpecular;
 
-	
+
     outFragcolor = vec4(toneMap(Color), BaseColor.a);   
 }

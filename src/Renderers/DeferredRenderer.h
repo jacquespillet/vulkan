@@ -34,10 +34,8 @@ public:
     {
         vulkanTexture SSAONoise;
     } Textures;
-    struct 
-    {
-        sceneMesh Quad;
-    } Meshes;
+
+    sceneMesh Quad;
     
     struct 
     {

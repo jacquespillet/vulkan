@@ -142,7 +142,7 @@ void deferredRenderer::UpdateUniformBufferSSAOParams()
 
 void deferredRenderer::BuildQuads()
 {
-    Meshes.Quad = vulkanTools::BuildQuad(VulkanDevice);
+    Quad = vulkanTools::BuildQuad(VulkanDevice);
 }
 
 
@@ -153,10 +153,11 @@ void deferredRenderer::BuildOffscreenBuffers()
     //G buffer
     {
         Framebuffers.Offscreen.SetSize(App->Width, App->Height)
-                              .SetAttachmentCount(3)
+                              .SetAttachmentCount(4)
                               .SetAttachmentFormat(0, VK_FORMAT_R32G32B32A32_SFLOAT)
                               .SetAttachmentFormat(1, VK_FORMAT_R8G8B8A8_UNORM)
-                              .SetAttachmentFormat(2, VK_FORMAT_R32G32B32A32_UINT);
+                              .SetAttachmentFormat(2, VK_FORMAT_R32G32B32A32_UINT)
+                              .SetAttachmentFormat(3, VK_FORMAT_R8G8B8A8_UNORM);
         Framebuffers.Offscreen.BuildBuffers(VulkanDevice,LayoutCommand);        
     }    
     //SSAO
@@ -211,6 +212,7 @@ void deferredRenderer::BuildLayoutsAndDescriptors()
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[2].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[3].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.SSAOBlur._Attachments[0].ImageView, Framebuffers.SSAOBlur.Sampler),
         };
         std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts = 
@@ -385,8 +387,9 @@ void deferredRenderer::BuildPipelines()
         PipelineCreateInfo.renderPass = Framebuffers.Offscreen.RenderPass;
         PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Offscreen");
 
-        std::array<VkPipelineColorBlendAttachmentState, 3> BlendAttachmentStates = 
+        std::array<VkPipelineColorBlendAttachmentState, 4> BlendAttachmentStates = 
         {
+            vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE),
             vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE),
             vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE),
             vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE)
@@ -522,8 +525,8 @@ void deferredRenderer::BuildCommandBuffers()
         vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 2, 1, App->Scene->Resources.DescriptorSets->GetPtr("Scene"), 0, nullptr);
 
         vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Composition.SSAO.Enabled"));
-        vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Meshes.Quad.VertexBuffer.Buffer, Offsets);
-        vkCmdBindIndexBuffer(DrawCommandBuffers[i], Meshes.Quad.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Quad.VertexBuffer.Buffer, Offsets);
+        vkCmdBindIndexBuffer(DrawCommandBuffers[i], Quad.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(DrawCommandBuffers[i], 6, 1, 0, 0, 1);
 
 
@@ -541,11 +544,12 @@ void deferredRenderer::BuildDeferredCommandBuffers()
     VK_CALL(vkBeginCommandBuffer(OffscreenCommandBuffer, &CommandBufferBeginInfo));
     
     //G-buffer pass
-    std::array<VkClearValue, 4> ClearValues = {};
+    std::array<VkClearValue, 5> ClearValues = {};
     ClearValues[0].color = {{0.0f,0.0f,0.0f,0.0f}};
     ClearValues[1].color = {{0.0f,0.0f,0.0f,0.0f}};
     ClearValues[2].color = {{0.0f,0.0f,0.0f,0.0f}};
-    ClearValues[3].depthStencil = {1.0f, 0};
+    ClearValues[3].color = {{0.0f,0.0f,0.0f,0.0f}};
+    ClearValues[4].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo RenderPassBeginInfo = vulkanTools::BuildRenderPassBeginInfo();
     RenderPassBeginInfo.renderPass = Framebuffers.Offscreen.RenderPass;
@@ -640,6 +644,11 @@ void deferredRenderer::BuildDeferredCommandBuffers()
     VK_IMAGE_ASPECT_COLOR_BIT,
     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    vulkanTools::TransitionImageLayout(OffscreenCommandBuffer,
+    Framebuffers.Offscreen._Attachments[3].Image, 
+    VK_IMAGE_ASPECT_COLOR_BIT,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     //No ssao for now
     if(false)
@@ -717,7 +726,7 @@ void deferredRenderer::Destroy()
     Framebuffers.SSAO.Destroy(VulkanDevice->Device);
     Framebuffers.SSAOBlur.Destroy(VulkanDevice->Device);
     
-    Meshes.Quad.Destroy();
+    Quad.Destroy();
     UniformBuffers.SSAOKernel.Destroy();
     UniformBuffers.SSAOParams.Destroy();
     Resources.Destroy();

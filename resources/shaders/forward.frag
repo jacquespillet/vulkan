@@ -96,7 +96,7 @@ void main()
 //     #endif
 
     vec3 View = normalize(SceneUbo.CameraPosition.xyz - FragPosition);
-    normalInfo NormalInfo = getNormalInfo(View);
+    normalInfo NormalInfo = getNormalInfo();
     vec3 Normal = NormalInfo.n;
     vec3 Tangent = NormalInfo.t;
     vec3 Bitangent = NormalInfo.b;

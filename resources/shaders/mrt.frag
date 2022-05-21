@@ -47,6 +47,7 @@ layout (set=1, binding = 1) uniform sampler2D samplerColor;
 layout (set=1, binding = 2) uniform sampler2D samplerSpecular;
 layout (set=1, binding = 3) uniform sampler2D samplerNormal;
 layout (set=1, binding = 4) uniform sampler2D samplerOcclusion;
+layout (set=1, binding = 5) uniform sampler2D samplerEmission;
 
 
 
@@ -57,9 +58,10 @@ layout (location = 1) in vec2 FragUv;
 layout (location = 2) in vec3 FragWorldPos;
 layout (location = 3) in mat3 TBN;
 
-layout (location = 2) out uvec4 outAlbedoMetallicRoughnessOcclusionOcclusionStrength;
 layout (location = 0) out vec4 outPositionDepth;
 layout (location = 1) out vec4 outNormal;
+layout (location = 2) out uvec4 outAlbedoMetallicRoughnessOcclusionOcclusionStrength;
+layout (location = 3) out vec4 outEmission;
 
 
 layout (constant_id = 0) const float MASK = 0;
@@ -100,11 +102,19 @@ void main()
 	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.g = packHalf2x16(BaseColor.ba);
 	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.b = packHalf2x16(vec2(Metallic, PerceptualRoughness));
 	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.a = packHalf2x16(vec2(AmbientOcclusion, OcclusionStrength));
-	
+
+
+    // outEmissionEmissionStrength.r = packHalf2x16()
+    vec3 FinalEmissive = MaterialUBO.Emission * MaterialUBO.EmissiveStrength;
+    if(HAS_EMISSIVE_MAP > 0 && MaterialUBO.UseEmissionMap>0)
+    {
+        FinalEmissive *= texture(samplerEmission, FragUv).rgb;
+    }
+    outEmission = vec4(FinalEmissive, 1.0);
+
     
-    vec3 View = normalize(SceneUbo.CameraPosition.xyz - FragWorldPos);
-    normalInfo NormalInfo = getNormalInfo(View);
-    outNormal.xyz = NormalInfo.n;
+    normalInfo NormalInfo = getNormalInfo();
+    outNormal.xyz = NormalInfo.n  * 0.5 + 0.5;
 	
     //Change BaseColor based on debug channels
     outPositionDepth = vec4(FragWorldPos, 0);
