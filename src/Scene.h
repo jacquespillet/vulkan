@@ -210,7 +210,7 @@ struct instance
     buffer UniformBuffer;
     VkDescriptorSet DescriptorSet;
     
-    void RecalculateModelMatrixAndUpload()
+    void RecalculateMatrix()
     {
         glm::mat4 translateM = glm::translate(glm::mat4(1.0f), Position);
         
@@ -225,7 +225,11 @@ struct instance
         InstanceData.Transform = translateM * rotM * scaleM;   
 
         InstanceData.Normal = glm::inverseTranspose(InstanceData.Transform);
+    }
 
+    void RecalculateModelMatrixAndUpload()
+    {
+        RecalculateMatrix();
         UploadUniform();
     }
 
