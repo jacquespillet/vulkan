@@ -19,27 +19,8 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
 
     { //Cubemap
         TextureLoader->LoadCubemap("resources/belfast_farmhouse_4k.hdr", &Cubemap.Texture);
-        GLTFImporter::LoadMesh("resources/models/Cube/Cube.gltf", Cubemap.Mesh);
-        size_t VertexDataSize = Cubemap.Mesh.Vertices.size() * sizeof(vertex);
-        vulkanTools::CreateAndFillBuffer(
-            App->VulkanDevice,
-            Cubemap.Mesh.Vertices.data(),
-            VertexDataSize,
-            &Cubemap.Mesh.VertexBuffer,
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            CopyCommand,
-            Queue
-        );
-        size_t IndexDataSize = Cubemap.Mesh.Indices.size() * sizeof(uint32_t);
-        vulkanTools::CreateAndFillBuffer(
-            App->VulkanDevice,
-            Cubemap.Mesh.Indices.data(),
-            IndexDataSize,
-            &Cubemap.Mesh.IndexBuffer,
-            VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            CopyCommand,
-            Queue
-        );    
+        GLTFImporter::LoadMesh("resources/models/Cube/Cube.gltf", Cubemap.Mesh, App->VulkanDevice, CopyCommand, Queue);
+
         vulkanTools::CreateBuffer(App->VulkanDevice, 
                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -156,7 +137,7 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
     VkDescriptorPoolCreateInfo DescriptorPoolInfo = vulkanTools::BuildDescriptorPoolCreateInfo(
         (uint32_t)PoolSizes.size(),
         PoolSizes.data(),
-        3
+        1 + (uint32_t)Materials.size() + (uint32_t)NumInstances
     );
     VK_CALL(vkCreateDescriptorPool(Device, &DescriptorPoolInfo, nullptr, &DescriptorPool));    
     Resources.DescriptorSets->DescriptorPool = DescriptorPool;
@@ -188,7 +169,7 @@ void scene::CreateDescriptorSets()
                                     &SceneMatrices,
                                     sizeof(UBOSceneMatrices)
         );
-        UpdateUniformBufferMatrices();   
+        UpdateUniformBufferMatrices();
 
         //Create the scene descriptor set layout
         VkDescriptorSetLayoutBinding SetLayoutBindings = vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0 );

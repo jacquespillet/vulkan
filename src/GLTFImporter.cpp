@@ -799,7 +799,7 @@ namespace GLTFImporter
         return true;
     }
 
-    bool LoadMesh(std::string FileName, sceneMesh &Mesh)
+    bool LoadMesh(std::string FileName, sceneMesh &Mesh, vulkanDevice *VulkanDevice, VkCommandBuffer CommandBuffer, VkQueue Queue)
     {
         tinygltf::Model GLTFModel;
         tinygltf::TinyGLTF ModelLoader;
@@ -829,6 +829,27 @@ namespace GLTFImporter
         // InstanceMap->clear();
         std::vector<std::vector<sceneMesh*>> InstanceMapping;
         LoadMesh(GLTFModel, Mesh);
+
+        size_t VertexDataSize = Mesh.Vertices.size() * sizeof(vertex);
+        vulkanTools::CreateAndFillBuffer(
+            VulkanDevice,
+            Mesh.Vertices.data(),
+            VertexDataSize,
+            &Mesh.VertexBuffer,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            CommandBuffer,
+            Queue
+        );
+        size_t IndexDataSize = Mesh.Indices.size() * sizeof(uint32_t);
+        vulkanTools::CreateAndFillBuffer(
+            VulkanDevice,
+            Mesh.Indices.data(),
+            IndexDataSize,
+            &Mesh.IndexBuffer,
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            CommandBuffer,
+            Queue
+        );            
         return true;        
     }
 };

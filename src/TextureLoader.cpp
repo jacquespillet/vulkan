@@ -248,29 +248,8 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
     //create Cube
     // sceneMesh Cube = vulkanTools::BuildCube(VulkanDevice);
     sceneMesh Cube;
-    GLTFImporter::LoadMesh("resources/models/Cube/Cube.gltf", Cube);
-    //Global buffers
-    size_t VertexDataSize = Cube.Vertices.size() * sizeof(vertex);
-    vulkanTools::CreateAndFillBuffer(
-        VulkanDevice,
-        Cube.Vertices.data(),
-        VertexDataSize,
-        &Cube.VertexBuffer,
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        CommandBuffer,
-        Queue
-    );
-    size_t IndexDataSize = Cube.Indices.size() * sizeof(uint32_t);
-    vulkanTools::CreateAndFillBuffer(
-        VulkanDevice,
-        Cube.Indices.data(),
-        IndexDataSize,
-        &Cube.IndexBuffer,
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        CommandBuffer,
-        Queue
-    );       
-    
+    GLTFImporter::LoadMesh("resources/models/Cube/Cube.gltf", Cube, VulkanDevice, CommandBuffer, Queue);
+
     //load shaders
     std::array<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
     ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/BuildCubemap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
