@@ -17,7 +17,7 @@ layout (set=1, binding = 0) uniform materialUBO
     int UseEmissionMap;
     int UseOcclusionMap;
     int AlphaMode;
-    int padding0;
+    int DebugChannel;
 
     float Roughness;
     float AlphaCutoff;
@@ -189,4 +189,61 @@ void main()
 
     outputColor = vec4(toneMap(Color), BaseColor.a);   
     if(InstanceUBO.Selected>0) outputColor += vec4(0.5, 0.5, 0, 0);     
+
+    if(MaterialUBO.DebugChannel>0)
+    {
+        if(MaterialUBO.DebugChannel == 1)
+        {
+            outputColor = vec4(FragUv, 0, 1);
+        }
+        else  if(MaterialUBO.DebugChannel == 2)
+        {
+            outputColor = vec4(NormalInfo.ntex, 1);
+        }
+        else  if(MaterialUBO.DebugChannel == 3)
+        {
+            outputColor = vec4(NormalInfo.ng, 1);
+        }
+        else  if(MaterialUBO.DebugChannel == 4)
+        {
+            outputColor = vec4(NormalInfo.t, 1);
+        }
+        else  if(MaterialUBO.DebugChannel == 5)
+        {
+            outputColor = vec4(NormalInfo.b, 1);
+        }
+        else  if(MaterialUBO.DebugChannel == 6)
+        {
+            outputColor = vec4(NormalInfo.n, 1);
+        }
+        else  if(MaterialUBO.DebugChannel == 7)
+        {
+            outputColor = BaseColor.aaaa;
+        }
+        else  if(MaterialUBO.DebugChannel == 8)
+        {
+            outputColor = vec4(vec3(AmbientOcclusion), 1);
+        }
+        else  if(MaterialUBO.DebugChannel == 9)
+        {
+            outputColor = vec4(FinalEmissive, 1);
+        }
+        else  if(MaterialUBO.DebugChannel == 10)
+        {
+            outputColor = vec4(vec3(MaterialInfo.Metallic), 1);
+        }
+        else  if(MaterialUBO.DebugChannel == 11)
+        {
+            outputColor = vec4(vec3(MaterialInfo.PerceptualRoughness), 1);
+        }
+        else  if(MaterialUBO.DebugChannel == 12)
+        {
+            outputColor = vec4(BaseColor.rgb, 1);
+        }
+        // Clearcoat,
+        // ClearcoatFactor,
+        // ClearcoatNormal,
+        // ClearcoatRoughnes,
+        // Sheen
+    }
 }

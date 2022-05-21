@@ -401,6 +401,10 @@ void vulkanApp::RenderGUI()
 
                     ImGui::Separator();
 
+                    static int DebugChannel = 0;
+                    UpdateMaterial |= ImGui::Combo("Render Mode", &DebugChannel, "None\0TexCoords\0NormalTexture\0Normal\0Tangent\0Bitangent\0ShadingNormal\0Alpha\0Occlusion \0Emission\0Metallic \0Roughness\0BaseColor\0Clearcoat\0ClearcoatFactor\0ClearcoatNormal\0ClearcoatRoughnes\0Sheen\0\0");
+                    Material->DebugChannel = (debugChannel)DebugChannel;                    
+
 
                     if(UpdateMaterial)
                     {

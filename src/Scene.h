@@ -58,12 +58,34 @@ enum class alphaMode
     Opaque, Blend, Mask
 };
 
-enum mediumType
+enum class mediumType
 {
     None,
     Absorb,
     Scatter,
     Emissive
+};
+
+enum class debugChannel
+{
+    None,
+    TexCoords,
+    NormalTexture,
+    Normal,
+    Tangent,
+    Bitangent,
+    ShadingNormal,
+    Alpha,
+    Occlusion ,
+    Emission,
+    Metallic ,
+    Roughness,
+    BaseColor,
+    Clearcoat,
+    ClearcoatFactor,
+    ClearcoatNormal,
+    ClearcoatRoughnes,
+    Sheen
 };
 
 struct materialData
@@ -81,7 +103,7 @@ struct materialData
     int UseEmissionMap=1;
     int UseOcclusionMap=1;
     alphaMode AlphaMode=alphaMode::Opaque;
-    int padding0;
+    debugChannel DebugChannel = debugChannel::None;
 
     float Roughness=1;
     float AlphaCutoff=1;
