@@ -461,8 +461,11 @@ void vulkanApp::RenderGUI()
 
 void vulkanApp::Render()
 {
+    
     RenderGUI();
     Renderers[CurrentRenderer]->Render();
+    
+    if(Scene->Camera.Changed) Scene->Camera.Changed=false;
 }
 
 void vulkanApp::MouseMove(float XPosition, float YPosition)

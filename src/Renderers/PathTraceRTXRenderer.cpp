@@ -159,8 +159,7 @@ pathTraceRTXRenderer::pathTraceRTXRenderer(vulkanApp *App) : renderer(App) {
 
 void pathTraceRTXRenderer::Render()
 {
-    // if(Camera.Updated)
-    if(true)
+    if(App->Scene->Camera.Changed)
     {
         ResetAccumulation=true;
     }

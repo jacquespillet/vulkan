@@ -51,13 +51,14 @@ public:
 
     void mousePressEvent(int button);
     void mouseReleaseEvent(int button);
-    bool mouseMoveEvent(float x, float y);
+    void mouseMoveEvent(float x, float y);
     void Scroll(float offset);
     
     void GetScreenRay(glm::vec2 ndc, float aspect, glm::vec3& rayOrig, glm::vec3& rayDir);
     glm::vec3 worldPosition;
 
     bool Locked=false;
+    bool Changed=false;
 
     float GetNearPlane() {return nearPlane;}
     float GetFarPlane() {return farPlane;}
@@ -81,5 +82,7 @@ private:
 
     glm::mat4 modelMatrix;
     glm::mat4 invModelMatrix;
+
+    
 
 };

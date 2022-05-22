@@ -22,12 +22,12 @@ void camera::mouseReleaseEvent(int button) {
     IsLeftMousePressed=false;
     IsRightMousePressed=false;
     prevPos = glm::ivec2(-1, -1);
+    Changed=true;
 }
 
-bool camera::mouseMoveEvent(float x, float y) {
-    if(Locked) return false;
+void camera::mouseMoveEvent(float x, float y) {
+    if(Locked) return;
 
-    bool changed=false;
     glm::vec2 currentPos = glm::vec2(x, y);
     if(IsLeftMousePressed) {
         if(prevPos.x >0) {
@@ -45,8 +45,7 @@ bool camera::mouseMoveEvent(float x, float y) {
             sphericalPosition.z = sin(theta) * sin(phi);                  
             sphericalPosition.y = cos(theta);
             RecalculateLookat();  
-
-            changed=true;  
+            Changed=true;
         }
     } else if (IsRightMousePressed) {
         if(prevPos.x >0) {
@@ -54,17 +53,17 @@ bool camera::mouseMoveEvent(float x, float y) {
             target -= (float)diff.x * 0.005 * distance * glm::vec3(modelMatrix[0]);
             target += (float)diff.y * 0.005 * distance *  glm::vec3(modelMatrix[1]);
             RecalculateLookat();
-            changed=true;  
+            Changed=true; 
         }
     }
     prevPos = currentPos;
-    return changed;  
 }
 
 void camera::Scroll(float offset){
     if(Locked) return;
     distance -= (float)offset * distance * 0.05f;
     RecalculateLookat();   
+    Changed=true;
 }
 
 void camera::GetScreenRay(glm::vec2 ndc, float aspect, glm::vec3& rayOrig, glm::vec3& rayDir)
