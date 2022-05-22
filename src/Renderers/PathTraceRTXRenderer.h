@@ -9,9 +9,12 @@ enum materialType
 
 struct material
 {
-    glm::vec4 BaseColor;
-    int32_t BaseColorTextureIndex;
-    int32_t NormalTextureIndex;
+	glm::vec4 BaseColor;
+	int32_t BaseColorTextureIndex;
+	int32_t NormalTextureIndex;
+	int32_t EmissionTextureIndex;
+	int32_t OcclusionTextureIndex;
+	int32_t MetallicRoughnessTextureIndex;    
     materialType Type;
 };
 

@@ -473,16 +473,20 @@ namespace GLTFImporter
                     glm::vec4 Normal = glm::vec4(Normals[Indices[k]].x,Normals[Indices[k]].y, Normals[Indices[k]].z, UV.y);
                     glm::vec4 Tangent = Tangents[Indices[k]];
 
+                    glm::vec4 MatInx = glm::vec4((float)GLTFPrimitive.material,0,0,1);
+
                     GVertices.push_back({
                         Position, 
                         Normal, 
-                        Tangent
+                        Tangent,
+                        MatInx
                     });
 
                     Meshes[BaseIndex + j].Vertices.push_back({
                         Position, 
                         Normal, 
-                        Tangent
+                        Tangent,
+                        MatInx
                     });
                 }
                 
@@ -665,11 +669,13 @@ namespace GLTFImporter
                     glm::vec4 Tangent = Tangents[indices[k]];
                     UV.y *= -1;
                     
+                    glm::vec4 MatInx = glm::vec4((float)GLTFPrimitive.material,0,0,1);
 
                     Mesh.Vertices.push_back({
                         Position, 
                         Normal, 
-                        Tangent
+                        Tangent,
+                        MatInx
                     });
                 }
                 

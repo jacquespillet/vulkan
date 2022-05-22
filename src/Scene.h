@@ -20,6 +20,7 @@ struct vertex
     glm::vec4 Position;
     glm::vec4 Normal;
     glm::vec4 Tangent;
+    glm::vec4 MatInx;
 };
 
 

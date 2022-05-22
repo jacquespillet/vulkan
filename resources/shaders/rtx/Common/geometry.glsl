@@ -13,13 +13,14 @@ triangle UnpackTriangle(uint index, int vertexSize) {
 
 		vec4 d0 = vertices.v[offset + 0]; // Pos.xyz, uv.x
 		vec4 d1 = vertices.v[offset + 1]; // Normal.xyz, uv.y,
-		vec4 d2 = vertices.v[offset + 2]; // Tangent.xyz, .
+		vec4 d2 = vertices.v[offset + 2]; // Tangent.xyz, Tangent handedness .
+		vec4 d3 = vertices.v[offset + 3]; // MatInx, .
 		
 		Triangle.vertices[i].pos = d0.xyz;
 		Triangle.vertices[i].uv = vec2(d0.w, d1.w);
 		Triangle.vertices[i].normal = d1.xyz;
 		Triangle.vertices[i].tangent = vec4(d2.xyz, 1);
-		Triangle.vertices[i].materialIndex = 0;
+		Triangle.vertices[i].materialIndex = int(d3.x);
 	}
 
 	// Calculate values at barycentric coordinates
