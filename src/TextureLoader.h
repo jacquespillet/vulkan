@@ -33,6 +33,7 @@ struct vulkanTexture
     uint32_t MipLevels;
     uint32_t LayerCount;
     VkDescriptorImageInfo Descriptor;
+    uint32_t Index;
 
     void Destroy(vulkanDevice *Device);
 };

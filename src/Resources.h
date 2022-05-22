@@ -187,6 +187,7 @@ public:
     {
         vulkanTexture Texture;
         Loader->LoadTexture2D(FileName, Format, &Texture);
+        Texture.Index = (uint32_t)Resources.size();
         Resources[Name] = Texture;
         return Texture;
     }
@@ -195,22 +196,7 @@ public:
     {
         vulkanTexture Texture;
         Loader->CreateTexture(Data, Size, Format, Width, Height, &Texture, GenerateMipmaps);
-        Resources[Name] = Texture;
-        return Texture;
-    }
-
-    vulkanTexture AddTextureArray(std::string Name, std::string FileName, VkFormat Format)
-    {
-        vulkanTexture Texture;
-        // Loader->LoadTextureArray(FileName, Format, &Texture);
-        Resources[Name] = Texture;
-        return Texture;
-    }
-
-    vulkanTexture AddCubemap(std::string Name, std::string FileName, VkFormat Format)
-    {
-        vulkanTexture Texture;
-        // Loader->LoadCubemap(FileName, Format, &Texture);
+        Texture.Index = (uint32_t)Resources.size();
         Resources[Name] = Texture;
         return Texture;
     }

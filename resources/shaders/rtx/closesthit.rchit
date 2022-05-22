@@ -42,7 +42,7 @@ void main()
 	ObjBuffers ObjResource = scene_desc.i[gl_InstanceCustomIndexEXT];
 	Materials materials = Materials(ObjResource.materials);
 	Material mat = materials.m[Triangle.materialIndex];
-	vec4 TextureColor = texture(textures[0], Triangle.uv);
+	vec4 TextureColor = texture(textures[mat.baseColorTextureIndex], Triangle.uv);
 
 	rayPayload.color=TextureColor.rgb;
 }

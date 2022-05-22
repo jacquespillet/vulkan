@@ -561,12 +561,10 @@ void pathTraceRTXRenderer::CreateDescriptorSets()
         vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4, &SceneDescriptionBuffer.Descriptor)
     };
 
-    std::vector<VkDescriptorImageInfo> ImageInfos {};
+    std::vector<VkDescriptorImageInfo> ImageInfos(App->Scene->Resources.Textures->Resources.size()); 
     for(auto &Texture : App->Scene->Resources.Textures->Resources)
     {
-        ImageInfos.push_back({
-            Texture.second.Descriptor
-        });
+		ImageInfos[Texture.second.Index] = Texture.second.Descriptor;
     }
     WriteDescriptorSets.push_back(
         vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, ImageInfos.data(), static_cast<uint32_t>(ImageInfos.size()))
@@ -610,8 +608,8 @@ void pathTraceRTXRenderer::CreateMaterialBuffer()
     {
         material Material;
         Material.BaseColor = glm::vec4(1);
-        Material.BaseColorTextureIndex = -1;
-        Material.NormalTextureIndex = -1;
+        Material.BaseColorTextureIndex = App->Scene->Materials[i].Diffuse.Index;
+        Material.NormalTextureIndex = App->Scene->Materials[i].Normal.Index;
         Material.Type = materialType::Lambertian;
         Materials.push_back(Material);
     }
