@@ -125,22 +125,28 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
         for(uint32_t i=0; i<Meshes.size(); i++)
         {
             size_t VertexDataSize = Meshes[i].Vertices.size() * sizeof(vertex);
+            
+            VkBufferUsageFlags Flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+            if(App->RayTracing) Flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
             vulkanTools::CreateAndFillBuffer(
                 App->VulkanDevice,
                 Meshes[i].Vertices.data(),
                 VertexDataSize,
                 &Meshes[i].VertexBuffer,
-                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                Flags,
                 CopyCommand,
                 Queue
             );
+
             size_t IndexDataSize = Meshes[i].Indices.size() * sizeof(uint32_t);
+            Flags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+            if(App->RayTracing) Flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
             vulkanTools::CreateAndFillBuffer(
                 App->VulkanDevice,
                 Meshes[i].Indices.data(),
                 IndexDataSize,
                 &Meshes[i].IndexBuffer,
-                VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                Flags,
                 CopyCommand,
                 Queue
             );         

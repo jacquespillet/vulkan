@@ -199,96 +199,102 @@ void pathTraceRTXRenderer::Render()
 
 void pathTraceRTXRenderer::CreateBottomLevelAccelarationStructure(scene *Scene)
 {
-    VkTransformMatrixKHR TransformMatrix = {
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f, 
-        0.0f, 0.0f, 1.0f, 0.0f
-    };
-    buffer TransformMatrixBuffer;
-    VK_CALL(vulkanTools::CreateBuffer(
-        App->VulkanDevice,
-        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        &TransformMatrixBuffer,
-        sizeof(VkTransformMatrixKHR),
-        &TransformMatrix
-    ));
-
-    uint32_t NumTriangles = (uint32_t)Scene->GIndices.size() / 3;
-
-    VkAccelerationStructureGeometryKHR AccelerationStructureGeometry = vulkanTools::BuildAccelerationStructureGeometry();
-    AccelerationStructureGeometry.flags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
-    AccelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
-    AccelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
-    AccelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
-    AccelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanDevice, Scene->VertexBuffer.Buffer);
-    AccelerationStructureGeometry.geometry.triangles.maxVertex = (uint32_t)Scene->GVertices.size();
-    AccelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(vertex);
-    AccelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
-    AccelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanDevice, Scene->IndexBuffer.Buffer);
-    AccelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanDevice, TransformMatrixBuffer.Buffer);
-    AccelerationStructureGeometry.geometry.triangles.transformData.hostAddress=nullptr;
-
-    VkAccelerationStructureBuildGeometryInfoKHR AccelerationStructureBuildGeometryInfo = vulkanTools::BuildAccelerationStructureBuildGeometryInfo();
-    AccelerationStructureBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-    AccelerationStructureBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-    AccelerationStructureBuildGeometryInfo.geometryCount=1;
-    AccelerationStructureBuildGeometryInfo.pGeometries = &AccelerationStructureGeometry;
-
-    VkAccelerationStructureBuildSizesInfoKHR AccelerationStructureBuildSizeInfo = vulkanTools::BuildAccelerationStructureBuildSizesInfo();
-    VulkanDevice->_vkGetAccelerationStructureBuildSizesKHR(
-        VulkanDevice->Device,
-        VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-        &AccelerationStructureBuildGeometryInfo,
-        &NumTriangles,
-        &AccelerationStructureBuildSizeInfo
-    );
-
-    accelerationStructure BLAS;
-    BLAS.Create(VulkanDevice, VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR, AccelerationStructureBuildSizeInfo);
-
-    scratchBuffer ScratchBuffer(VulkanDevice, AccelerationStructureBuildSizeInfo.buildScratchSize);
-
-    VkAccelerationStructureBuildGeometryInfoKHR AccelerationBuildGeometryInfo = vulkanTools::BuildAccelerationStructureBuildGeometryInfo();
-    AccelerationBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-    AccelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-    AccelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-    AccelerationBuildGeometryInfo.dstAccelerationStructure = BLAS.AccelerationStructure;
-    AccelerationBuildGeometryInfo.geometryCount=1;
-    AccelerationBuildGeometryInfo.pGeometries = &AccelerationStructureGeometry;
-    AccelerationBuildGeometryInfo.scratchData.deviceAddress = ScratchBuffer.DeviceAddress;
-
-    VkAccelerationStructureBuildRangeInfoKHR AccelerationStructureBuildRangeInfo {};
-    AccelerationStructureBuildRangeInfo.primitiveCount = NumTriangles;
-    AccelerationStructureBuildRangeInfo.primitiveOffset = 0;
-    AccelerationStructureBuildRangeInfo.firstVertex=0;
-    AccelerationStructureBuildRangeInfo.transformOffset=0;
-    std::vector<VkAccelerationStructureBuildRangeInfoKHR*> AccelerationBuildStructureRangeInfos = {&AccelerationStructureBuildRangeInfo};
-
-    if(AccelerationStructureFeatures.accelerationStructureHostCommands)
+    for(auto &InstanceGroup : Scene->Instances)
     {
-        VulkanDevice->_vkBuildAccelerationStructuresKHR(
-            VulkanDevice->Device,
-            VK_NULL_HANDLE,
-            1,
-            &AccelerationBuildGeometryInfo,
-            AccelerationBuildStructureRangeInfos.data()
-        );
-    }
-    else
-    {
-        VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-        VulkanDevice->_vkCmdBuildAccelerationStructuresKHR(
-            CommandBuffer,
-            1,
-            &AccelerationBuildGeometryInfo,
-            AccelerationBuildStructureRangeInfos.data());
-        vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, CommandBuffer, App->Queue, true);
-    }
+        for(size_t i=0; i<InstanceGroup.second.size(); i++)
+        {
+            VkTransformMatrixKHR TransformMatrix = {
+                1.0f, 0.0f, 0.0f, 0.0f,
+                0.0f, 1.0f, 0.0f, 0.0f, 
+                0.0f, 0.0f, 1.0f, 0.0f
+            };
+            buffer TransformMatrixBuffer;
+            VK_CALL(vulkanTools::CreateBuffer(
+                App->VulkanDevice,
+                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                &TransformMatrixBuffer,
+                sizeof(VkTransformMatrixKHR),
+                &TransformMatrix
+            ));
 
-    BottomLevelAccelerationStructures.push_back(std::move(BLAS));
-    
-    ScratchBuffer.Destroy();
+            uint32_t NumTriangles = (uint32_t)InstanceGroup.second[i].Mesh->Indices.size() / 3;
+
+            VkAccelerationStructureGeometryKHR AccelerationStructureGeometry = vulkanTools::BuildAccelerationStructureGeometry();
+            AccelerationStructureGeometry.flags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
+            AccelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+            AccelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+            AccelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+            AccelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanDevice, InstanceGroup.second[i].Mesh->VertexBuffer.Buffer);
+            AccelerationStructureGeometry.geometry.triangles.maxVertex = (uint32_t)InstanceGroup.second[i].Mesh->Vertices.size();
+            AccelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(vertex);
+            AccelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
+            AccelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanDevice, InstanceGroup.second[i].Mesh->IndexBuffer.Buffer);
+            AccelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanDevice, TransformMatrixBuffer.Buffer);
+            AccelerationStructureGeometry.geometry.triangles.transformData.hostAddress=nullptr;
+
+            VkAccelerationStructureBuildGeometryInfoKHR AccelerationStructureBuildGeometryInfo = vulkanTools::BuildAccelerationStructureBuildGeometryInfo();
+            AccelerationStructureBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+            AccelerationStructureBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+            AccelerationStructureBuildGeometryInfo.geometryCount=1;
+            AccelerationStructureBuildGeometryInfo.pGeometries = &AccelerationStructureGeometry;
+
+            VkAccelerationStructureBuildSizesInfoKHR AccelerationStructureBuildSizeInfo = vulkanTools::BuildAccelerationStructureBuildSizesInfo();
+            VulkanDevice->_vkGetAccelerationStructureBuildSizesKHR(
+                VulkanDevice->Device,
+                VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+                &AccelerationStructureBuildGeometryInfo,
+                &NumTriangles,
+                &AccelerationStructureBuildSizeInfo
+            );
+
+            accelerationStructure BLAS;
+            BLAS.Create(VulkanDevice, VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR, AccelerationStructureBuildSizeInfo);
+
+            scratchBuffer ScratchBuffer(VulkanDevice, AccelerationStructureBuildSizeInfo.buildScratchSize);
+
+            VkAccelerationStructureBuildGeometryInfoKHR AccelerationBuildGeometryInfo = vulkanTools::BuildAccelerationStructureBuildGeometryInfo();
+            AccelerationBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+            AccelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+            AccelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+            AccelerationBuildGeometryInfo.dstAccelerationStructure = BLAS.AccelerationStructure;
+            AccelerationBuildGeometryInfo.geometryCount=1;
+            AccelerationBuildGeometryInfo.pGeometries = &AccelerationStructureGeometry;
+            AccelerationBuildGeometryInfo.scratchData.deviceAddress = ScratchBuffer.DeviceAddress;
+
+            VkAccelerationStructureBuildRangeInfoKHR AccelerationStructureBuildRangeInfo {};
+            AccelerationStructureBuildRangeInfo.primitiveCount = NumTriangles;
+            AccelerationStructureBuildRangeInfo.primitiveOffset = 0;
+            AccelerationStructureBuildRangeInfo.firstVertex=0;
+            AccelerationStructureBuildRangeInfo.transformOffset=0;
+            std::vector<VkAccelerationStructureBuildRangeInfoKHR*> AccelerationBuildStructureRangeInfos = {&AccelerationStructureBuildRangeInfo};
+
+            if(AccelerationStructureFeatures.accelerationStructureHostCommands)
+            {
+                VulkanDevice->_vkBuildAccelerationStructuresKHR(
+                    VulkanDevice->Device,
+                    VK_NULL_HANDLE,
+                    1,
+                    &AccelerationBuildGeometryInfo,
+                    AccelerationBuildStructureRangeInfos.data()
+                );
+            }
+            else
+            {
+                VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+                VulkanDevice->_vkCmdBuildAccelerationStructuresKHR(
+                    CommandBuffer,
+                    1,
+                    &AccelerationBuildGeometryInfo,
+                    AccelerationBuildStructureRangeInfos.data());
+                vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, CommandBuffer, App->Queue, true);
+            }
+
+            BottomLevelAccelerationStructures.push_back(std::move(BLAS));
+            
+            ScratchBuffer.Destroy();
+        }
+    }
 }
 
 VkAccelerationStructureInstanceKHR pathTraceRTXRenderer::CreateBottomLevelAccelerationInstance(size_t Index)
@@ -546,10 +552,14 @@ void pathTraceRTXRenderer::CreateDescriptorSets()
     int ModelsCount=1;
     std::vector<VkDescriptorBufferInfo> VertexBufferInfo(ModelsCount);
     std::vector<VkDescriptorBufferInfo> IndexBufferInfo(ModelsCount);
-    for(int i=0; i<ModelsCount; i++)
+    
+    for(auto &InstanceGroup : App->Scene->Instances)
     {
-        VertexBufferInfo.push_back({App->Scene->VertexBuffer.Buffer, 0, VK_WHOLE_SIZE});
-        IndexBufferInfo.push_back({App->Scene->IndexBuffer.Buffer, 0, VK_WHOLE_SIZE});
+        for(size_t i=0; i<InstanceGroup.second.size(); i++)
+        {
+            VertexBufferInfo.push_back({InstanceGroup.second[i].Mesh->VertexBuffer.Buffer, 0, VK_WHOLE_SIZE});
+            IndexBufferInfo.push_back({InstanceGroup.second[i].Mesh->IndexBuffer.Buffer, 0, VK_WHOLE_SIZE});
+        }
     }
 
     std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
@@ -656,14 +666,17 @@ void pathTraceRTXRenderer::Setup()
 
     uint32_t MatIndexOffset = 0;
     std::vector<sceneModelInfo> SceneModelInfos;
-    for(int i=0; i<1; i++)
+    for(auto InstanceGroup : App->Scene->Instances)
     {
-        sceneModelInfo Info {};
-        Info.Vertices = vulkanTools::GetBufferDeviceAddress(VulkanDevice, App->Scene->VertexBuffer.Buffer);
-        Info.Indices = vulkanTools::GetBufferDeviceAddress(VulkanDevice, App->Scene->IndexBuffer.Buffer);
-        Info.Materials = vulkanTools::GetBufferDeviceAddress(VulkanDevice, MaterialBuffer.Buffer) + (MatIndexOffset * sizeof(material));
-        MatIndexOffset += (uint32_t)App->Scene->Materials.size();
-        SceneModelInfos.emplace_back(Info);
+        for(size_t i=0; i<InstanceGroup.second.size(); i++)
+        {
+            sceneModelInfo Info {};
+            Info.Vertices = vulkanTools::GetBufferDeviceAddress(VulkanDevice, InstanceGroup.second[i].Mesh->VertexBuffer.Buffer);
+            Info.Indices = vulkanTools::GetBufferDeviceAddress(VulkanDevice, InstanceGroup.second[i].Mesh->IndexBuffer.Buffer);
+            Info.Materials = vulkanTools::GetBufferDeviceAddress(VulkanDevice, MaterialBuffer.Buffer);
+            // MatIndexOffset++;
+            SceneModelInfos.emplace_back(Info);
+        }
     }
 
     VK_CALL(vulkanTools::CreateBuffer(
