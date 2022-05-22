@@ -47,6 +47,11 @@ public:
     {
         return ResourcesInt.find(Flag) != ResourcesInt.end();
     }
+
+    size_t Count() 
+    {
+        return Resources.size();
+    }
     
 };
 

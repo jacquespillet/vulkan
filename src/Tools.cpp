@@ -70,7 +70,7 @@ namespace vulkanTools
     {
         VkApplicationInfo ApplicationInfo = {};
         ApplicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        ApplicationInfo.apiVersion = VK_API_VERSION_1_0;
+        ApplicationInfo.apiVersion = VK_API_VERSION_1_2;
 
 
         std::vector<const char*> EnabledExtensions = {VK_KHR_SURFACE_EXTENSION_NAME};
@@ -334,7 +334,7 @@ namespace vulkanTools
         return WriteDescriptorSet;
     }
 
-    VkWriteDescriptorSet BuildWriteDescriptorSet(VkDescriptorSet DestSet, VkDescriptorType Type, uint32_t Binding, VkDescriptorImageInfo *ImageInfo)
+    VkWriteDescriptorSet BuildWriteDescriptorSet(VkDescriptorSet DestSet, VkDescriptorType Type, uint32_t Binding, VkDescriptorImageInfo *ImageInfo, uint32_t DescriptorCount)
     {
         VkWriteDescriptorSet WriteDescriptorSet {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
         WriteDescriptorSet.pNext=nullptr;
@@ -342,7 +342,7 @@ namespace vulkanTools
         WriteDescriptorSet.descriptorType = Type;
         WriteDescriptorSet.dstBinding = Binding;
         WriteDescriptorSet.pImageInfo = ImageInfo;
-        WriteDescriptorSet.descriptorCount=1;
+        WriteDescriptorSet.descriptorCount=DescriptorCount;
         return WriteDescriptorSet;
     }
 
@@ -503,6 +503,42 @@ namespace vulkanTools
         pushConstantRange.offset = Offset;
         pushConstantRange.size = Size;
         return pushConstantRange;        
+    }
+
+    VkAccelerationStructureGeometryKHR BuildAccelerationStructureGeometry()
+    {
+        VkAccelerationStructureGeometryKHR Result {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR};
+        return Result;
+    }
+
+    
+    VkAccelerationStructureBuildGeometryInfoKHR BuildAccelerationStructureBuildGeometryInfo()
+    {
+        VkAccelerationStructureBuildGeometryInfoKHR Result {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR};
+        return Result;
+    }
+
+    VkAccelerationStructureBuildSizesInfoKHR BuildAccelerationStructureBuildSizesInfo()
+    {
+        VkAccelerationStructureBuildSizesInfoKHR Result {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
+        return Result;
+    }
+
+    VkRayTracingPipelineCreateInfoKHR BuildRayTracingPipelineCreateInfo()
+    {
+        VkRayTracingPipelineCreateInfoKHR Result {VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR};
+        return Result;
+    }
+    VkWriteDescriptorSetAccelerationStructureKHR BuildWriteDescrpiptorSetAccelerationStructureKHR()
+    {
+        VkWriteDescriptorSetAccelerationStructureKHR Result {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};
+        return Result;
+    }
+
+    VkWriteDescriptorSetAccelerationStructureKHR BuildWriteDescriptorSetAccelerationStructure()
+    {
+        VkWriteDescriptorSetAccelerationStructureKHR Result {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};
+        return Result;
     }
 
     void TransitionImageLayout(VkCommandBuffer CommandBuffer, VkImage Image, VkImageAspectFlags AspectMask, VkImageLayout OldImageLayout, VkImageLayout NewImageLayout, VkImageSubresourceRange SubresourceRange)
@@ -824,10 +860,18 @@ namespace vulkanTools
         vkGetBufferMemoryRequirements(VulkanDevice->Device, Buffer->Buffer, &MemoryRequirements);
         MemoryAllocateInfo.allocationSize = MemoryRequirements.size;
         MemoryAllocateInfo.memoryTypeIndex = VulkanDevice->GetMemoryType(MemoryRequirements.memoryTypeBits, MemoryPropertyFlags);
+
+        VkMemoryAllocateFlagsInfo MemoryAllocateFlagsInfo {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
+        if(UsageFlags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+        {
+            MemoryAllocateFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+            MemoryAllocateInfo.pNext = &MemoryAllocateFlagsInfo;
+        }
+
         VK_CALL(vkAllocateMemory(VulkanDevice->Device, &MemoryAllocateInfo, nullptr, &Buffer->Memory));
 
         Buffer->Allignment = MemoryRequirements.alignment;
-        Buffer->Size = MemoryAllocateInfo.allocationSize;
+        Buffer->Size = Size;
         Buffer->UsageFlags = UsageFlags;
         Buffer->MemoryPropertyFlags = MemoryPropertyFlags;
 
@@ -1025,6 +1069,14 @@ namespace vulkanTools
         vkGetBufferMemoryRequirements(Device->Device, Staging.Buffer, &MemoryRequirements);
         MemAlloc.allocationSize = MemoryRequirements.size;
         MemAlloc.memoryTypeIndex = Device->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        
+        VkMemoryAllocateFlagsInfo MemoryAllocateFlagsInfo {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
+        if(Flags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+        {
+            MemoryAllocateFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+            MemAlloc.pNext = &MemoryAllocateFlagsInfo;
+        }        
+
         VK_CALL(vkAllocateMemory(Device->Device, &MemAlloc, nullptr, &Staging.Memory));
         
         VK_CALL(vkMapMemory(Device->Device, Staging.Memory, 0, VK_WHOLE_SIZE, 0, &Data));
@@ -1076,6 +1128,19 @@ namespace vulkanTools
         Buffer->SetupDescriptor();
     }
 
+    void CopyBuffer(vulkanDevice *VulkanDevice, VkCommandPool CommandPool, VkQueue Queue, buffer *Source, buffer *Dest)
+    { 
+        assert(Dest->Size <= Source->Size);
+        assert(Source->Buffer);
+
+        VkCommandBuffer CopyCommand = CreateCommandBuffer(VulkanDevice->Device, CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+        VkBufferCopy BufferCopy {};
+        BufferCopy.size = Source->Size;
+
+        vkCmdCopyBuffer(CopyCommand, Source->Buffer, Dest->Buffer, 1, &BufferCopy);
+        FlushCommandBuffer(VulkanDevice->Device, CommandPool, CopyCommand, Queue, true);
+    }
+
     sceneMesh BuildQuad(vulkanDevice *VulkanDevice)
     {
         sceneMesh Quad;
@@ -1105,6 +1170,18 @@ namespace vulkanTools
                                  IndexBuffer.data());          
 
         return Quad;
+    }
+
+    uint64_t GetBufferDeviceAddress(vulkanDevice *VulkanDevice, VkBuffer Buffer)
+    {
+        VkBufferDeviceAddressInfoKHR BufferDeviceAddressInfo {VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
+        BufferDeviceAddressInfo.buffer = Buffer;
+        return VulkanDevice->_vkGetBufferDeviceAddressKHR(VulkanDevice->Device, &BufferDeviceAddressInfo);
+    }
+
+    uint32_t AlignedSize(uint32_t Value, uint32_t Alignment)
+    {
+        return (Value + Alignment-1) & ~(Alignment-1);
     }
 
 }

@@ -1,6 +1,7 @@
 #include "App.h"
 #include "Renderers/ForwardRenderer.h"
 #include "Renderers/DeferredRenderer.h"
+#include "Renderers/PathTraceRTXRenderer.h"
 #include "imgui.h"
 
 void vulkanApp::InitVulkan()
@@ -27,7 +28,7 @@ void vulkanApp::InitVulkan()
     PhysicalDevice = PhysicalDevices[0];
 
     //Build logical device
-    VulkanDevice = new vulkanDevice(PhysicalDevice);
+    VulkanDevice = new vulkanDevice(PhysicalDevice, Instance);
     VK_CALL(VulkanDevice->CreateDevice(EnabledFeatures));
     Device = VulkanDevice->Device;
 
@@ -255,6 +256,7 @@ void vulkanApp::CreateGeneralResources()
 	ImGuiHelper->InitResources(RenderPass, Queue);
     ImGuiHelper->InitStyle();
 
+    Renderers.push_back(new pathTraceRTXRenderer(this));
     Renderers.push_back(new forwardRenderer(this));
     Renderers.push_back(new deferredRenderer(this));
     for(int i=0; i<Renderers.size(); i++)
@@ -340,7 +342,7 @@ void vulkanApp::RenderGUI()
             if (ImGui::BeginTabItem("Renderer"))
             {
                 static int RendererInx = 0;
-                ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0\0");
+                ImGui::Combo("Render Mode", &RendererInx, "PathTraceRTX\0Forward\0Deferred\0\0");
                 CurrentRenderer = RendererInx;   
                 
                 ImGui::EndTabItem();             
@@ -488,6 +490,13 @@ void vulkanApp::MouseAction(int Button, int Action, int Mods)
 void vulkanApp::Scroll(float YOffset)
 {
     Scene->Camera.Scroll(YOffset);
+}
+
+void vulkanApp::Resize(uint32_t NewWidth, uint32_t NewHeight)
+{
+    Width = NewWidth;
+    Height = NewHeight;
+    Swapchain.Create(&Width, &Height, true);
 }
 
 void vulkanApp::DestroyGeneralResources()

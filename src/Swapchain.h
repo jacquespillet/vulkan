@@ -225,6 +225,16 @@ struct swapchain
         SwapchainCreateInfo.clipped = VK_TRUE;
         SwapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
+        if(SurfaceCapabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+        {
+            SwapchainCreateInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        }
+
+        if(SurfaceCapabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+        {
+            SwapchainCreateInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        }
+
         Error = CreateSwapchainKHR(Device, &SwapchainCreateInfo, nullptr, &Swapchain);
         assert(!Error);
 

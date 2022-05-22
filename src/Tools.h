@@ -84,7 +84,7 @@ namespace vulkanTools
 
     VkWriteDescriptorSet BuildWriteDescriptorSet(VkDescriptorSet DestSet, VkDescriptorType Type, uint32_t Binding, VkDescriptorBufferInfo *BufferInfo);
     
-    VkWriteDescriptorSet BuildWriteDescriptorSet(VkDescriptorSet DestSet, VkDescriptorType Type, uint32_t Binding, VkDescriptorImageInfo *ImageInfo);
+    VkWriteDescriptorSet BuildWriteDescriptorSet(VkDescriptorSet DestSet, VkDescriptorType Type, uint32_t Binding, VkDescriptorImageInfo *ImageInfo, uint32_t DescriptorCount=1);
 
     VkPipelineInputAssemblyStateCreateInfo BuildPipelineInputAssemblyStateCreateInfo(VkPrimitiveTopology Topology, VkPipelineInputAssemblyStateCreateFlags Flags, VkBool32 PrimitiveRestartEnable);
 
@@ -114,6 +114,12 @@ namespace vulkanTools
 
     VkRenderPassBeginInfo BuildRenderPassBeginInfo();
 
+    VkAccelerationStructureGeometryKHR BuildAccelerationStructureGeometry();
+    VkAccelerationStructureBuildGeometryInfoKHR BuildAccelerationStructureBuildGeometryInfo();
+    VkAccelerationStructureBuildSizesInfoKHR BuildAccelerationStructureBuildSizesInfo();
+    VkRayTracingPipelineCreateInfoKHR BuildRayTracingPipelineCreateInfo(); 
+    VkWriteDescriptorSetAccelerationStructureKHR BuildWriteDescriptorSetAccelerationStructure();
+
     VkViewport BuildViewport(float Width, float Height, float MinDepth, float MaxDepth, float StartX=0, float StartY=0);
     
     VkRect2D BuildRect2D(int32_t Width, int32_t Height, int32_t OffsetX, int32_t OffsetY);
@@ -129,6 +135,8 @@ namespace vulkanTools
     VkBool32 CreateBuffer(vulkanDevice *VulkanDevice, VkBufferUsageFlags UsageFlags, VkMemoryPropertyFlags MemoryPropertyFlags, VkDeviceSize Size, void *Data, VkBuffer *Buffer, VkDeviceMemory *DeviceMemory);
     VkResult CreateBuffer(vulkanDevice *VulkanDevice, VkBufferUsageFlags UsageFlags, VkMemoryPropertyFlags MemoryPropertyFlags, buffer *Buffer, VkDeviceSize Size, void *Data=nullptr);
     
+    void CopyBuffer(vulkanDevice *VulkanDevice, VkCommandPool CommandPool, VkQueue Queue, buffer *Source, buffer *Dest);
+
     VkCommandBuffer CreateCommandBuffer(VkDevice Device, VkCommandPool CommandPool,VkCommandBufferLevel Level, bool Begin);
 
 
@@ -137,5 +145,9 @@ namespace vulkanTools
     void CreateAndFillBuffer(vulkanDevice *Device, void *Data, size_t DataSize, VkBuffer *Buffer, VkDeviceMemory *Memory, VkBufferUsageFlags Flags, VkCommandBuffer CommandBuffer, VkQueue Queue);
     void CreateAndFillBuffer(vulkanDevice *Device, void *Data, size_t DataSize, buffer *Buffer, VkBufferUsageFlags Flags, VkCommandBuffer CommandBuffer, VkQueue Queue);
 
+    uint64_t GetBufferDeviceAddress(vulkanDevice *VulkanDevice, VkBuffer Buffer);
+
     sceneMesh BuildQuad(vulkanDevice *VulkanDevice);
+
+    uint32_t AlignedSize(uint32_t Value, uint32_t Alignment);
 }

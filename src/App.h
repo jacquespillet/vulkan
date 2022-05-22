@@ -108,6 +108,8 @@ public:
     ImGUI *ImGuiHelper;
 
     float GuiWidth=200;
+
+    bool RayTracing=true;
     
     void InitVulkan();
 
@@ -136,4 +138,5 @@ public:
     void MouseMove(float XPosition, float YPosition);
     void MouseAction(int Button, int Action, int Mods);
     void Scroll(float YOffset);
+    void Resize(uint32_t Width, uint32_t Height);
 };

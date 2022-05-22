@@ -296,6 +296,11 @@ public:
     std::vector<sceneMesh> Meshes;
     std::unordered_map<int, std::vector<instance>> Instances;
     
+    
+    std::vector<vertex> GVertices;
+    std::vector<uint32_t> GIndices;
+
+
     cubemap Cubemap;
     
     buffer SceneMatrices;
@@ -316,7 +321,7 @@ public:
 
     
     void UpdateUniformBufferMatrices();
-    float ViewportStart;
+    float ViewportStart=0;
 
     resources Resources;
 };

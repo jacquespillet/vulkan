@@ -18,8 +18,15 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
     App.Scroll((float)yoffset);
 }
 
+
+void WindowSizeCallback(GLFWwindow* Window, int Width, int Height)
+{
+    App.Resize(Width, Height);
+}
+
 void CursorPositionCallback(GLFWwindow* window, double xpos, double ypos);
 void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+void WindowSizeCallback(GLFWwindow* Window, int Width, int Height);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
 int main(int, char**)
@@ -39,6 +46,7 @@ int main(int, char**)
     glfwSetCursorPosCallback(Window, CursorPositionCallback);
     glfwSetMouseButtonCallback(Window, MouseButtonCallback);
     glfwSetScrollCallback(Window, ScrollCallback);
+    glfwSetWindowSizeCallback(Window, WindowSizeCallback);
 
     App.Initialize(glfwGetWin32Window(Window));
 

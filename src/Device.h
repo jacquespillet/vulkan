@@ -10,6 +10,7 @@ class vulkanDevice
 {
 public:
     VkPhysicalDevice PhysicalDevice;
+    VkInstance Instance;
 
     VkPhysicalDeviceProperties Properties;
     VkPhysicalDeviceFeatures Features;
@@ -29,7 +30,7 @@ public:
     bool EnableDebugMarkers=false;
     bool EnableNVDedicatedAllocation=false;
 
-    vulkanDevice(VkPhysicalDevice PhysicalDevice);
+    vulkanDevice(VkPhysicalDevice PhysicalDevice, VkInstance Instance);
     
     uint32_t GetQueueFamilyIndex(VkQueueFlagBits QueueFlags);
 
@@ -38,4 +39,24 @@ public:
     VkResult CreateDevice(VkPhysicalDeviceFeatures EnabledFeatures);
 
     uint32_t GetMemoryType(uint32_t TypeBits, VkMemoryPropertyFlags RequestedProperties, VkBool32 *MemoryTypeFound=nullptr);
+
+    
+    PFN_vkGetBufferDeviceAddressKHR _vkGetBufferDeviceAddressKHR;
+    PFN_vkGetRayTracingShaderGroupHandlesKHR _vkGetRayTracingShaderGroupHandlesKHR;
+    PFN_vkCreateAccelerationStructureKHR _vkCreateAccelerationStructureKHR;
+    PFN_vkCmdBuildAccelerationStructuresKHR _vkCmdBuildAccelerationStructuresKHR;
+    PFN_vkGetAccelerationStructureDeviceAddressKHR _vkGetAccelerationStructureDeviceAddressKHR;
+    PFN_vkBuildAccelerationStructuresKHR _vkBuildAccelerationStructuresKHR;
+    PFN_vkGetAccelerationStructureBuildSizesKHR _vkGetAccelerationStructureBuildSizesKHR;
+    PFN_vkCmdTraceRaysKHR _vkCmdTraceRaysKHR;
+    PFN_vkCreateRayTracingPipelinesKHR _vkCreateRayTracingPipelinesKHR;
+    bool RayTracing=true;
+
+    void *DevicePNextChain=nullptr;
+    
+	VkPhysicalDeviceDescriptorIndexingFeaturesEXT EnabledDescriptorIndexingFeatures{};
+	VkPhysicalDeviceBufferDeviceAddressFeatures EnabledBufferDeviceAddresFeatures{};
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR EnabledRayTracingPipelineFeatures{};
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR EnabledAccelerationStructureFeatures{};
+    void LoadRayTracingFuncs();
 };

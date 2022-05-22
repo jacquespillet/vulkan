@@ -83,9 +83,6 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
     
     { //Scene
 
-        std::vector<vertex> GVertices;
-        std::vector<uint32_t> GIndices;
-
         std::string Extension = FileName.substr(FileName.find_last_of(".") + 1);
         if(Extension == "gltf" || Extension == "glb")
         {
@@ -151,22 +148,27 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
 
         //Global buffers
         size_t VertexDataSize = GVertices.size() * sizeof(vertex);
+        VkBufferUsageFlags Flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        if(App->RayTracing) Flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
         vulkanTools::CreateAndFillBuffer(
             App->VulkanDevice,
             GVertices.data(),
             VertexDataSize,
             &VertexBuffer,
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            Flags,
             CopyCommand,
             Queue
         );
+
         size_t IndexDataSize = GIndices.size() * sizeof(uint32_t);
+        Flags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        if(App->RayTracing) Flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
         vulkanTools::CreateAndFillBuffer(
             App->VulkanDevice,
             GIndices.data(),
             IndexDataSize,
             &IndexBuffer,
-            VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            Flags,
             CopyCommand,
             Queue
         ); 
