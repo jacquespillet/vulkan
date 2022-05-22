@@ -169,7 +169,11 @@ public:
 
     textureList(VkDevice &Device, textureLoader *Loader) : 
                 vulkanResourceList(Device),
-                Loader(Loader) {}
+                Loader(Loader) {
+        Loader->LoadTexture2D("resources/models/sponza/dummy.dds", VK_FORMAT_BC2_UNORM_BLOCK, &DummyDiffuse);
+        Loader->LoadTexture2D("resources/models/sponza/dummy_specular.dds", VK_FORMAT_BC2_UNORM_BLOCK, &DummyNormal);
+        Loader->LoadTexture2D("resources/models/sponza/dummy_ddn.dds", VK_FORMAT_BC2_UNORM_BLOCK, &DummySpecular);                    
+    }
 
     void Destroy()
     {
@@ -210,6 +214,11 @@ public:
         Resources[Name] = Texture;
         return Texture;
     }
+
+    vulkanTexture DummyDiffuse;
+    vulkanTexture DummyNormal;
+    vulkanTexture DummySpecular;
+
 };
 
 

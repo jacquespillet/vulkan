@@ -77,10 +77,7 @@ namespace GLTFImporter
 
     void LoadTextures(tinygltf::Model &GLTFModel, textureList *Textures)
     {
-		Textures->AddTexture2D("Dummy.Diffuse", "resources/models/sponza/dummy.dds", VK_FORMAT_BC2_UNORM_BLOCK);
-		Textures->AddTexture2D("Dummy.Specular", "resources/models/sponza/dummy_specular.dds", VK_FORMAT_BC2_UNORM_BLOCK);
-		Textures->AddTexture2D("Dummy.Bump", "resources/models/sponza/dummy_ddn.dds", VK_FORMAT_BC2_UNORM_BLOCK);
-
+		
         for (size_t i = 0; i < GLTFModel.textures.size(); i++)
         {
             tinygltf::Texture& GLTFTex = GLTFModel.textures[i];
@@ -121,16 +118,17 @@ namespace GLTFImporter
                 if(strcmp(GLTFTex.name.c_str(), "") == 0)
                 {
                     TexName = GLTFImage.uri;
+                    Materials[i].Diffuse = Textures->Get(TexName);
                 }
                 else
                 {
-                    TexName = "Dummy.Diffuse";
+                    Materials[i].Diffuse = Textures->DummyDiffuse;
+                    Materials[i].MaterialData.UseBaseColor=0;
                 }
-                Materials[i].Diffuse = Textures->Get(TexName);
             }
             else
             {
-                Materials[i].Diffuse = Textures->Get("Dummy.Diffuse");         
+                Materials[i].Diffuse = Textures->DummyDiffuse;
                 Materials[i].MaterialData.UseBaseColor=0;
             }
 
@@ -153,16 +151,17 @@ namespace GLTFImporter
                 if(strcmp(GLTFTex.name.c_str(), "") == 0)
                 {
                     TexName = GLTFImage.uri;
+                    Materials[i].Specular = Textures->Get(TexName);                
                 }
                 else
                 {
-                    TexName = "Dummy.Specular";
+                    Materials[i].Specular = Textures->DummySpecular;                    
+                    Materials[i].MaterialData.UseMetallicRoughness=0;
                 }
-                Materials[i].Specular = Textures->Get(TexName);                
             }
             else
             {
-                Materials[i].Specular = Textures->Get("Dummy.Specular");         
+                Materials[i].Specular = Textures->DummySpecular;                    
                 Materials[i].MaterialData.UseMetallicRoughness=0;
             }
             
@@ -177,16 +176,17 @@ namespace GLTFImporter
                 if(strcmp(GLTFTex.name.c_str(), "") == 0)
                 {
                     TexName = GLTFImage.uri;
+                    Materials[i].Normal = Textures->Get(TexName);                
                 }
                 else
                 {
-                    TexName = "Dummy.Bump";
+                    Materials[i].Normal = Textures->DummyNormal;
+                    Materials[i].MaterialData.UseNormalMap=0;
                 }
-                Materials[i].Normal = Textures->Get(TexName);                
             }
             else
             {
-                Materials[i].Normal = Textures->Get("Dummy.Bump");                
+                Materials[i].Normal = Textures->DummyNormal;
                 Materials[i].MaterialData.UseNormalMap=0;
             }
 
@@ -201,16 +201,17 @@ namespace GLTFImporter
                 if(strcmp(GLTFTex.name.c_str(), "") == 0)
                 {
                     TexName = GLTFImage.uri;
+                    Materials[i].Occlusion = Textures->Get(TexName);                
                 }
                 else
                 {
-                    TexName = "Dummy.Diffuse"; //Use a white color if not present
+                    Materials[i].Occlusion = Textures->DummyDiffuse;
+                    Materials[i].MaterialData.UseOcclusionMap=0;
                 }
-                Materials[i].Occlusion = Textures->Get(TexName);                
             }
             else
             {
-                Materials[i].Occlusion = Textures->Get("Dummy.Diffuse");                
+                Materials[i].Occlusion = Textures->DummyDiffuse;
                 Materials[i].MaterialData.UseOcclusionMap=0;
             }            
 
@@ -225,18 +226,20 @@ namespace GLTFImporter
                 if(strcmp(GLTFTex.name.c_str(), "") == 0)
                 {
                     TexName = GLTFImage.uri;
+                    Materials[i].Emission = Textures->Get(TexName);       
+                    Materials[i].MaterialData.EmissiveStrength=1;         
                 }
                 else
                 {
-                    TexName = "Dummy.Specular"; //Black texture
+                    Materials[i].Emission = Textures->DummySpecular;
+                    Materials[i].MaterialData.EmissiveStrength=0;         
+                    Materials[i].MaterialData.UseEmissionMap=0;
                 }
-                Materials[i].Emission = Textures->Get(TexName);       
-                Materials[i].MaterialData.EmissiveStrength=1;         
             }
             else
             {
                 Materials[i].MaterialData.EmissiveStrength=0;         
-                Materials[i].Emission = Textures->Get("Dummy.Specular");                
+                Materials[i].Emission = Textures->DummySpecular;
                 Materials[i].MaterialData.UseEmissionMap=0;
             }            
 

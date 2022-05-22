@@ -37,5 +37,12 @@ hitAttributeEXT vec3 attribs;
 
 void main()
 {
-	rayPayload.color=vec3(1,0,0);
+	triangle Triangle = UnpackTriangle(gl_PrimitiveID, ubo.vertexSize);
+
+	ObjBuffers ObjResource = scene_desc.i[gl_InstanceCustomIndexEXT];
+	Materials materials = Materials(ObjResource.materials);
+	Material mat = materials.m[Triangle.materialIndex];
+	vec4 TextureColor = texture(textures[0], Triangle.uv);
+
+	rayPayload.color=TextureColor.rgb;
 }

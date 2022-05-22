@@ -1,4 +1,4 @@
-struct Vertex
+struct vertex
 {
   vec3 pos;
   vec3 normal;
@@ -7,8 +7,8 @@ struct Vertex
   int materialIndex;
 };
 
-struct Triangle {
-	Vertex vertices[3];
+struct triangle {
+	vertex vertices[3];
 	vec3 normal;
 	vec4 tangent;
 	vec2 uv;

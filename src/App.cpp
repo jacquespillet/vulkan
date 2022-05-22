@@ -205,8 +205,8 @@ void vulkanApp::BuildScene()
     Scene = new scene(this);
     //  Scene->Load("resources/models/sponza/sponza.dae", CopyCommand);
     // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
-    // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
-    Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
+    Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
+    // Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
 
@@ -256,9 +256,9 @@ void vulkanApp::CreateGeneralResources()
 	ImGuiHelper->InitResources(RenderPass, Queue);
     ImGuiHelper->InitStyle();
 
-    Renderers.push_back(new pathTraceRTXRenderer(this));
     Renderers.push_back(new forwardRenderer(this));
     Renderers.push_back(new deferredRenderer(this));
+    if(RayTracing) Renderers.push_back(new pathTraceRTXRenderer(this));
     for(int i=0; i<Renderers.size(); i++)
     {
         Renderers[i]->Setup();
@@ -342,7 +342,7 @@ void vulkanApp::RenderGUI()
             if (ImGui::BeginTabItem("Renderer"))
             {
                 static int RendererInx = 0;
-                ImGui::Combo("Render Mode", &RendererInx, "PathTraceRTX\0Forward\0Deferred\0\0");
+                ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0PathTraceRTX\0\0");
                 CurrentRenderer = RendererInx;   
                 
                 ImGui::EndTabItem();             

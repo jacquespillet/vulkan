@@ -1,5 +1,5 @@
-Triangle unpackTriangle(uint index, int vertexSize) {
-	Triangle tri;
+triangle UnpackTriangle(uint index, int vertexSize) {
+	triangle Triangle;
 	const uint triIndex = index * 3;
 
 	ObjBuffers objResource = scene_desc.i[gl_InstanceCustomIndexEXT];
@@ -15,19 +15,19 @@ Triangle unpackTriangle(uint index, int vertexSize) {
 		vec4 d1 = vertices.v[offset + 1]; // Normal.xyz, uv.y,
 		vec4 d2 = vertices.v[offset + 2]; // Tangent.xyz, .
 		
-		tri.vertices[i].pos = d0.xyz;
-		tri.vertices[i].uv = vec2(d0.w, d1.w);
-		tri.vertices[i].normal = d1.xyz;
-		tri.vertices[i].tangent = vec4(d2.xyz, 1);
-		tri.vertices[i].materialIndex = 0;
+		Triangle.vertices[i].pos = d0.xyz;
+		Triangle.vertices[i].uv = vec2(d0.w, d1.w);
+		Triangle.vertices[i].normal = d1.xyz;
+		Triangle.vertices[i].tangent = vec4(d2.xyz, 1);
+		Triangle.vertices[i].materialIndex = 0;
 	}
 
 	// Calculate values at barycentric coordinates
 	vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
-	tri.normal = normalize(tri.vertices[0].normal * barycentricCoords.x + tri.vertices[1].normal * barycentricCoords.y + tri.vertices[2].normal * barycentricCoords.z);
-	tri.tangent = tri.vertices[0].tangent * barycentricCoords.x + tri.vertices[1].tangent * barycentricCoords.y + tri.vertices[2].tangent * barycentricCoords.z;
-	tri.uv = tri.vertices[0].uv * barycentricCoords.x + tri.vertices[1].uv * barycentricCoords.y + tri.vertices[2].uv * barycentricCoords.z;
-	tri.materialIndex = tri.vertices[0].materialIndex;
+	Triangle.normal = normalize(Triangle.vertices[0].normal * barycentricCoords.x + Triangle.vertices[1].normal * barycentricCoords.y + Triangle.vertices[2].normal * barycentricCoords.z);
+	Triangle.tangent = Triangle.vertices[0].tangent * barycentricCoords.x + Triangle.vertices[1].tangent * barycentricCoords.y + Triangle.vertices[2].tangent * barycentricCoords.z;
+	Triangle.uv = Triangle.vertices[0].uv * barycentricCoords.x + Triangle.vertices[1].uv * barycentricCoords.y + Triangle.vertices[2].uv * barycentricCoords.z;
+	Triangle.materialIndex = Triangle.vertices[0].materialIndex;
 	
-	return tri;
+	return Triangle;
 }

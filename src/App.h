@@ -109,7 +109,7 @@ public:
 
     float GuiWidth=200;
 
-    bool RayTracing=true;
+    bool RayTracing=false;
     
     void InitVulkan();
 
