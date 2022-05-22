@@ -580,10 +580,7 @@ void pathTraceRTXRenderer::UpdateUniformBuffers()
     UniformData.VertexSize = sizeof(vertex);
     UniformData.SamplersPerFrame = 4;
     UniformData.RayBounces=4;
-    UniformData.Sky = 1;
-    UniformData.SkyIntensity = 2.5;
     memcpy(UBO.Mapped, &UniformData, sizeof(UniformData));
-
 }   
 
 void pathTraceRTXRenderer::BuildUniformBuffers()

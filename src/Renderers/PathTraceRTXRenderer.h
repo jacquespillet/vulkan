@@ -94,6 +94,7 @@ public:
 private:
     std::vector<accelerationStructure> BottomLevelAccelerationStructures;
     accelerationStructure TopLevelAccelerationStructure;
+    
     buffer MaterialBuffer;
     buffer SceneDescriptionBuffer;
     storageImage StorageImage;
@@ -106,8 +107,6 @@ private:
         uint32_t CurrentSampleCount=0;
         uint32_t SamplersPerFrame=4;
         uint32_t RayBounces=8;
-        uint32_t Sky=true;
-        float SkyIntensity = 2.5f;
     } UniformData;
     buffer UBO;
     VkDescriptorSetLayout DescriptorSetLayout;

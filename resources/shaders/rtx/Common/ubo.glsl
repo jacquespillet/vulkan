@@ -5,6 +5,4 @@ struct Ubo {
 	int currentSamplesCount;
 	int samplesPerFrame;
 	int rayBounces;
-	uint sky;
-	float skyIntensity;
 };
