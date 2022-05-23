@@ -30,7 +30,7 @@ layout(binding = 3, set = 0) uniform UniformData { Ubo ubo; };
 layout(binding = 4, set = 0) buffer _scene_desc { ObjBuffers i[]; } scene_desc;
 layout(binding = 5, set = 0) uniform sampler2D[] textures;
 
-layout(location = 0) rayPayloadInEXT RayPayload rayPayload;
+layout(location = 0) rayPayloadInEXT rayPayload RayPayload;
 hitAttributeEXT vec3 attribs;
 
 #include "Common/geometry.glsl"
@@ -44,5 +44,8 @@ void main()
 	Material mat = materials.m[Triangle.materialIndex];
 	vec4 TextureColor = texture(textures[mat.baseColorTextureIndex], Triangle.uv);
 
-	rayPayload.color=TextureColor.rgb;
+	RayPayload.Color=TextureColor.rgb;
+	RayPayload.Distance = gl_HitTEXT;
+	RayPayload.ScatterDir = reflect(gl_WorldRayDirectionEXT, normalize(Triangle.normal + RandomInUnitSphere(RayPayload.RandomState) ));
+	RayPayload.DoScatter=true;
 }

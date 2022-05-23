@@ -11,24 +11,36 @@ layout(binding = 1, set = 0, rgba8) uniform image2D outputImage;
 layout(binding = 2, set = 0, rgba32f) uniform image2D accumulationImage;
 layout(binding = 3, set = 0) uniform UniformData { Ubo ubo; };
 
-layout(location = 0) rayPayloadEXT RayPayload rayPayload;
+layout(location = 0) rayPayloadEXT rayPayload RayPayload;
 
 void main() 
 {
 	vec3 Color = vec3(0.0);
+	RayPayload.RandomState = uint(uint(gl_LaunchIDEXT.x) * uint(1973) + uint(gl_LaunchIDEXT.y) * uint(9277) + uint(ubo.currentSamplesCount) * uint(26699)) | uint(1); 
 	
 	for(uint i=0; i<ubo.samplesPerFrame; i++)
 	{
-		vec4 origin = ubo.viewInverse * vec4(0.0, 0.0, 0.0, 1.0);
-		vec4 target = ubo.projInverse * vec4((vec2(gl_LaunchIDEXT.xy)) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
-		vec4 direction = ubo.viewInverse * vec4(normalize(target.xyz), 0.0);
+		vec4 Origin = ubo.viewInverse * vec4(0.0, 0.0, 0.0, 1.0);
+		vec4 Target = ubo.projInverse * vec4((vec2(gl_LaunchIDEXT.xy)) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
+		vec4 Direction = ubo.viewInverse * vec4(normalize(Target.xyz), 0.0);
 		
-		vec3 sampleColor = vec3(1.0);
+		vec3 SampleColor = vec3(1.0);
+
+		for(int j=0; j<2; j++)
+		{
+			traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0, Origin.xyz, 0.001, Direction.xyz, 10000.0, 0);		
+			SampleColor *= RayPayload.Color;
+
+			if(RayPayload.Distance <0)
+			{
+				break;
+			}
+
+			Origin = Origin + RayPayload.Distance * Direction;
+			Direction = vec4(RayPayload.ScatterDir, 0.0f);
+		}	
 		
-		traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0, origin.xyz, 0.001, direction.xyz, 10000.0, 0);		
-		sampleColor *= rayPayload.color;
-		
-		Color += sampleColor;
+		Color += SampleColor;
 	}
 
 	vec3 LastFrameColor = vec3(0);
