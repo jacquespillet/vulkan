@@ -2,10 +2,12 @@
 #extension GL_EXT_ray_tracing : require
 #extension GL_GOOGLE_include_directive : require
 
+const float Exposure=1;
+
 #include "Common/random.glsl"
 #include "Common/raypayload.glsl"
 #include "Common/ubo.glsl"
-
+#include "../Tonemapping.glsl"
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 1, set = 0, rgba8) uniform image2D outputImage;
 layout(binding = 2, set = 0, rgba32f) uniform image2D accumulationImage;
@@ -15,9 +17,9 @@ layout(location = 0) rayPayloadEXT rayPayload RayPayload;
 
 void main() 
 {
-	vec3 Color = vec3(0.0);
 	RayPayload.RandomState = uint(uint(gl_LaunchIDEXT.x) * uint(1973) + uint(gl_LaunchIDEXT.y) * uint(9277) + uint(ubo.currentSamplesCount) * uint(26699)) | uint(1); 
 	
+	vec3 Color = vec3(0.0);
 	for(uint i=0; i<ubo.samplesPerFrame; i++)
 	{
 		vec4 Origin = ubo.viewInverse * vec4(0.0, 0.0, 0.0, 1.0);
@@ -26,12 +28,12 @@ void main()
 		
 		vec3 SampleColor = vec3(1.0);
 
-		for(int j=0; j<2; j++)
+		for(int j=0; j<5; j++)
 		{
 			traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0, Origin.xyz, 0.001, Direction.xyz, 10000.0, 0);		
 			SampleColor *= RayPayload.Color;
 
-			if(RayPayload.Distance <0)
+			if(RayPayload.Distance <0 || !RayPayload.DoScatter)
 			{
 				break;
 			}
@@ -53,6 +55,8 @@ void main()
 	imageStore(accumulationImage, ivec2(gl_LaunchIDEXT.xy), vec4(AccumulatedColor, 0));
 
 	Color = AccumulatedColor / ubo.currentSamplesCount;
+
+	Color = Tonemap(Color);
 
 	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(Color, 0));
 }

@@ -12,6 +12,6 @@ layout(binding = 3, set = 0) uniform UniformData { Ubo ubo; };
 
 void main()
 {
-	RayPayload.Color = vec3(1.0);
+	RayPayload.Color = vec3(8.0);
 	RayPayload.Distance = -1.0;
 }
