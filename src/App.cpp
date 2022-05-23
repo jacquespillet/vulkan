@@ -106,7 +106,7 @@ void vulkanApp::SetupRenderPass()
 
     Attachments[0].format = Swapchain.ColorFormat;
     Attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-    Attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    Attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     Attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     Attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     Attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;

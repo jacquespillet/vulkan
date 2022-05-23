@@ -159,6 +159,8 @@ pathTraceRTXRenderer::pathTraceRTXRenderer(vulkanApp *App) : renderer(App) {
 
 void pathTraceRTXRenderer::Render()
 {
+    BuildCommandBuffers();
+
     if(App->Scene->Camera.Changed)
     {
         ResetAccumulation=true;
@@ -723,10 +725,27 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
 {   
     VkCommandBufferBeginInfo CommandBufferInfo = vulkanTools::BuildCommandBufferBeginInfo();
     VkImageSubresourceRange SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    
+    App->ImGuiHelper->UpdateBuffers();
+
+
 
     for(uint32_t i=0; i<DrawCommandBuffers.size(); i++)
     {
         VK_CALL(vkBeginCommandBuffer(DrawCommandBuffers[i], &CommandBufferInfo));
+        
+        VkClearValue ClearValues[2];
+        ClearValues[0].color = { { 0.0f, 0.0f, 0.2f, 1.0f } };;
+        ClearValues[1].depthStencil = { 1.0f, 0 };
+        
+		VkRenderPassBeginInfo RenderPassBeginInfo = vulkanTools::BuildRenderPassBeginInfo();
+		RenderPassBeginInfo.renderPass = App->RenderPass;
+		RenderPassBeginInfo.framebuffer = App->AppFramebuffers[i];
+		RenderPassBeginInfo.renderArea.extent.width = App->Width;
+		RenderPassBeginInfo.renderArea.extent.height = App->Height;
+		RenderPassBeginInfo.clearValueCount = 2;
+		RenderPassBeginInfo.pClearValues = ClearValues;           
+        
         VkStridedDeviceAddressRegionKHR EmptySbtEntry={};
 
         vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, Pipeline);
@@ -757,6 +776,10 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
         vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->Swapchain.Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, SubresourceRange);
         vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, SubresourceRange);
         
+        //Imgui
+        vkCmdBeginRenderPass(DrawCommandBuffers[i], &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        App->ImGuiHelper->DrawFrame(DrawCommandBuffers[i]);
+        vkCmdEndRenderPass(DrawCommandBuffers[i]);
 
         VK_CALL(vkEndCommandBuffer(DrawCommandBuffers[i]));
     }
