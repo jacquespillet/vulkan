@@ -307,7 +307,7 @@ void vulkanApp::RenderGUI()
                 for (auto& InstanceGroup: Scene->Instances) {
                     for (int i = 0; i < InstanceGroup.second.size(); i++)
                     {
-                        const bool IsSelected = (CurrentSceneItemIndex == i);
+                        const bool IsSelected = (CurrentSceneItemIndex == i && CurrentSceneGroupIndex == InstanceGroup.first);
                         if (ImGui::Selectable(InstanceGroup.second[i].Name.c_str(), IsSelected))
                         {
                             if(IsSelected) CurrentSceneItemIndex=-1; //Unselect if click on selected item
