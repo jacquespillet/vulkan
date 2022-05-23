@@ -194,6 +194,7 @@ struct sceneMesh
 struct instance
 {
     sceneMesh *Mesh;
+    uint32_t MeshIndex;
     
 
     glm::vec3 Position;

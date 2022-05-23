@@ -740,6 +740,7 @@ namespace GLTFImporter
                 Instance.InstanceData.Transform = Transform;
                 uint32_t Inx = InstanceMapping[GLTFNode.mesh][i];
                 Instance.Mesh = &Meshes[Inx];
+                Instance.MeshIndex = Inx;
                 Instance.Name = GLTFNode.name;
                 if(strcmp(Instance.Name.c_str(), "") == 0)
                 {

@@ -126,7 +126,7 @@ private:
     void CreateMaterialBuffer();
     void CreateBottomLevelAccelarationStructure(scene *Scene);
     void CreateTopLevelAccelerationStructure();
-    VkAccelerationStructureInstanceKHR CreateBottomLevelAccelerationInstance(size_t Index);
+    VkAccelerationStructureInstanceKHR CreateBottomLevelAccelerationInstance(instance *Instance);
 
     void CreateImages();
     void CreateRayTracingPipeline();
