@@ -46,7 +46,7 @@ vec3 linearTosRGB(vec3 color)
     return pow(color, vec3(INV_GAMMA));
 }
 
-vec3 toneMap(vec3 color)
+vec3 toneMap(vec3 color, float Exposure)
 {
     color *= Exposure;
     color /= 0.6;

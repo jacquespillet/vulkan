@@ -17,7 +17,7 @@ public:
         RecalculateProjectionMatrix();
         RecalculateLookat();
     }
-    camera() : fov(80.0f), nearPlane(0.01f), farPlane(150.0f), aspectRatio(1.0f), sphericalPosition(glm::vec3(0, 0, 1)), target(glm::vec3(0,0,0)), up(glm::vec3(0,1,0)){
+    camera() : fov(80.0f), nearPlane(0.01f), farPlane(300.0f), aspectRatio(1.0f), sphericalPosition(glm::vec3(0, 0, 1)), target(glm::vec3(0,0,0)), up(glm::vec3(0,1,0)){
         worldPosition = target + sphericalPosition * distance;
         theta =  atan2(sqrt(sphericalPosition.x * sphericalPosition.x  + sphericalPosition.z * sphericalPosition.z), sphericalPosition.y);
         phi = atan2(sphericalPosition.z, sphericalPosition.x); 

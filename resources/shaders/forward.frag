@@ -1,6 +1,5 @@
 #version 450
 
-const float Exposure=1;
 
 layout (set=1, binding = 0) uniform materialUBO 
 {
@@ -47,7 +46,7 @@ layout (set=0, binding = 0) uniform UBO
 	mat4 Projection;
 	mat4 model;
 	mat4 View;
-	vec4 CameraPosition;
+	vec4 CameraPositionExposure;
 } SceneUbo;
 
 
@@ -95,7 +94,7 @@ void main()
 //         BaseColor.a = 1.0;
 //     #endif
 
-    vec3 View = normalize(SceneUbo.CameraPosition.xyz - FragPosition);
+    vec3 View = normalize(SceneUbo.CameraPositionExposure.xyz - FragPosition);
     normalInfo NormalInfo = getNormalInfo();
     vec3 Normal = NormalInfo.n;
     vec3 Tangent = NormalInfo.t;
@@ -187,7 +186,7 @@ void main()
         BaseColor.a = 1.0;
     }
 
-    outputColor = vec4(toneMap(Color), BaseColor.a);   
+    outputColor = vec4(toneMap(Color, SceneUbo.CameraPositionExposure.w), BaseColor.a);   
     if(InstanceUBO.Selected>0) outputColor += vec4(0.5, 0.5, 0, 0);     
 
     if(MaterialUBO.DebugChannel>0)

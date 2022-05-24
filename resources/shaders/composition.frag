@@ -3,8 +3,6 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-const float Exposure=1;
-
 
 layout (set=0, binding = 0) uniform sampler2D samplerPositionDepth;
 layout (set=0, binding = 1) uniform sampler2D samplerNormal;
@@ -24,7 +22,7 @@ layout (set=2, binding = 0) uniform UBO
 	mat4 Projection;
 	mat4 model;
 	mat4 View;
-	vec4 CameraPosition;
+	vec4 CameraPositionExposure;
 } SceneUbo;
 
 layout (constant_id = 0) const int SSAO_ENABLED = 1;
@@ -75,7 +73,7 @@ void main()
     MaterialInfo.SpecularWeight = 1.0;
     MaterialInfo = GetMetallicRoughnessInfo(MaterialInfo, Roughness, Metallic);
 
-    vec3 View = normalize(SceneUbo.CameraPosition.xyz - Position);
+    vec3 View = normalize(SceneUbo.CameraPositionExposure.xyz - Position);
 	float NdotV = ClampedDot(Normal, View);
 
 	float Reflectance = max(max(MaterialInfo.f0.r, MaterialInfo.f0.g), MaterialInfo.f0.b);
@@ -115,5 +113,5 @@ void main()
     Color = FinalEmissive + FinalDiffuse + FinalSpecular;
 
 
-    outFragcolor = vec4(toneMap(Color), BaseColor.a);   
+    outFragcolor = vec4(toneMap(Color, SceneUbo.CameraPositionExposure.w), BaseColor.a);   
 }

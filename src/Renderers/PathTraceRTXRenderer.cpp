@@ -603,6 +603,7 @@ void pathTraceRTXRenderer::UpdateUniformBuffers()
     UniformData.VertexSize = sizeof(vertex);
     UniformData.SamplersPerFrame = 4;
     UniformData.RayBounces=4;
+    UniformData.Exposure = App->Scene->Exposure;
     memcpy(UBO.Mapped, &UniformData, sizeof(UniformData));
 }   
 

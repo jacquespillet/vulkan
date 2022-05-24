@@ -5,4 +5,6 @@ struct Ubo {
 	int currentSamplesCount;
 	int samplesPerFrame;
 	int rayBounces;
+	float Exposure;
+	vec3 padding;
 };

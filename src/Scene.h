@@ -13,7 +13,7 @@
 class vulkanApp;
 struct descriptor;
 class textureList;
-
+class scene;
 
 struct vertex
 {
@@ -246,7 +246,6 @@ struct instance
     std::string Name;
 };
 
-
 struct cubemap
 {
     vulkanTexture Texture;
@@ -264,11 +263,16 @@ struct cubemap
     struct uniformData 
     {
         glm::mat4 modelMatrix;
+        float Exposure=1;
+        glm::vec3 Padding;
     } UniformData;
 
     buffer UniformBuffer;
+    scene *Scene;
+    cubemap(scene *Scene);
 
     void Load(std::string FileName, textureLoader *TextureLoader, vulkanDevice *VulkanDevice, VkCommandBuffer CommandBuffer, VkQueue Queue);
+    void UpdateUniforms();
     void CreateDescriptorSet(vulkanDevice *VulkanDevice);
     void Destroy(vulkanDevice *VulkanDevice);
 };
@@ -302,6 +306,7 @@ public:
     std::vector<vertex> GVertices;
     std::vector<uint32_t> GIndices;
 
+    float Exposure=1;
 
     cubemap Cubemap;
     
@@ -312,7 +317,7 @@ public:
         glm::mat4 Projection;
         glm::mat4 Model;
         glm::mat4 View;
-        glm::vec4 CameraPosition;
+        glm::vec4 CameraPositionExposure;
     } UBOSceneMatrices;    
     
     camera Camera;
@@ -320,6 +325,7 @@ public:
     
     void Load(std::string FileName, VkCommandBuffer CopyCommand);
     void CreateDescriptorSets();
+    void Update();
 
     
     void UpdateUniformBufferMatrices();

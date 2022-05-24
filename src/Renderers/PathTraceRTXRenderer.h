@@ -107,6 +107,8 @@ private:
         uint32_t CurrentSampleCount=0;
         uint32_t SamplersPerFrame=4;
         uint32_t RayBounces=8;
+        float Exposure = 1;
+        glm::vec3 Padding;
     } UniformData;
     buffer UBO;
     VkDescriptorSetLayout DescriptorSetLayout;

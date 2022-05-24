@@ -5,6 +5,9 @@
 #include "GLTFImporter.h"
 #include "IBLHelper.h"
 
+
+cubemap::cubemap(scene *Scene) : Scene(Scene){}
+
 void cubemap::CreateDescriptorSet(vulkanDevice *VulkanDevice)
 {
     //Create Cubemap descriptor pool
@@ -70,9 +73,17 @@ void cubemap::Load(std::string FileName, textureLoader *TextureLoader, vulkanDev
     IBLHelper::CalculateBRDFLUT(VulkanDevice, CommandBuffer, Queue, &BRDFLUT);        
 }
 
+void cubemap::UpdateUniforms()
+{
+    UniformData.Exposure = Scene->Exposure;
+    UniformBuffer.Map();
+    UniformBuffer.CopyTo(&UniformData, sizeof(cubemap::uniformData));
+    UniformBuffer.Unmap();
+}
+
 scene::scene(vulkanApp *App) :
             App(App), Device(App->Device), 
-            Queue(App->Queue), TextureLoader(App->TextureLoader)
+            Queue(App->Queue), TextureLoader(App->TextureLoader), Cubemap(this)
 {}
 
 
@@ -203,7 +214,7 @@ void scene::UpdateUniformBufferMatrices()
     UBOSceneMatrices.Projection = App->Scene->Camera.GetProjectionMatrix();
     UBOSceneMatrices.View = App->Scene->Camera.GetViewMatrix();
     UBOSceneMatrices.Model = glm::mat4(1);
-    UBOSceneMatrices.CameraPosition = glm::vec4(App->Scene->Camera.worldPosition, 1);
+    UBOSceneMatrices.CameraPositionExposure = glm::vec4(App->Scene->Camera.worldPosition, Exposure);
     
     VK_CALL(SceneMatrices.Map());
     SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
@@ -316,6 +327,11 @@ void sceneMesh::Destroy()
 {
     IndexBuffer.Destroy();
     VertexBuffer.Destroy();
+}
+
+void scene::Update()
+{
+    Cubemap.UpdateUniforms();
 }
 
 void scene::Destroy()
