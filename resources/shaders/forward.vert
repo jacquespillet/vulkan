@@ -7,9 +7,12 @@ layout (location = 2) in vec4 inTangent;
 layout (set=0, binding = 0) uniform UBO 
 {
 	mat4 Projection;
-	mat4 model;
+	mat4 Model;
 	mat4 View;
-	vec4 CameraPosition;
+	mat4 InvView;
+	mat4 InvProjection;
+	vec3 CameraPosition;
+	float Exposure;
 } SceneUbo;
 
 layout (set=2, binding = 0) uniform instance 

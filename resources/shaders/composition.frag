@@ -20,8 +20,10 @@ layout (set=1, binding = 4) uniform sampler2D BRDFLUT;
 layout (set=2, binding = 0) uniform UBO 
 {
 	mat4 Projection;
-	mat4 model;
+	mat4 Model;
 	mat4 View;
+	mat4 InvView;
+	mat4 InvProjection;
 	vec3 CameraPosition;
 	float Exposure;
 } SceneUbo;

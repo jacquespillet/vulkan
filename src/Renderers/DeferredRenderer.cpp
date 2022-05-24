@@ -708,7 +708,6 @@ void deferredRenderer::BuildDeferredCommandBuffers()
 
 void deferredRenderer::UpdateCamera()
 {
-    App->Scene->UpdateUniformBufferMatrices();
     UpdateUniformBufferSSAOParams();
 }
 

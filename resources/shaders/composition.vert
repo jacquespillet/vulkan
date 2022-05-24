@@ -8,13 +8,6 @@ layout (location = 0) in vec4 inPos;
 layout (location = 1) in vec4 inNormal;
 layout (location = 2) in vec4 inTangent;
 
-
-layout (set=2, binding = 0) uniform UBO 
-{
-	mat4 projection;
-	mat4 model;
-} ubo;
-
 layout (location = 0) out vec2 outUV;
 
 void main() 

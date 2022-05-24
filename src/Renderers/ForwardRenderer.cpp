@@ -7,8 +7,7 @@ forwardRenderer::forwardRenderer(vulkanApp *App) : renderer(App) {}
 void forwardRenderer::Render()
 {
     BuildCommandBuffers();
-    UpdateCamera();
-
+    
     VK_CALL(App->Swapchain.AcquireNextImage(App->Semaphores.PresentComplete, &App->CurrentBuffer));
     
     SubmitInfo = vulkanTools::BuildSubmitInfo();
@@ -359,10 +358,6 @@ void forwardRenderer::BuildCommandBuffers()
 }
 
 
-void forwardRenderer::UpdateCamera()
-{
-    App->Scene->UpdateUniformBufferMatrices();
-}
 
 void forwardRenderer::Destroy()
 {

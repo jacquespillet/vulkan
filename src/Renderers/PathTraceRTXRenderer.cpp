@@ -467,12 +467,18 @@ void pathTraceRTXRenderer::CreateRayTracingPipeline()
             vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 5,  TexCount)
         );
     }
-    //Cubemap
+    
+    //Cubemap textures
     SetLayoutBindings.push_back(
         vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 6,  1)
     );
     SetLayoutBindings.push_back(
         vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 7,  1)
+    );
+
+    //Scene uniform
+    SetLayoutBindings.push_back(
+        vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 8,  1)
     );
 
     VkDescriptorSetLayoutCreateInfo DescriptorSetLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings);
@@ -606,6 +612,9 @@ void pathTraceRTXRenderer::CreateDescriptorSets()
     WriteDescriptorSets.push_back(
         vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 7, &App->Scene->Cubemap.Texture.Descriptor, 1)
     );
+    WriteDescriptorSets.push_back(
+        vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, &App->Scene->SceneMatrices.Descriptor)
+    );
 
     
 
@@ -614,12 +623,9 @@ void pathTraceRTXRenderer::CreateDescriptorSets()
 
 void pathTraceRTXRenderer::UpdateUniformBuffers()
 {
-    UniformData.ProjInverse = glm::inverse(App->Scene->Camera.GetProjectionMatrix());
-    UniformData.ViewInverse = glm::inverse(App->Scene->Camera.GetViewMatrix());
     UniformData.VertexSize = sizeof(vertex);
     UniformData.SamplersPerFrame = 4;
     UniformData.RayBounces=4;
-    UniformData.Exposure = App->Scene->UBOSceneMatrices.Exposure;
     memcpy(UBO.Mapped, &UniformData, sizeof(UniformData));
 }   
 
@@ -811,11 +817,6 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
     }
 }
 
-
-void pathTraceRTXRenderer::UpdateCamera()
-{
-    App->Scene->UpdateUniformBufferMatrices();
-}
 
 void pathTraceRTXRenderer::Destroy()
 {
