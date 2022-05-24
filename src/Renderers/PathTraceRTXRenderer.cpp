@@ -35,6 +35,13 @@ void accelerationStructure::Create(vulkanDevice *_VulkanDevice, VkAccelerationSt
     DeviceAddress = VulkanDevice->_vkGetAccelerationStructureDeviceAddressKHR(VulkanDevice->Device, &AccelerationStructureDeviceAddressInfo);
 }
 
+void accelerationStructure::Destroy()
+{
+    vkFreeMemory(VulkanDevice->Device, Memory, nullptr);
+    vkDestroyBuffer(VulkanDevice->Device, Buffer, nullptr);
+    VulkanDevice->_vkDestroyAccelerationStructureKHR(VulkanDevice->Device, AccelerationStructure, nullptr);
+}
+
 scratchBuffer::scratchBuffer(vulkanDevice *VulkanDevice, VkDeviceSize Size)
 {
     this->VulkanDevice = VulkanDevice;
@@ -131,6 +138,13 @@ void storageImage::Create(vulkanDevice *_VulkanDevice, VkCommandPool CommandPool
 
 }
 
+void storageImage::Destroy()
+{
+    vkDestroyImageView(VulkanDevice->Device, ImageView, nullptr);
+    vkDestroyImage(VulkanDevice->Device, Image, nullptr);
+    vkFreeMemory(VulkanDevice->Device, Memory, nullptr);
+}
+
 void shaderBindingTable::Create(vulkanDevice *_VulkanDevice, uint32_t HandleCount, VkPhysicalDeviceRayTracingPipelinePropertiesKHR RayTracingPipelineProperties)
 {
     this->Device = _VulkanDevice->Device;
@@ -151,6 +165,11 @@ void shaderBindingTable::Create(vulkanDevice *_VulkanDevice, uint32_t HandleCoun
     StrideDeviceAddressRegion.size = HandleCount * HandleSizeAligned;
 
     Map();
+}
+
+void shaderBindingTable::Destroy()
+{
+    buffer::Destroy();
 }
 
 pathTraceRTXRenderer::pathTraceRTXRenderer(vulkanApp *App) : renderer(App) {
@@ -292,6 +311,7 @@ void pathTraceRTXRenderer::CreateBottomLevelAccelarationStructure(scene *Scene)
         BottomLevelAccelerationStructures.push_back(std::move(BLAS));
         
         ScratchBuffer.Destroy();
+        TransformMatrixBuffer.Destroy();
     }
 }
 
@@ -458,6 +478,7 @@ void pathTraceRTXRenderer::CreateRayTracingPipeline()
     
     {
         ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/rtx/raygen.rgen.spv", VK_SHADER_STAGE_RAYGEN_BIT_KHR));
+        ShaderModules.push_back(ShaderStages[ShaderStages.size()-1].module);
         VkRayTracingShaderGroupCreateInfoKHR ShaderGroup {VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR};
         ShaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
         ShaderGroup.generalShader = static_cast<uint32_t>(ShaderStages.size())-1;
@@ -470,6 +491,7 @@ void pathTraceRTXRenderer::CreateRayTracingPipeline()
 
     {
         ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/rtx/miss.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_KHR));
+        ShaderModules.push_back(ShaderStages[ShaderStages.size()-1].module);
         VkRayTracingShaderGroupCreateInfoKHR ShaderGroup {VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR};
         ShaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
         ShaderGroup.generalShader = static_cast<uint32_t>(ShaderStages.size())-1;
@@ -482,12 +504,14 @@ void pathTraceRTXRenderer::CreateRayTracingPipeline()
 
     {
         ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/rtx/closestHit.rchit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
+        ShaderModules.push_back(ShaderStages[ShaderStages.size()-1].module);
         VkRayTracingShaderGroupCreateInfoKHR ShaderGroup {VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR};
         ShaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
         ShaderGroup.generalShader = VK_SHADER_UNUSED_KHR;
         ShaderGroup.closestHitShader = static_cast<uint32_t>(ShaderStages.size())-1;
         ShaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
         ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/rtx/anyHit.rahit.spv", VK_SHADER_STAGE_ANY_HIT_BIT_KHR));
+        ShaderModules.push_back(ShaderStages[ShaderStages.size()-1].module);
         ShaderGroup.anyHitShader = static_cast<uint32_t>(ShaderStages.size())-1;
         
         ShaderGroups.push_back(ShaderGroup);
@@ -778,11 +802,41 @@ void pathTraceRTXRenderer::UpdateCamera()
 
 void pathTraceRTXRenderer::Destroy()
 {
+    for(size_t i=0; i<BottomLevelAccelerationStructures.size(); i++)
+    {
+        BottomLevelAccelerationStructures[i].Destroy();
+    }
+    TopLevelAccelerationStructure.Destroy();
+    MaterialBuffer.Destroy();
+    SceneDescriptionBuffer.Destroy();
+    StorageImage.Destroy();
+    AccumulationImage.Destroy();
+    UBO.Destroy();
+    
+    vkDestroyDescriptorSetLayout(VulkanDevice->Device, DescriptorSetLayout, nullptr);
+    vkDestroyPipelineLayout(VulkanDevice->Device, PipelineLayout, nullptr);
+    vkDestroyPipeline(VulkanDevice->Device, Pipeline, nullptr);
     for(size_t i=0; i<ShaderModules.size(); i++)
     {
-        vkDestroyShaderModule(Device, ShaderModules[i], nullptr);
+        vkDestroyShaderModule(VulkanDevice->Device, ShaderModules[i], nullptr);
     }
-    Resources.Destroy();
-    vkDestroyDescriptorPool(Device, DescriptorPool, nullptr);
-    vkFreeCommandBuffers(Device, App->CommandPool, (uint32_t)DrawCommandBuffers.size(), DrawCommandBuffers.data());
+
+    ShaderBindingTables.Hit.Destroy();
+    ShaderBindingTables.Miss.Destroy();
+    ShaderBindingTables.Raygen.Destroy();
+
+    vkFreeDescriptorSets(VulkanDevice->Device, DescriptorPool, 1, &DescriptorSet);
+    vkDestroyDescriptorPool(VulkanDevice->Device, DescriptorPool, nullptr);
+
+    for(size_t i=0; i<DrawCommandBuffers.size(); i++)
+    {
+        vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, 1, &DrawCommandBuffers[i]);
+    }
+    // for(size_t i=0; i<ShaderModules.size(); i++)
+    // {
+    //     vkDestroyShaderModule(Device, ShaderModules[i], nullptr);
+    // }
+    // //Resources.Destroy();
+    // vkDestroyDescriptorPool(Device, DescriptorPool, nullptr);
+    // vkFreeCommandBuffers(Device, App->CommandPool, (uint32_t)DrawCommandBuffers.size(), DrawCommandBuffers.data());
 }

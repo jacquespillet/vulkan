@@ -268,5 +268,6 @@ void vulkanDevice::LoadRayTracingFuncs()
     _vkGetAccelerationStructureBuildSizesKHR = (PFN_vkGetAccelerationStructureBuildSizesKHR)vkGetInstanceProcAddr(Instance, "vkGetAccelerationStructureBuildSizesKHR") ;       
     _vkCmdTraceRaysKHR = (PFN_vkCmdTraceRaysKHR)vkGetInstanceProcAddr(Instance, "vkCmdTraceRaysKHR") ;       
     _vkCreateRayTracingPipelinesKHR = (PFN_vkCreateRayTracingPipelinesKHR)vkGetInstanceProcAddr(Instance, "vkCreateRayTracingPipelinesKHR") ;       
+    _vkDestroyAccelerationStructureKHR = (PFN_vkDestroyAccelerationStructureKHR)vkGetInstanceProcAddr(Instance, "vkDestroyAccelerationStructureKHR") ;       
 
 }

@@ -181,6 +181,9 @@ public:
         {
             Loader->DestroyTexture(Texture.second);
         }
+        Loader->DestroyTexture(DummyDiffuse);
+        Loader->DestroyTexture(DummyNormal);
+        Loader->DestroyTexture(DummySpecular);
     }
 
     vulkanTexture AddTexture2D(std::string Name, std::string FileName, VkFormat Format)

@@ -50,6 +50,7 @@ public:
     PFN_vkGetAccelerationStructureBuildSizesKHR _vkGetAccelerationStructureBuildSizesKHR;
     PFN_vkCmdTraceRaysKHR _vkCmdTraceRaysKHR;
     PFN_vkCreateRayTracingPipelinesKHR _vkCreateRayTracingPipelinesKHR;
+    PFN_vkDestroyAccelerationStructureKHR _vkDestroyAccelerationStructureKHR;
     bool RayTracing=true;
 
     void *DevicePNextChain=nullptr;

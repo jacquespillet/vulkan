@@ -139,6 +139,7 @@ namespace vulkanTools
         result.poolSizeCount = static_cast<uint32_t>(PoolSizes.size());
         result.pPoolSizes = PoolSizes.data();
         result.maxSets = MaxSets;
+        result.flags =  VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
         return result;        
     }
 

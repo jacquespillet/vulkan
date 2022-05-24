@@ -56,7 +56,7 @@ void main()
 
 	Color = AccumulatedColor / ubo.currentSamplesCount;
 
-	Color = Tonemap(Color);
+	Color = toneMap(Color);
 
 	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(Color, 0));
 }
