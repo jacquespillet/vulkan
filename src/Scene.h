@@ -319,6 +319,8 @@ public:
         glm::mat4 InvProjection;
         glm::vec3 CameraPosition;
         float Exposure = 1;
+        glm::vec3 BackgroundColor;
+        float BackgroundType;
     } UBOSceneMatrices;    
     
     camera Camera;

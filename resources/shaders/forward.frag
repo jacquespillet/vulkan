@@ -41,17 +41,10 @@ layout (set=1, binding = 4) uniform sampler2D samplerOcclusion;
 layout (set=1, binding = 5) uniform sampler2D samplerEmission;
 
 
-layout (set=0, binding = 0) uniform UBO 
-{
-	mat4 Projection;
-	mat4 Model;
-	mat4 View;
-	mat4 InvView;
-	mat4 InvProjection;
-	vec3 CameraPosition;
-	float Exposure;
-} SceneUbo;
 
+#define SCENE_UBO_SET_ID 0
+#define SCENE_UBO_BINDING 0
+#include "SceneUBO.glsl"
 
 layout (set=2, binding = 0) uniform instance 
 {

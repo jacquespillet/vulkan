@@ -17,16 +17,9 @@ layout (set=1, binding = 3) uniform samplerCube PrefilteredEnv;
 layout (set=1, binding = 4) uniform sampler2D BRDFLUT;
 
 
-layout (set=2, binding = 0) uniform UBO 
-{
-	mat4 Projection;
-	mat4 Model;
-	mat4 View;
-	mat4 InvView;
-	mat4 InvProjection;
-	vec3 CameraPosition;
-	float Exposure;
-} SceneUbo;
+#define SCENE_UBO_SET_ID 2
+#define SCENE_UBO_BINDING 0
+#include "SceneUBO.glsl"
 
 layout (constant_id = 0) const int SSAO_ENABLED = 1;
 layout (constant_id = 1) const float AMBIENT_FACTOR = 0.0;
