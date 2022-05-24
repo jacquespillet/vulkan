@@ -5,14 +5,10 @@ layout (location = 0) in vec4 inPos;
 layout (location = 1) in vec4 inNormal;
 layout (location = 2) in vec4 inTangent;
 
-layout (set=0, binding = 0) uniform UBO 
-{
-	mat4 projection;
-	mat4 model;
-	mat4 view;
-	vec2 viewport;
-} ubo;
 
+#define SCENE_UBO_SET_ID 0
+#define SCENE_UBO_BINDING 0
+#include "SceneUBO.glsl"
 
 layout (set=1, binding = 0) uniform CubemapUBO 
 {
@@ -24,9 +20,9 @@ void main()
 {
 	vec4 pos = vec4(inPos.xyz, 1);
 	pos.y *=-1;
-	mat4 rotView = mat4(mat3(ubo.view));
+	mat4 rotView = mat4(mat3(SceneUbo.View));
 
-	gl_Position = ubo.projection * rotView * cubemapUBO.modelMatrix * pos;
+	gl_Position = SceneUbo.Projection * rotView * cubemapUBO.modelMatrix * pos;
 	
 	outPosition = inPos.xyz;
 }

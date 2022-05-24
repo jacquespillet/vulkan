@@ -1,9 +1,15 @@
 
 vec3 GetDiffuseLight(vec3 Direction)
 {
-    //TODO(Jacques): Env rotation
-    Direction.y *=-1;
-    return texture(IrradianceMap, Direction).rgb;
+    if(SceneUbo.BackgroundType == 0)
+    {
+        Direction.y *=-1;
+        return texture(IrradianceMap, Direction).rgb;
+    }
+    else
+    {
+        return SceneUbo.BackgroundColor * SceneUbo.BackgroundIntensity;
+    }
 }
 
 
@@ -35,9 +41,16 @@ vec3 GetIBLRadianceLambertian(vec3 Normal, vec3 View, float Roughness, vec3 Diff
 
 vec4 GetSpecularSample(vec3 Reflection, float LOD)
 {
-    //TODO(Jacques): Rotation
-    Reflection.y *= -1;
-    return textureLod(PrefilteredEnv, Reflection, LOD);
+    if(SceneUbo.BackgroundType == 0)
+    {
+        //TODO(Jacques): Rotation
+        Reflection.y *= -1;
+        return textureLod(PrefilteredEnv, Reflection, LOD);
+    }
+    else
+    {
+        return vec4(SceneUbo.BackgroundColor, 1) * SceneUbo.BackgroundIntensity;
+    }
 }
 
 

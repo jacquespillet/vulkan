@@ -205,8 +205,8 @@ void vulkanApp::BuildScene()
     Scene = new scene(this);
     //  Scene->Load("resources/models/sponza/sponza.dae", CopyCommand);
     // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
-    Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
-    // Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
+    // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
+    Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
 
@@ -337,7 +337,16 @@ void vulkanApp::RenderGUI()
             }
             if (ImGui::BeginTabItem("Environment"))
             {
-                ImGui::Text("This is the Broccoli tab!\nblah blah blah blah blah");
+                static int BackGroundType = 0;
+                ImGui::Combo("Background Mode", &BackGroundType, "Cubemap\0Solid Color\0\0");
+                Scene->UBOSceneMatrices.BackgroundType = (float)BackGroundType;
+
+                if(BackGroundType == 1)
+                {
+                    ImGui::DragFloat("Background Intensity", &Scene->UBOSceneMatrices.BackgroundIntensity, 0.1f, 0, 100);
+                    ImGui::ColorPicker3("Background Color", &Scene->UBOSceneMatrices.BackgroundColor[0]);
+                }
+                
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("Renderer"))
