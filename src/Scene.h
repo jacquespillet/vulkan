@@ -306,8 +306,6 @@ public:
     std::vector<vertex> GVertices;
     std::vector<uint32_t> GIndices;
 
-    float Exposure=1;
-
     cubemap Cubemap;
     
     buffer SceneMatrices;
@@ -317,7 +315,8 @@ public:
         glm::mat4 Projection;
         glm::mat4 Model;
         glm::mat4 View;
-        glm::vec4 CameraPositionExposure;
+        glm::vec3 CameraPosition;
+        float Exposure = 1;
     } UBOSceneMatrices;    
     
     camera Camera;

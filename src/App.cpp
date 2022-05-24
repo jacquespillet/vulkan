@@ -346,7 +346,7 @@ void vulkanApp::RenderGUI()
                 ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0PathTraceRTX\0\0");
                 CurrentRenderer = RendererInx;   
 
-                ImGui::DragFloat("Exposure", &Scene->Exposure, 0.01f);
+                ImGui::DragFloat("Exposure", &Scene->UBOSceneMatrices.Exposure, 0.01f);
                 
                 ImGui::EndTabItem();             
             }

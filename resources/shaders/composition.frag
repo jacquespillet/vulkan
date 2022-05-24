@@ -22,7 +22,8 @@ layout (set=2, binding = 0) uniform UBO
 	mat4 Projection;
 	mat4 model;
 	mat4 View;
-	vec4 CameraPositionExposure;
+	vec3 CameraPosition;
+	float Exposure;
 } SceneUbo;
 
 layout (constant_id = 0) const int SSAO_ENABLED = 1;
@@ -73,7 +74,7 @@ void main()
     MaterialInfo.SpecularWeight = 1.0;
     MaterialInfo = GetMetallicRoughnessInfo(MaterialInfo, Roughness, Metallic);
 
-    vec3 View = normalize(SceneUbo.CameraPositionExposure.xyz - Position);
+    vec3 View = normalize(SceneUbo.CameraPosition - Position);
 	float NdotV = ClampedDot(Normal, View);
 
 	float Reflectance = max(max(MaterialInfo.f0.r, MaterialInfo.f0.g), MaterialInfo.f0.b);
@@ -113,5 +114,5 @@ void main()
     Color = FinalEmissive + FinalDiffuse + FinalSpecular;
 
 
-    outFragcolor = vec4(toneMap(Color, SceneUbo.CameraPositionExposure.w), BaseColor.a);   
+    outFragcolor = vec4(toneMap(Color, SceneUbo.Exposure), BaseColor.a);   
 }

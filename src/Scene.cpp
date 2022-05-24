@@ -75,7 +75,6 @@ void cubemap::Load(std::string FileName, textureLoader *TextureLoader, vulkanDev
 
 void cubemap::UpdateUniforms()
 {
-    UniformData.Exposure = Scene->Exposure;
     UniformBuffer.Map();
     UniformBuffer.CopyTo(&UniformData, sizeof(cubemap::uniformData));
     UniformBuffer.Unmap();
@@ -214,7 +213,7 @@ void scene::UpdateUniformBufferMatrices()
     UBOSceneMatrices.Projection = App->Scene->Camera.GetProjectionMatrix();
     UBOSceneMatrices.View = App->Scene->Camera.GetViewMatrix();
     UBOSceneMatrices.Model = glm::mat4(1);
-    UBOSceneMatrices.CameraPositionExposure = glm::vec4(App->Scene->Camera.worldPosition, Exposure);
+    UBOSceneMatrices.CameraPosition = App->Scene->Camera.worldPosition;
     
     VK_CALL(SceneMatrices.Map());
     SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
