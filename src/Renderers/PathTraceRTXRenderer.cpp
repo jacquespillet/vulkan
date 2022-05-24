@@ -467,6 +467,13 @@ void pathTraceRTXRenderer::CreateRayTracingPipeline()
             vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 5,  TexCount)
         );
     }
+    //Cubemap
+    SetLayoutBindings.push_back(
+        vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 6,  1)
+    );
+    SetLayoutBindings.push_back(
+        vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 7,  1)
+    );
 
     VkDescriptorSetLayoutCreateInfo DescriptorSetLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings);
     VK_CALL(vkCreateDescriptorSetLayout(VulkanDevice->Device, &DescriptorSetLayoutCreateInfo, nullptr, &DescriptorSetLayout));
@@ -592,6 +599,15 @@ void pathTraceRTXRenderer::CreateDescriptorSets()
     WriteDescriptorSets.push_back(
         vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, ImageInfos.data(), static_cast<uint32_t>(ImageInfos.size()))
     );
+
+    WriteDescriptorSets.push_back(
+        vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, &App->Scene->Cubemap.IrradianceMap.Descriptor, 1)
+    );
+    WriteDescriptorSets.push_back(
+        vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 7, &App->Scene->Cubemap.Texture.Descriptor, 1)
+    );
+
+    
 
     vkUpdateDescriptorSets(VulkanDevice->Device, static_cast<uint32_t>(WriteDescriptorSets.size()), WriteDescriptorSets.data(), 0, VK_NULL_HANDLE);
 }

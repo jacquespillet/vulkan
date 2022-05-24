@@ -48,4 +48,5 @@ void main()
 	RayPayload.Distance = gl_HitTEXT;
 	RayPayload.ScatterDir = reflect(gl_WorldRayDirectionEXT, normalize(Triangle.normal + RandomInUnitSphere(RayPayload.RandomState) ));
 	RayPayload.DoScatter=true;
+	RayPayload.Depth++;
 }
