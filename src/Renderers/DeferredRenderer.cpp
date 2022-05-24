@@ -342,7 +342,7 @@ void deferredRenderer::BuildPipelines()
         Resources.Pipelines->Add("Composition.SSAO.Enabled", PipelineCreateInfo, App->PipelineCache);
 
         SpecializationData.EnableSSAO = 0;
-        Resources.Pipelines->Add("Composition.SSAO.Enabled", PipelineCreateInfo, App->PipelineCache);
+        Resources.Pipelines->Add("Composition.SSAO.Disabled", PipelineCreateInfo, App->PipelineCache);
     }
 
     // Fill G buffer
