@@ -41,12 +41,33 @@ void main()
 
 	ObjBuffers ObjResource = scene_desc.i[gl_InstanceCustomIndexEXT];
 	Materials materials = Materials(ObjResource.materials);
-	material mat = materials.m[Triangle.materialIndex];
-	vec4 TextureColor = texture(textures[mat.BaseColorTextureID], Triangle.uv);
+	material Material = materials.m[Triangle.materialIndex];
+	vec4 TextureColor = texture(textures[Material.BaseColorTextureID], Triangle.uv);
 
-	RayPayload.Color=TextureColor.rgb;
+	vec3 Normal = Triangle.normal;
+	if (Material.NormalMapTextureID >=0 && Material.UseNormalMap > 0) {
+		// Apply normal mapping
+		if (length(Triangle.tangent) != 0) {
+			vec3 T = normalize(Triangle.tangent.xyz);
+			vec3 B = cross(Triangle.normal, Triangle.tangent.xyz) * Triangle.tangent.w;
+			vec3 N = normalize(Triangle.normal);
+			mat3 TBN = mat3(T, B, N);
+			Normal = TBN * normalize(texture(textures[Material.NormalMapTextureID], Triangle.uv).rgb * 2.0 - vec3(1.0));
+		}
+	}	
+
+	float Roughness = Material.Roughness;
+	// if(Material.MetallicRoughnessTextureID >=0 && Material.UseMetallicRoughnessMap>0)
+	// {
+	// 	vec2 RoughnessMetallic = texture(textures[Material.MetallicRoughnessTextureID], Triangle.uv).rg;
+	// 	Roughness *= RoughnessMetallic.r;
+	// }
+
+	vec3 Emission = Material.Emission;
+
+	RayPayload.Color=TextureColor.rgb + Emission;
 	RayPayload.Distance = gl_HitTEXT;
-	RayPayload.ScatterDir = reflect(gl_WorldRayDirectionEXT, normalize(Triangle.normal + RandomInUnitSphere(RayPayload.RandomState) ));
+	RayPayload.ScatterDir = reflect(gl_WorldRayDirectionEXT, normalize(Normal + Roughness * RandomInUnitSphere(RayPayload.RandomState) ));
 	RayPayload.DoScatter=true;
 	RayPayload.Depth++;
 }
