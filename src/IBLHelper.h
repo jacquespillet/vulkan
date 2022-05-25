@@ -62,8 +62,8 @@ namespace IBLHelper
              
         //load shaders
         std::array<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
-        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/BuildIrradianceMap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/BuildIrradianceMap.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/BuildIrradianceMap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/BuildIrradianceMap.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
         
         //Create uniform buffers
         glm::mat4 CaptureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
@@ -448,8 +448,8 @@ namespace IBLHelper
         
         //load shaders
         std::array<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
-        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/BuildPrefilterEnvMap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/BuildPrefilterEnvMap.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/BuildPrefilterEnvMap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/BuildPrefilterEnvMap.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
         
         //Create uniform buffers
         struct uniforms
@@ -828,8 +828,8 @@ namespace IBLHelper
         
         //load shaders
         std::array<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
-        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/BuildBRDFLUT.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/BuildBRDFLUT.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/BuildBRDFLUT.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/BuildBRDFLUT.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
          
     
         //Build pipeline layout

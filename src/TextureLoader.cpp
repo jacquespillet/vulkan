@@ -252,8 +252,8 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
 
     //load shaders
     std::array<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
-    ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/BuildCubemap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-    ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/BuildCubemap.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+    ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/BuildCubemap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+    ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/BuildCubemap.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
     
     //Create uniform buffers
     glm::mat4 CaptureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);

@@ -318,8 +318,8 @@ void deferredRenderer::BuildPipelines()
         PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Composition");
         PipelineCreateInfo.renderPass = App->RenderPass;
 
-        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/Composition.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/Composition.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/Composition.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/Composition.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
         
         ShaderModules.push_back(ShaderStages[0].module);
         ShaderModules.push_back(ShaderStages[1].module);
@@ -377,8 +377,8 @@ void deferredRenderer::BuildPipelines()
             &SpecializationData
         );
 
-        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/mrt.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/mrt.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/mrt.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/mrt.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
         ShaderStages[1].pSpecializationInfo = &SpecializationInfo;
         ShaderModules.push_back(ShaderStages[1].module);            
         ShaderModules.push_back(ShaderStages[0].module);
@@ -440,8 +440,8 @@ void deferredRenderer::BuildPipelines()
         EmptyInputState.pVertexBindingDescriptions=nullptr;
         PipelineCreateInfo.pVertexInputState=&EmptyInputState;
 
-        ShaderStages[0] = LoadShader(VulkanDevice->Device, "resources/shaders/fullscreen.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        ShaderStages[1] = LoadShader(VulkanDevice->Device, "resources/shaders/ssao.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        ShaderStages[0] = LoadShader(VulkanDevice->Device, "resources/shaders/spv/fullscreen.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        ShaderStages[1] = LoadShader(VulkanDevice->Device, "resources/shaders/spv/ssao.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
         ShaderModules.push_back(ShaderStages[0].module);
         ShaderModules.push_back(ShaderStages[1].module);
 
@@ -473,8 +473,8 @@ void deferredRenderer::BuildPipelines()
 
     //SSAO blur
     {
-        ShaderStages[0] = LoadShader(VulkanDevice->Device, "resources/shaders/fullscreen.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        ShaderStages[1] = LoadShader(VulkanDevice->Device, "resources/shaders/blur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        ShaderStages[0] = LoadShader(VulkanDevice->Device, "resources/shaders/spv/fullscreen.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        ShaderStages[1] = LoadShader(VulkanDevice->Device, "resources/shaders/spv/blur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
         ShaderModules.push_back(ShaderStages[0].module);
         ShaderModules.push_back(ShaderStages[1].module);            
         PipelineCreateInfo.renderPass = Framebuffers.SSAOBlur.RenderPass;

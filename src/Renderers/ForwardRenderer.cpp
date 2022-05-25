@@ -206,8 +206,8 @@ void forwardRenderer::BuildPipelines()
             sizeof(SpecializationData),
             &SpecializationData
         );
-        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/forward.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/forward.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/forward.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/forward.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
         ShaderStages[1].pSpecializationInfo = &SpecializationInfo;
         ShaderModules.push_back(ShaderStages[1].module);            
         ShaderModules.push_back(ShaderStages[0].module);
@@ -254,8 +254,8 @@ void forwardRenderer::BuildPipelines()
     
     //Cube map
     {
-        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/cubemap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/cubemap.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/cubemap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/cubemap.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
         ShaderModules.push_back(ShaderStages[1].module);            
         ShaderModules.push_back(ShaderStages[0].module);
 

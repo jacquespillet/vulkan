@@ -490,7 +490,7 @@ void pathTraceRTXRenderer::CreateRayTracingPipeline()
     std::vector<VkPipelineShaderStageCreateInfo> ShaderStages;
     
     {
-        ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/rtx/raygen.rgen.spv", VK_SHADER_STAGE_RAYGEN_BIT_KHR));
+        ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/spv/raygen.rgen.spv", VK_SHADER_STAGE_RAYGEN_BIT_KHR));
         ShaderModules.push_back(ShaderStages[ShaderStages.size()-1].module);
         VkRayTracingShaderGroupCreateInfoKHR ShaderGroup {VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR};
         ShaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
@@ -503,7 +503,7 @@ void pathTraceRTXRenderer::CreateRayTracingPipeline()
     }
 
     {
-        ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/rtx/miss.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_KHR));
+        ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/spv/miss.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_KHR));
         ShaderModules.push_back(ShaderStages[ShaderStages.size()-1].module);
         VkRayTracingShaderGroupCreateInfoKHR ShaderGroup {VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR};
         ShaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
@@ -516,14 +516,14 @@ void pathTraceRTXRenderer::CreateRayTracingPipeline()
     }
 
     {
-        ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/rtx/closestHit.rchit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
+        ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/spv/closestHit.rchit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
         ShaderModules.push_back(ShaderStages[ShaderStages.size()-1].module);
         VkRayTracingShaderGroupCreateInfoKHR ShaderGroup {VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR};
         ShaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
         ShaderGroup.generalShader = VK_SHADER_UNUSED_KHR;
         ShaderGroup.closestHitShader = static_cast<uint32_t>(ShaderStages.size())-1;
         ShaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
-        ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/rtx/anyHit.rahit.spv", VK_SHADER_STAGE_ANY_HIT_BIT_KHR));
+        ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/spv/anyHit.rahit.spv", VK_SHADER_STAGE_ANY_HIT_BIT_KHR));
         ShaderModules.push_back(ShaderStages[ShaderStages.size()-1].module);
         ShaderGroup.anyHitShader = static_cast<uint32_t>(ShaderStages.size())-1;
         

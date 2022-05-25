@@ -264,8 +264,8 @@ void ImGUI::InitResources(VkRenderPass RenderPass, VkQueue CopyQueue)
 
     pipelineCreateInfo.pVertexInputState = &vertexInputState;
 
-    shaderStages[0] = LoadShader(Device->Device, "resources/shaders/imgui/ui.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-    shaderStages[1] = LoadShader(Device->Device, "resources/shaders/imgui/ui.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+    shaderStages[0] = LoadShader(Device->Device, "resources/shaders/spv/ui.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+    shaderStages[1] = LoadShader(Device->Device, "resources/shaders/spv/ui.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
     VK_CALL(vkCreateGraphicsPipelines(Device->Device, PipelineCache, 1, &pipelineCreateInfo, nullptr, &Pipeline));
 }
