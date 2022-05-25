@@ -205,8 +205,8 @@ void vulkanApp::BuildScene()
     Scene = new scene(this);
     //  Scene->Load("resources/models/sponza/sponza.dae", CopyCommand);
     // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
-    Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
-    // Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
+    // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
+    Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
 
@@ -259,7 +259,10 @@ void vulkanApp::CreateGeneralResources()
 
     Renderers.push_back(new forwardRenderer(this));
     Renderers.push_back(new deferredRenderer(this));
-    if(RayTracing) Renderers.push_back(new pathTraceRTXRenderer(this));
+    if(RayTracing) 
+    {
+        Renderers.push_back(new pathTraceRTXRenderer(this));
+    }
     for(int i=0; i<Renderers.size(); i++)
     {
         Renderers[i]->Setup();
@@ -434,6 +437,17 @@ void vulkanApp::RenderGUI()
                     if(UpdateMaterial)
                     {
                         Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].Mesh->Material->Upload();
+                        if(RayTracing)
+                        {
+                            for(size_t i=0; i<Renderers.size(); i++)
+                            {
+                                pathTraceRTXRenderer *PathTracer = dynamic_cast<pathTraceRTXRenderer*>(Renderers[i]);
+                                if(PathTracer)
+                                {
+                                    PathTracer->UpdateMaterial(Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].Mesh->Material->Index);
+                                }
+                            }
+                        }
                     }
                 }
                 else

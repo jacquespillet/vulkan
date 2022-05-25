@@ -143,6 +143,8 @@ struct sceneMaterial
 
     VkDescriptorSet DescriptorSet;
 
+    uint32_t Index;
+
 
     int Flags;
 

@@ -176,6 +176,23 @@ pathTraceRTXRenderer::pathTraceRTXRenderer(vulkanApp *App) : renderer(App) {
     App->VulkanDevice->LoadRayTracingFuncs();
 }
 
+void pathTraceRTXRenderer::UpdateMaterial(size_t Index)
+{
+    UpdateMaterialStagingBuffer.Map();
+    UpdateMaterialStagingBuffer.CopyTo(&App->Scene->Materials[Index].MaterialData, sizeof(materialData));
+    UpdateMaterialStagingBuffer.Unmap();
+    
+    VkBufferCopy BufferCopy {};
+    BufferCopy.size = sizeof(materialData);
+    BufferCopy.dstOffset = Index * sizeof(materialData);
+
+
+    VkCommandBufferBeginInfo CommandBufferInfo = vulkanTools::BuildCommandBufferBeginInfo();
+    VK_CALL(vkBeginCommandBuffer(UpdateMaterialCommandBuffer, &CommandBufferInfo));
+    vkCmdCopyBuffer(UpdateMaterialCommandBuffer, UpdateMaterialStagingBuffer.Buffer, MaterialBuffer.Buffer, 1, &BufferCopy);
+    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, UpdateMaterialCommandBuffer, App->Queue, false);
+}
+
 void pathTraceRTXRenderer::Render()
 {
     BuildCommandBuffers();
@@ -673,6 +690,18 @@ void pathTraceRTXRenderer::CreateMaterialBuffer()
 
     vulkanTools::CopyBuffer(VulkanDevice, App->CommandPool, App->Queue, &Staging, &MaterialBuffer);
 
+    //Used for updating a material at run time
+    VK_CALL(vulkanTools::CreateBuffer(
+        VulkanDevice,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &UpdateMaterialStagingBuffer,
+        sizeof(materialData),
+        nullptr
+    ));
+    UpdateMaterialCommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
+    
+
     Staging.Destroy();
 }
 
@@ -821,6 +850,8 @@ void pathTraceRTXRenderer::Destroy()
     }
     TopLevelAccelerationStructure.Destroy();
     MaterialBuffer.Destroy();
+    vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, 1, &UpdateMaterialCommandBuffer);
+    UpdateMaterialStagingBuffer.Destroy();
     SceneDescriptionBuffer.Destroy();
     StorageImage.Destroy();
     AccumulationImage.Destroy();

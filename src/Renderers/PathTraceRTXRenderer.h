@@ -75,11 +75,15 @@ public:
 
     
     void UpdateCamera();
+    void UpdateMaterial(size_t Index);
 private:
     std::vector<accelerationStructure> BottomLevelAccelerationStructures;
     accelerationStructure TopLevelAccelerationStructure;
     
     buffer MaterialBuffer;
+    buffer UpdateMaterialStagingBuffer;
+    VkCommandBuffer UpdateMaterialCommandBuffer;
+    
     buffer SceneDescriptionBuffer;
     storageImage StorageImage;
     storageImage AccumulationImage; 

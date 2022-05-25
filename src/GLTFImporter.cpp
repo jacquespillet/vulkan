@@ -105,6 +105,7 @@ namespace GLTFImporter
             const tinygltf::Material GLTFMaterial = GLTFModel.materials[i];
             const tinygltf::PbrMetallicRoughness PBR = GLTFMaterial.pbrMetallicRoughness;
             Materials[i] = {};
+            Materials[i].Index = (uint32_t)i;
 
             Materials[i].MaterialData.BaseColor = glm::vec3((float)PBR.baseColorFactor[0], (float)PBR.baseColorFactor[1], (float)PBR.baseColorFactor[2]);
             if(PBR.baseColorTexture.index > -1)
