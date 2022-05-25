@@ -71,7 +71,7 @@ void main()
 	if(Material.MetallicRoughnessTextureID >=0 && Material.UseMetallicRoughnessMap>0)
 	{
 		vec2 RoughnessMetallic = texture(textures[Material.MetallicRoughnessTextureID], Triangle.uv).rg;
-		RayPayload.Roughness *= RoughnessMetallic.r;
+		RayPayload.Roughness *= RoughnessMetallic.g;
 	}
 	
 	
@@ -87,6 +87,8 @@ void main()
 	// Emission = vec3(0);
 
 	RayPayload.Color = BaseColor;
+
+	
 	RayPayload.ScatterDir = reflect(gl_WorldRayDirectionEXT, normalize(Normal + RandomInUnitSphere(RayPayload.RandomState) ));
 	RayPayload.Distance = gl_HitTEXT;
 	RayPayload.Normal = Normal;

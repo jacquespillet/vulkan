@@ -94,7 +94,7 @@ private:
         uint32_t VertexSize;
         uint32_t CurrentSampleCount=0;
         int SamplersPerFrame=4;
-        int RayBounces=8;
+        int RayBounces=5;
 
         int MaxSamples = 8192;
         glm::ivec3 Padding;

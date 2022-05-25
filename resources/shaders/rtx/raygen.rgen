@@ -64,7 +64,7 @@ void main()
 					Radiance += RayPayload.Emission * Attenuation;
 					break;
 				}
-				
+	
 				{
 					//Sample 2 random vars for sampling the distribution
 					vec2 Xi = vec2(RandomUnilateral(RayPayload.RandomState),RandomUnilateral(RayPayload.RandomState));
