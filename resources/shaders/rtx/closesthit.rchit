@@ -15,11 +15,11 @@ struct ObjBuffers
 	uint64_t materials;
 };
 
-#include "Common/material.glsl"
+#include "../material.glsl"
 
 layout(buffer_reference, scalar) buffer Vertices {vec4 v[]; }; // Positions of an object
 layout(buffer_reference, scalar) buffer Indices {uint i[]; }; // Triangle indices
-layout(buffer_reference, scalar) buffer Materials {Material m[]; }; // Array of all materials on an object
+layout(buffer_reference, scalar) buffer Materials {material m[]; }; // Array of all materials on an object
 
 #include "Common/random.glsl"
 #include "Common/raypayload.glsl"
@@ -41,8 +41,8 @@ void main()
 
 	ObjBuffers ObjResource = scene_desc.i[gl_InstanceCustomIndexEXT];
 	Materials materials = Materials(ObjResource.materials);
-	Material mat = materials.m[Triangle.materialIndex];
-	vec4 TextureColor = texture(textures[mat.baseColorTextureIndex], Triangle.uv);
+	material mat = materials.m[Triangle.materialIndex];
+	vec4 TextureColor = texture(textures[mat.BaseColorTextureID], Triangle.uv);
 
 	RayPayload.Color=TextureColor.rgb;
 	RayPayload.Distance = gl_HitTEXT;

@@ -17,9 +17,12 @@ layout (set=1, binding = 3) uniform samplerCube PrefilteredEnv;
 layout (set=1, binding = 4) uniform sampler2D BRDFLUT;
 
 
-#define SCENE_UBO_SET_ID 2
-#define SCENE_UBO_BINDING 0
 #include "SceneUBO.glsl"
+layout (set=2, binding = 0) uniform UBO 
+{
+	sceneUbo Data;	
+} SceneUbo;
+
 
 layout (constant_id = 0) const int SSAO_ENABLED = 1;
 layout (constant_id = 1) const float AMBIENT_FACTOR = 0.0;
@@ -69,7 +72,7 @@ void main()
     MaterialInfo.SpecularWeight = 1.0;
     MaterialInfo = GetMetallicRoughnessInfo(MaterialInfo, Roughness, Metallic);
 
-    vec3 View = normalize(SceneUbo.CameraPosition - Position);
+    vec3 View = normalize(SceneUbo.Data.CameraPosition - Position);
 	float NdotV = ClampedDot(Normal, View);
 
 	float Reflectance = max(max(MaterialInfo.f0.r, MaterialInfo.f0.g), MaterialInfo.f0.b);
@@ -109,5 +112,5 @@ void main()
     Color = FinalEmissive + FinalDiffuse + FinalSpecular;
 
 
-    outFragcolor = vec4(toneMap(Color, SceneUbo.Exposure), BaseColor.a);   
+    outFragcolor = vec4(toneMap(Color, SceneUbo.Data.Exposure), BaseColor.a);   
 }

@@ -2,43 +2,18 @@
 
 
 
-#define SCENE_UBO_SET_ID 0
-#define SCENE_UBO_BINDING 0
 #include "SceneUBO.glsl"
+layout (set=0, binding = 0) uniform UBO 
+{
+    sceneUbo Data;
+} SceneUbo;
 
+#include "Material.glsl"
 layout (set=1, binding = 0) uniform materialUBO 
 {
-    int BaseColorTextureID;
-    int MetallicRoughnessTextureID;
-    int NormalMapTextureID;
-    int EmissionMapTextureID;
-    
-    int OcclusionMapTextureID;
-    int UseBaseColorMap;
-    int UseMetallicRoughnessMap;
-    int UseNormalMap;
-
-    int UseEmissionMap;
-    int UseOcclusionMap;
-    int AlphaMode;
-    int DebugChannel;
-
-    float Roughness;
-    float AlphaCutoff;
-    float ClearcoatRoughness;
-    float padding1;
-    
-    float Metallic;
-    float OcclusionStrength;
-    float EmissiveStrength;
-    float ClearcoatFactor;
-    
-    vec3 BaseColor;
-    float Opacity;
-    
-    vec3 Emission;
-    float Exposure;   
+    material Material;   
 } MaterialUBO;
+
 layout (set=1, binding = 1) uniform sampler2D samplerColor;
 layout (set=1, binding = 2) uniform sampler2D samplerSpecular;
 layout (set=1, binding = 3) uniform sampler2D samplerNormal;
@@ -78,9 +53,9 @@ void main()
     materialInfo MaterialInfo;
 
     //Metallic Roughness
-    float Metallic = MaterialUBO.Metallic;
-    float PerceptualRoughness = MaterialUBO.Roughness;
-    if(HAS_METALLIC_ROUGHNESS_MAP>0 &&  MaterialUBO.UseMetallicRoughnessMap >0)
+    float Metallic = MaterialUBO.Material.Metallic;
+    float PerceptualRoughness = MaterialUBO.Material.Roughness;
+    if(HAS_METALLIC_ROUGHNESS_MAP>0 &&  MaterialUBO.Material.UseMetallicRoughnessMap >0)
     {
         vec4 mrSample = texture(samplerSpecular, FragUv);
         PerceptualRoughness *= mrSample.g;
@@ -89,8 +64,8 @@ void main()
 
     //Occlusion
     float AmbientOcclusion = 1.0;
-    float OcclusionStrength = MaterialUBO.OcclusionStrength;
-    if(HAS_OCCLUSION_MAP > 0 &&  MaterialUBO.UseOcclusionMap>0)
+    float OcclusionStrength = MaterialUBO.Material.OcclusionStrength;
+    if(HAS_OCCLUSION_MAP > 0 &&  MaterialUBO.Material.UseOcclusionMap>0)
     {
         AmbientOcclusion = texture(samplerOcclusion, FragUv).r;
     }    
@@ -101,8 +76,8 @@ void main()
 
 
     // outEmissionEmissionStrength.r = packHalf2x16()
-    vec3 FinalEmissive = MaterialUBO.Emission * MaterialUBO.EmissiveStrength;
-    if(HAS_EMISSIVE_MAP > 0 && MaterialUBO.UseEmissionMap>0)
+    vec3 FinalEmissive = MaterialUBO.Material.Emission * MaterialUBO.Material.EmissiveStrength;
+    if(HAS_EMISSIVE_MAP > 0 && MaterialUBO.Material.UseEmissionMap>0)
     {
         FinalEmissive *= texture(samplerEmission, FragUv).rgb;
     }

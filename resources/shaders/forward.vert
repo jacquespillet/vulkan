@@ -4,9 +4,12 @@ layout (location = 0) in vec4 inPos;
 layout (location = 1) in vec4 inNormal;
 layout (location = 2) in vec4 inTangent;
 
-#define SCENE_UBO_SET_ID 0
-#define SCENE_UBO_BINDING 0
 #include "SceneUBO.glsl"
+layout (set=0, binding = 0) uniform UBO 
+{
+	sceneUbo Data;	
+} SceneUbo;
+
 
 layout (set=2, binding = 0) uniform instance 
 {
@@ -24,7 +27,7 @@ layout(location=3) out mat3 TBN;
 
 void main() 
 {
-	mat4 ModelViewProjection = SceneUbo.Projection * SceneUbo.View * InstanceUBO.Model;
+	mat4 ModelViewProjection = SceneUbo.Data.Projection * SceneUbo.Data.View * InstanceUBO.Model;
 	gl_Position = ModelViewProjection * vec4(inPos.xyz, 1.0);
 	FragPosition = (InstanceUBO.Model * vec4(inPos.xyz, 1.0)).xyz;
 	FragUv = vec2(inPos.w, inNormal.w);

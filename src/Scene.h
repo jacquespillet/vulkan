@@ -321,8 +321,8 @@ public:
         glm::vec3 CameraPosition;
         float Exposure = 1;
         
-        glm::vec3 BackgroundColor;
-        float BackgroundType;
+        glm::vec3 BackgroundColor = glm::vec3(1);
+        float BackgroundType = 0;
         
         float BackgroundIntensity = 1;
         glm::vec3 Padding;

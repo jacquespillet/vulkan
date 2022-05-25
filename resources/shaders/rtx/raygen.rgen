@@ -12,9 +12,11 @@ layout(binding = 1, set = 0, rgba8) uniform image2D outputImage;
 layout(binding = 2, set = 0, rgba32f) uniform image2D accumulationImage;
 layout(binding = 3, set = 0) uniform UniformData { Ubo ubo; };
 
-#define SCENE_UBO_SET_ID 0
-#define SCENE_UBO_BINDING 8
 #include "../SceneUBO.glsl"
+layout (set=0, binding = 8) uniform UBO 
+{
+    sceneUbo Data;
+} SceneUbo;
 
 layout(location = 0) rayPayloadEXT rayPayload RayPayload;
 
@@ -25,9 +27,9 @@ void main()
 	vec3 Color = vec3(0.0);
 	for(uint i=0; i<ubo.samplesPerFrame; i++)
 	{
-		vec4 Origin = SceneUbo.InvView * vec4(0.0, 0.0, 0.0, 1.0);
-		vec4 Target = SceneUbo.InvProjection * vec4((vec2(gl_LaunchIDEXT.xy)) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
-		vec4 Direction = SceneUbo.InvView * vec4(normalize(Target.xyz), 0.0);
+		vec4 Origin = SceneUbo.Data.InvView * vec4(0.0, 0.0, 0.0, 1.0);
+		vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_LaunchIDEXT.xy)) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
+		vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
 		
 		vec3 SampleColor = vec3(1.0);
 
@@ -59,7 +61,7 @@ void main()
 
 	Color = AccumulatedColor / ubo.currentSamplesCount;
 
-	Color = toneMap(Color, SceneUbo.Exposure);
+	Color = toneMap(Color, SceneUbo.Data.Exposure);
 
 	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(Color, 0));
 }

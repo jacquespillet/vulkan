@@ -1,4 +1,4 @@
-layout (set=SCENE_UBO_SET_ID, binding = SCENE_UBO_BINDING) uniform UBO 
+struct sceneUbo
 {
 	mat4 Projection;
 	mat4 Model;
@@ -14,4 +14,4 @@ layout (set=SCENE_UBO_SET_ID, binding = SCENE_UBO_BINDING) uniform UBO
 	
 	float BackgroundIntensity;
 	vec3 Padding;
-} SceneUbo;
+};

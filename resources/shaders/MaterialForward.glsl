@@ -59,7 +59,7 @@ normalInfo getNormalInfo()
     info.ng = ng;
     info.n = ng;
 
-    if(HAS_NORMAL_MAP>0 && MaterialUBO.UseNormalMap >0)
+    if(HAS_NORMAL_MAP>0 && MaterialUBO.Material.UseNormalMap >0)
     {
         info.ntex = texture(samplerNormal, FragUv).rgb * 2.0 - vec3(1.0);
         info.ntex = normalize(info.ntex);
@@ -73,11 +73,11 @@ normalInfo getNormalInfo()
 
 materialInfo GetMetallicRoughnessInfo(materialInfo info)
 {
-    info.Metallic = MaterialUBO.Metallic;
-    info.PerceptualRoughness = MaterialUBO.Roughness;
+    info.Metallic = MaterialUBO.Material.Metallic;
+    info.PerceptualRoughness = MaterialUBO.Material.Roughness;
 
 // #ifdef HAS_METALLIC_ROUGHNESS_MAP
-    if(HAS_METALLIC_ROUGHNESS_MAP>0 &&  MaterialUBO.UseMetallicRoughnessMap >0)
+    if(HAS_METALLIC_ROUGHNESS_MAP>0 &&  MaterialUBO.Material.UseMetallicRoughnessMap >0)
     {
         vec4 mrSample = texture(samplerSpecular, FragUv);
         info.PerceptualRoughness *= mrSample.g;
@@ -104,10 +104,10 @@ vec4 GetBaseColor()
 {
     vec4 BaseColor = vec4(1);
 
-    BaseColor = vec4(MaterialUBO.BaseColor, 1);
+    BaseColor = vec4(MaterialUBO.Material.BaseColor, 1);
 
 // #ifdef HAS_BASE_COLOR_MAP
-    if(HAS_BASE_COLOR_MAP>0 && MaterialUBO.UseBaseColorMap>0)
+    if(HAS_BASE_COLOR_MAP>0 && MaterialUBO.Material.UseBaseColorMap>0)
     {
         vec4 sampleCol = texture(samplerColor, FragUv); 
         BaseColor.rgb *= pow(sampleCol.rgb, vec3(2.2));
@@ -129,8 +129,8 @@ vec3 getClearcoatNormal(normalInfo normalInfo)
 
 materialInfo GetClearCoatInfo(materialInfo info, normalInfo normalInfo)
 {
-    info.ClearcoatFactor = MaterialUBO.ClearcoatFactor;
-    info.ClearcoatRoughness = MaterialUBO.ClearcoatRoughness;
+    info.ClearcoatFactor = MaterialUBO.Material.ClearcoatFactor;
+    info.ClearcoatRoughness = MaterialUBO.Material.ClearcoatRoughness;
     info.ClearcoatF0 = vec3(pow((info.ior - 1.0) / (info.ior + 1.0), 2.0));
     info.ClearcoatF90 = vec3(1.0);
 

@@ -1,39 +1,11 @@
 #version 450
 
-
+#include "Material.glsl"
 layout (set=1, binding = 0) uniform materialUBO 
 {
-    int BaseColorTextureID;
-    int MetallicRoughnessTextureID;
-    int NormalMapTextureID;
-    int EmissionMapTextureID;
-    
-    int OcclusionMapTextureID;
-    int UseBaseColorMap;
-    int UseMetallicRoughnessMap;
-    int UseNormalMap;
-
-    int UseEmissionMap;
-    int UseOcclusionMap;
-    int AlphaMode;
-    int DebugChannel;
-
-    float Roughness;
-    float AlphaCutoff;
-    float ClearcoatRoughness;
-    float padding1;
-    
-    float Metallic;
-    float OcclusionStrength;
-    float EmissiveStrength;
-    float ClearcoatFactor;
-    
-    vec3 BaseColor;
-    float Opacity;
-    
-    vec3 Emission;
-    float Exposure;   
+    material Material; 
 } MaterialUBO;
+
 layout (set=1, binding = 1) uniform sampler2D samplerColor;
 layout (set=1, binding = 2) uniform sampler2D samplerSpecular;
 layout (set=1, binding = 3) uniform sampler2D samplerNormal;
@@ -42,9 +14,12 @@ layout (set=1, binding = 5) uniform sampler2D samplerEmission;
 
 
 
-#define SCENE_UBO_SET_ID 0
-#define SCENE_UBO_BINDING 0
 #include "SceneUBO.glsl"
+layout (set=0, binding = 0) uniform UBO 
+{
+    sceneUbo Data;
+} SceneUbo;
+
 
 layout (set=2, binding = 0) uniform instance 
 {
@@ -90,7 +65,7 @@ void main()
 //         BaseColor.a = 1.0;
 //     #endif
 
-    vec3 View = normalize(SceneUbo.CameraPosition - FragPosition);
+    vec3 View = normalize(SceneUbo.Data.CameraPosition - FragPosition);
     normalInfo NormalInfo = getNormalInfo();
     vec3 Normal = NormalInfo.n;
     vec3 Tangent = NormalInfo.t;
@@ -139,17 +114,17 @@ void main()
 
 
     float AmbientOcclusion = 1.0;
-    if(HAS_OCCLUSION_MAP > 0 &&  MaterialUBO.UseOcclusionMap>0)
+    if(HAS_OCCLUSION_MAP > 0 &&  MaterialUBO.Material.UseOcclusionMap>0)
     {
         AmbientOcclusion = texture(samplerOcclusion, FragUv).r;
-        FinalDiffuse = mix(FinalDiffuse, FinalDiffuse * AmbientOcclusion, MaterialUBO.OcclusionStrength);
-        FinalSpecular = mix(FinalSpecular, FinalSpecular * AmbientOcclusion, MaterialUBO.OcclusionStrength);
-        FinalSheen = mix(FinalSheen, FinalSheen * AmbientOcclusion, MaterialUBO.OcclusionStrength);
-        FinalClearcoat = mix(FinalClearcoat, FinalClearcoat * AmbientOcclusion, MaterialUBO.OcclusionStrength);
+        FinalDiffuse = mix(FinalDiffuse, FinalDiffuse * AmbientOcclusion, MaterialUBO.Material.OcclusionStrength);
+        FinalSpecular = mix(FinalSpecular, FinalSpecular * AmbientOcclusion, MaterialUBO.Material.OcclusionStrength);
+        FinalSheen = mix(FinalSheen, FinalSheen * AmbientOcclusion, MaterialUBO.Material.OcclusionStrength);
+        FinalClearcoat = mix(FinalClearcoat, FinalClearcoat * AmbientOcclusion, MaterialUBO.Material.OcclusionStrength);
     }
 
-    FinalEmissive = MaterialUBO.Emission * MaterialUBO.EmissiveStrength;
-    if(HAS_EMISSIVE_MAP > 0 && MaterialUBO.UseEmissionMap>0)
+    FinalEmissive = MaterialUBO.Material.Emission * MaterialUBO.Material.EmissiveStrength;
+    if(HAS_EMISSIVE_MAP > 0 && MaterialUBO.Material.UseEmissionMap>0)
     {
         FinalEmissive *= texture(samplerEmission, FragUv).rgb;
     }
@@ -175,63 +150,63 @@ void main()
     if(MASK>0)
     {
         // Late discard to avoid samplig artifacts. See https://github.com/KhronosGroup/glTF-Sample-Viewer/issues/267
-        if (BaseColor.a < MaterialUBO.AlphaCutoff)
+        if (BaseColor.a < MaterialUBO.Material.AlphaCutoff)
         {
             discard;
         }
         BaseColor.a = 1.0;
     }
 
-    outputColor = vec4(toneMap(Color, SceneUbo.Exposure), BaseColor.a);   
+    outputColor = vec4(toneMap(Color, SceneUbo.Data.Exposure), BaseColor.a);   
     if(InstanceUBO.Selected>0) outputColor += vec4(0.5, 0.5, 0, 0);     
 
-    if(MaterialUBO.DebugChannel>0)
+    if(MaterialUBO.Material.DebugChannel>0)
     {
-        if(MaterialUBO.DebugChannel == 1)
+        if(MaterialUBO.Material.DebugChannel == 1)
         {
             outputColor = vec4(FragUv, 0, 1);
         }
-        else  if(MaterialUBO.DebugChannel == 2)
+        else  if(MaterialUBO.Material.DebugChannel == 2)
         {
             outputColor = vec4(NormalInfo.ntex, 1);
         }
-        else  if(MaterialUBO.DebugChannel == 3)
+        else  if(MaterialUBO.Material.DebugChannel == 3)
         {
             outputColor = vec4(NormalInfo.ng, 1);
         }
-        else  if(MaterialUBO.DebugChannel == 4)
+        else  if(MaterialUBO.Material.DebugChannel == 4)
         {
             outputColor = vec4(NormalInfo.t, 1);
         }
-        else  if(MaterialUBO.DebugChannel == 5)
+        else  if(MaterialUBO.Material.DebugChannel == 5)
         {
             outputColor = vec4(NormalInfo.b, 1);
         }
-        else  if(MaterialUBO.DebugChannel == 6)
+        else  if(MaterialUBO.Material.DebugChannel == 6)
         {
             outputColor = vec4(NormalInfo.n, 1);
         }
-        else  if(MaterialUBO.DebugChannel == 7)
+        else  if(MaterialUBO.Material.DebugChannel == 7)
         {
             outputColor = BaseColor.aaaa;
         }
-        else  if(MaterialUBO.DebugChannel == 8)
+        else  if(MaterialUBO.Material.DebugChannel == 8)
         {
             outputColor = vec4(vec3(AmbientOcclusion), 1);
         }
-        else  if(MaterialUBO.DebugChannel == 9)
+        else  if(MaterialUBO.Material.DebugChannel == 9)
         {
             outputColor = vec4(FinalEmissive, 1);
         }
-        else  if(MaterialUBO.DebugChannel == 10)
+        else  if(MaterialUBO.Material.DebugChannel == 10)
         {
             outputColor = vec4(vec3(MaterialInfo.Metallic), 1);
         }
-        else  if(MaterialUBO.DebugChannel == 11)
+        else  if(MaterialUBO.Material.DebugChannel == 11)
         {
             outputColor = vec4(vec3(MaterialInfo.PerceptualRoughness), 1);
         }
-        else  if(MaterialUBO.DebugChannel == 12)
+        else  if(MaterialUBO.Material.DebugChannel == 12)
         {
             outputColor = vec4(BaseColor.rgb, 1);
         }

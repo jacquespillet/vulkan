@@ -10,15 +10,16 @@ layout(binding = 3, set = 0) uniform UniformData { Ubo ubo; };
 layout(binding = 6, set = 0) uniform samplerCube IrradianceMap;
 layout(binding = 7, set = 0) uniform samplerCube Cubemap;
 
-#define SCENE_UBO_SET_ID 0
-#define SCENE_UBO_BINDING 8
 #include "../SceneUBO.glsl"
-
+layout (set=0, binding =8) uniform UBO 
+{
+    sceneUbo Data;
+} SceneUbo;
 // The miss shader is used to render a simple sky background gradient (if enabled)
 
 void main()
 {
-	if(SceneUbo.BackgroundType ==0)
+	if(SceneUbo.Data.BackgroundType ==0)
 	{
 		vec3 Direction = normalize(gl_WorldRayDirectionEXT);
 		Direction.y *=-1;
@@ -34,7 +35,7 @@ void main()
 	}
 	else
 	{
-		RayPayload.Color = SceneUbo.BackgroundColor * SceneUbo.BackgroundIntensity;
+		RayPayload.Color = SceneUbo.Data.BackgroundColor * SceneUbo.Data.BackgroundIntensity;
 	}
 
 	RayPayload.Distance = -1.0;

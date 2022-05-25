@@ -7,7 +7,7 @@
 #extension GL_EXT_scalar_block_layout : enable
 
 #include "Common/random.glsl"
-#include "Common/material.glsl"
+#include "../material.glsl"
 #include "Common/ubo.glsl"
 #include "Common/geometryTypes.glsl"
 
@@ -26,7 +26,7 @@ layout(binding = 5, set = 0) uniform sampler2D[] textures;
 
 layout(buffer_reference, scalar) buffer Vertices {vec4 v[]; }; // Positions of an object
 layout(buffer_reference, scalar) buffer Indices {uint i[]; }; // Triangle indices
-layout(buffer_reference, scalar) buffer Materials {Material m[]; }; // Array of all materials on an object
+layout(buffer_reference, scalar) buffer Materials {material m[]; }; // Array of all materials on an object
 
 #include "Common/geometry.glsl"
 

@@ -110,7 +110,6 @@ namespace GLTFImporter
             if(PBR.baseColorTexture.index > -1)
             {
                 int TexIndex = PBR.baseColorTexture.index;
-                Materials[i].MaterialData.BaseColorTextureID = TexIndex;
 
                 tinygltf::Texture& GLTFTex = GLTFModel.textures[TexIndex];
                 tinygltf::Image GLTFImage = GLTFModel.images[GLTFTex.source];
@@ -131,6 +130,7 @@ namespace GLTFImporter
                 Materials[i].Diffuse = Textures->DummyDiffuse;
                 Materials[i].MaterialData.UseBaseColor=0;
             }
+            Materials[i].MaterialData.BaseColorTextureID = Materials[i].Diffuse.Index;
 
             Materials[i].MaterialData.Opacity = (float)PBR.baseColorFactor[3];
             Materials[i].MaterialData.AlphaCutoff = (float) GLTFMaterial.alphaCutoff;
@@ -143,7 +143,6 @@ namespace GLTFImporter
             if(PBR.metallicRoughnessTexture.index>-1)
             {
                 int TexIndex = PBR.metallicRoughnessTexture.index;
-                Materials[i].MaterialData.MetallicRoughnessTextureID = TexIndex;
 
                 tinygltf::Texture& GLTFTex = GLTFModel.textures[TexIndex];
                 tinygltf::Image GLTFImage = GLTFModel.images[GLTFTex.source];
@@ -164,11 +163,11 @@ namespace GLTFImporter
                 Materials[i].Specular = Textures->DummySpecular;                    
                 Materials[i].MaterialData.UseMetallicRoughness=0;
             }
+            Materials[i].MaterialData.MetallicRoughnessTextureID = Materials[i].Specular.Index;
             
             if(GLTFMaterial.normalTexture.index>-1)
             {
                 int TexIndex = GLTFMaterial.normalTexture.index;
-                Materials[i].MaterialData.NormalMapTextureID = TexIndex;
 
                 tinygltf::Texture& GLTFTex = GLTFModel.textures[TexIndex];
                 tinygltf::Image GLTFImage = GLTFModel.images[GLTFTex.source];
@@ -189,11 +188,11 @@ namespace GLTFImporter
                 Materials[i].Normal = Textures->DummyNormal;
                 Materials[i].MaterialData.UseNormalMap=0;
             }
+            Materials[i].MaterialData.NormalMapTextureID = Materials[i].Normal.Index;
 
             if(GLTFMaterial.occlusionTexture.index>-1)
             {
                 int TexIndex = GLTFMaterial.occlusionTexture.index;
-                Materials[i].MaterialData.OcclusionMapTextureID = TexIndex;
 
                 tinygltf::Texture& GLTFTex = GLTFModel.textures[TexIndex];
                 tinygltf::Image GLTFImage = GLTFModel.images[GLTFTex.source];
@@ -214,11 +213,12 @@ namespace GLTFImporter
                 Materials[i].Occlusion = Textures->DummyDiffuse;
                 Materials[i].MaterialData.UseOcclusionMap=0;
             }            
+            Materials[i].MaterialData.OcclusionMapTextureID = Materials[i].Occlusion.Index;
+
 
             if(GLTFMaterial.emissiveTexture.index>-1)
             {
                 int TexIndex = GLTFMaterial.emissiveTexture.index;
-                Materials[i].MaterialData.EmissionMapTextureID = TexIndex;
 
                 tinygltf::Texture& GLTFTex = GLTFModel.textures[TexIndex];
                 tinygltf::Image GLTFImage = GLTFModel.images[GLTFTex.source];
@@ -242,6 +242,7 @@ namespace GLTFImporter
                 Materials[i].Emission = Textures->DummySpecular;
                 Materials[i].MaterialData.UseEmissionMap=0;
             }            
+            Materials[i].MaterialData.EmissionMapTextureID = Materials[i].Emission.Index;
 
 
             // Materials[i].MaterialData.Emission = glm::vec3((float) GLTFMaterial.emissiveFactor[0], (float) GLTFMaterial.emissiveFactor[1], (float) GLTFMaterial.emissiveFactor[2]);

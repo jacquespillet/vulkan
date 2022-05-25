@@ -646,18 +646,13 @@ void pathTraceRTXRenderer::BuildUniformBuffers()
 
 void pathTraceRTXRenderer::CreateMaterialBuffer()
 {
-    std::vector<material> Materials;
+    std::vector<materialData> Materials;
     for(size_t i=0; i<App->Scene->Materials.size(); i++)
     {
-        material Material;
-        Material.BaseColor = glm::vec4(1);
-        Material.BaseColorTextureIndex = App->Scene->Materials[i].Diffuse.Index;
-        Material.NormalTextureIndex = App->Scene->Materials[i].Normal.Index;
-        Material.Type = materialType::Lambertian;
-        Materials.push_back(Material);
+        Materials.push_back(App->Scene->Materials[i].MaterialData);
     }
 
-    const VkDeviceSize BufferSize = sizeof(material) * Materials.size();
+    const VkDeviceSize BufferSize = sizeof(materialData) * Materials.size();
     buffer Staging;
 
     VK_CALL(vulkanTools::CreateBuffer(
