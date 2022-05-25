@@ -4,7 +4,7 @@ vec3 GetDiffuseLight(vec3 Direction)
     if(SceneUbo.Data.BackgroundType == 0)
     {
         Direction.y *=-1;
-        return texture(IrradianceMap, Direction).rgb;
+        return texture(IrradianceMap, Direction).rgb * SceneUbo.Data.BackgroundIntensity;
     }
     else
     {
@@ -45,7 +45,7 @@ vec4 GetSpecularSample(vec3 Reflection, float LOD)
     {
         //TODO(Jacques): Rotation
         Reflection.y *= -1;
-        return textureLod(PrefilteredEnv, Reflection, LOD);
+        return textureLod(PrefilteredEnv, Reflection, LOD) * SceneUbo.Data.BackgroundIntensity;
     }
     else
     {

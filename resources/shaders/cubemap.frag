@@ -28,6 +28,7 @@ void main()
     }
     else
     {
-        outColor = vec4(SceneUbo.Data.BackgroundColor, 1);
+        outColor = vec4(SceneUbo.Data.BackgroundColor, 1) ;
     }
+    outColor *= SceneUbo.Data.BackgroundIntensity;
 }

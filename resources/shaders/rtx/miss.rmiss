@@ -35,8 +35,9 @@ void main()
 	}
 	else
 	{
-		RayPayload.Color = SceneUbo.Data.BackgroundColor * SceneUbo.Data.BackgroundIntensity;
+		RayPayload.Color = SceneUbo.Data.BackgroundColor;
 	}
+	RayPayload.Color *= SceneUbo.Data.BackgroundIntensity;
 
 	RayPayload.Distance = -1.0;
 }

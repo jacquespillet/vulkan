@@ -71,18 +71,21 @@ void main()
 	// 	vec2 RoughnessMetallic = texture(textures[Material.MetallicRoughnessTextureID], Triangle.uv).rg;
 	// 	Roughness *= RoughnessMetallic.r;
 	// }
-
+	
+	
+	RayPayload.DoScatter=true;
+	
 	// Emission
 	vec3 Emission = Material.Emission * Material.EmissiveStrength;
 	if(Material.EmissionMapTextureID >=0 && Material.UseEmissionMap>0)
 	{
 		Emission *= texture(textures[Material.EmissionMapTextureID], Triangle.uv).rgb;
 	}
+	if(length(Emission)>0) RayPayload.DoScatter=false;
 	// Emission = vec3(0);
 
 	RayPayload.Color=BaseColor + Emission;
 	RayPayload.Distance = gl_HitTEXT;
 	RayPayload.ScatterDir = reflect(gl_WorldRayDirectionEXT, normalize(Normal + Roughness * RandomInUnitSphere(RayPayload.RandomState) ));
-	RayPayload.DoScatter=true;
 	RayPayload.Depth++;
 }
