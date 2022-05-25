@@ -18,7 +18,7 @@ public:
     VkMemoryPropertyFlags MemoryPropertyFlags;
     VkDescriptorBufferInfo Descriptor;
 
-    void *Mapped = nullptr;
+    uint8_t *Mapped = nullptr;
 
     VkResult Map(VkDeviceSize _Size = VK_WHOLE_SIZE, VkDeviceSize Offset=0);
 
@@ -28,7 +28,7 @@ public:
 
     VkResult Bind(VkDeviceSize Offset=0);
 
-    void CopyTo(void *Data, VkDeviceSize CopySize);
+    void CopyTo(void *Data, VkDeviceSize CopySize, size_t Offset=0);
 
     void Destroy();
 

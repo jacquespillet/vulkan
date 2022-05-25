@@ -2,7 +2,7 @@
 
 VkResult buffer::Map(VkDeviceSize _Size, VkDeviceSize Offset)
 {
-    return vkMapMemory(Device, Memory, Offset, _Size, 0, &Mapped);
+    return vkMapMemory(Device, Memory, Offset, _Size, 0, (void**)&Mapped);
 }
 
 void buffer::Unmap()
@@ -26,10 +26,10 @@ VkResult buffer::Bind(VkDeviceSize Offset)
     return vkBindBufferMemory(Device, Buffer, Memory, Offset);
 }
 
-void buffer::CopyTo(void *Data, VkDeviceSize CopySize)
+void buffer::CopyTo(void *Data, VkDeviceSize CopySize, size_t Offset)
 {
     assert(Mapped);
-    memcpy(Mapped, Data, CopySize);
+    memcpy(Mapped + Offset, Data, CopySize);
 }
 
 void buffer::Destroy()

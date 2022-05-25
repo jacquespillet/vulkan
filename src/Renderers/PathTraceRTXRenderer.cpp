@@ -4,6 +4,11 @@
 
 void accelerationStructure::Create(vulkanDevice *_VulkanDevice, VkAccelerationStructureTypeKHR Type, VkAccelerationStructureBuildSizesInfoKHR BuildSizeInfo)
 {
+    if(AccelerationStructure != VK_NULL_HANDLE)
+    {
+        Destroy();
+    }
+
     this->VulkanDevice = _VulkanDevice;
 
     VkBufferCreateInfo BufferCreateInfo {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -359,9 +364,9 @@ VkAccelerationStructureInstanceKHR pathTraceRTXRenderer::CreateBottomLevelAccele
     return BLASInstance;
 }
 
-void pathTraceRTXRenderer::CreateTopLevelAccelerationStructure()
+void pathTraceRTXRenderer::FillBLASInstances()
 {
-    std::vector<VkAccelerationStructureInstanceKHR> BLASInstances{};
+    BLASInstances.resize(0);
     for(auto &InstanceGroup : App->Scene->Instances)
     {
         for(size_t i=0; i<InstanceGroup.second.size(); i++)
@@ -370,7 +375,6 @@ void pathTraceRTXRenderer::CreateTopLevelAccelerationStructure()
         }
     }
 
-    buffer InstancesBuffer;
     VK_CALL(vulkanTools::CreateBuffer(
         VulkanDevice,
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
@@ -379,7 +383,41 @@ void pathTraceRTXRenderer::CreateTopLevelAccelerationStructure()
         sizeof(VkAccelerationStructureInstanceKHR) * BLASInstances.size(),
         BLASInstances.data()
     ));
+}
 
+
+void pathTraceRTXRenderer::UpdateBLASInstance(uint32_t InstanceGroupIndex, uint32_t InstanceIndex, uint32_t FlatIndex)
+{
+    BLASInstances[FlatIndex] = CreateBottomLevelAccelerationInstance(&App->Scene->Instances[InstanceGroupIndex][InstanceIndex]);
+
+    InstancesBuffer.Map();
+    InstancesBuffer.CopyTo(&BLASInstances[FlatIndex], sizeof(VkAccelerationStructureInstanceKHR), FlatIndex * sizeof(VkAccelerationStructureInstanceKHR));
+    InstancesBuffer.Unmap();
+
+    CreateTopLevelAccelerationStructure();
+
+    //Update descriptor set
+    VkWriteDescriptorSetAccelerationStructureKHR DescriptorAccelerationStructureInfo = vulkanTools::BuildWriteDescriptorSetAccelerationStructure();
+    DescriptorAccelerationStructureInfo.accelerationStructureCount=1;
+    DescriptorAccelerationStructureInfo.pAccelerationStructures = &TopLevelAccelerationStructure.AccelerationStructure;
+
+    VkWriteDescriptorSet AccelerationStructureWrite {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+    AccelerationStructureWrite.pNext = &DescriptorAccelerationStructureInfo;
+    AccelerationStructureWrite.dstSet = DescriptorSet;
+    AccelerationStructureWrite.dstBinding=0;
+    AccelerationStructureWrite.descriptorCount=1;
+    AccelerationStructureWrite.descriptorType=VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+
+    std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
+    {
+        AccelerationStructureWrite,
+    };
+    vkUpdateDescriptorSets(VulkanDevice->Device, static_cast<uint32_t>(WriteDescriptorSets.size()), WriteDescriptorSets.data(), 0, VK_NULL_HANDLE);
+}
+
+
+void pathTraceRTXRenderer::CreateTopLevelAccelerationStructure()
+{
     VkDeviceOrHostAddressConstKHR InstanceDataDeviceAddress {};
     InstanceDataDeviceAddress.deviceAddress = vulkanTools::GetBufferDeviceAddress(VulkanDevice, InstancesBuffer.Buffer);
 
@@ -451,7 +489,6 @@ void pathTraceRTXRenderer::CreateTopLevelAccelerationStructure()
         vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, CommandBuffer, App->Queue, true);
     }
 
-    InstancesBuffer.Destroy();
     ScratchBuffer.Destroy();
 }
 
@@ -721,6 +758,7 @@ void pathTraceRTXRenderer::Setup()
 
     CreateBottomLevelAccelarationStructure(App->Scene);
 
+    FillBLASInstances();
     CreateTopLevelAccelerationStructure();
     CreateMaterialBuffer();
 
@@ -814,7 +852,7 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
             &ShaderBindingTables.Miss.StrideDeviceAddressRegion,
             &ShaderBindingTables.Hit.StrideDeviceAddressRegion,
             &EmptySbtEntry,
-            App->Width, App->Height, 1
+            App->Width - App->GuiWidth, App->Height, 1
         );
 
         vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->Swapchain.Images[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
@@ -825,8 +863,8 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
         CopyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
         CopyRegion.srcOffset = {0,0,0};
         CopyRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-        CopyRegion.dstOffset = {0,0,0};
-        CopyRegion.extent = {App->Width, App->Height, 1};
+        CopyRegion.dstOffset = {(int)App->GuiWidth,0,0};
+        CopyRegion.extent = {App->Width - (int)App->GuiWidth, App->Height, 1};
         vkCmdCopyImage(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, App->Swapchain.Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &CopyRegion);
 
         vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->Swapchain.Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, SubresourceRange);
@@ -849,6 +887,8 @@ void pathTraceRTXRenderer::Destroy()
         BottomLevelAccelerationStructures[i].Destroy();
     }
     TopLevelAccelerationStructure.Destroy();
+    InstancesBuffer.Destroy();
+
     MaterialBuffer.Destroy();
     vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, 1, &UpdateMaterialCommandBuffer);
     UpdateMaterialStagingBuffer.Destroy();

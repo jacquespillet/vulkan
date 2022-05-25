@@ -299,6 +299,10 @@ void vulkanApp::RenderGUI()
 
     static int CurrentSceneItemIndex = -1;
     static int CurrentSceneGroupIndex=-1;
+    static int CurrentFlatIndex=-1;
+
+
+    uint32_t RunningFlatIndex=-1;
     if(ImGui::Begin("Parameters"))
     {
         Scene->ViewportStart += GuiWidth;
@@ -317,6 +321,7 @@ void vulkanApp::RenderGUI()
                             else {
                                 CurrentSceneGroupIndex = InstanceGroup.first;
                                 CurrentSceneItemIndex = i;
+                                CurrentFlatIndex = RunningFlatIndex;
                             }
                         }
 
@@ -334,6 +339,8 @@ void vulkanApp::RenderGUI()
                                 InstanceGroup.second[i].UploadUniform();                 
                             }
                         }
+
+                        RunningFlatIndex++;
                     }
                 }
                 ImGui::EndTabItem();
@@ -386,7 +393,21 @@ void vulkanApp::RenderGUI()
                     UpdateTransform |= ImGui::DragFloat3("Rotation", glm::value_ptr(Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].Rotation), 0.01f);
                     UpdateTransform |= ImGui::DragFloat3("Scale", glm::value_ptr(Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].Scale), 0.01f);
 
-                    if(UpdateTransform) Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].RecalculateModelMatrixAndUpload();
+                    if(UpdateTransform) 
+                    {
+                        Scene->Instances[CurrentSceneGroupIndex][CurrentSceneItemIndex].RecalculateModelMatrixAndUpload();
+                        if(RayTracing)
+                        {
+                            for(size_t i=0; i<Renderers.size(); i++)
+                            {
+                                pathTraceRTXRenderer *PathTracer = dynamic_cast<pathTraceRTXRenderer*>(Renderers[i]);
+                                if(PathTracer)
+                                {
+                                    PathTracer->UpdateBLASInstance(CurrentSceneGroupIndex, CurrentSceneItemIndex, CurrentFlatIndex);
+                                }
+                            }
+                        }                        
+                    }
                 }
 
                 if(ImGui::CollapsingHeader("Material"))

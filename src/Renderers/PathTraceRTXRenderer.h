@@ -4,7 +4,7 @@
 
 struct accelerationStructure
 {
-    VkAccelerationStructureKHR AccelerationStructure;
+    VkAccelerationStructureKHR AccelerationStructure= VK_NULL_HANDLE;
     uint64_t DeviceAddress=0;
     VkDeviceMemory Memory;
     VkBuffer Buffer;
@@ -76,6 +76,7 @@ public:
     
     void UpdateCamera();
     void UpdateMaterial(size_t Index);
+    void UpdateBLASInstance(uint32_t InstanceGroupIndex, uint32_t InstanceIndex, uint32_t FlatIndex);
 private:
     std::vector<accelerationStructure> BottomLevelAccelerationStructures;
     accelerationStructure TopLevelAccelerationStructure;
@@ -108,10 +109,15 @@ private:
         shaderBindingTable Miss;
         shaderBindingTable Hit;
     } ShaderBindingTables;
+
+    std::vector<VkAccelerationStructureInstanceKHR> BLASInstances{};
+    buffer InstancesBuffer;
     
     void CreateMaterialBuffer();
     void CreateBottomLevelAccelarationStructure(scene *Scene);
+    void FillBLASInstances();
     void CreateTopLevelAccelerationStructure();
+    
     VkAccelerationStructureInstanceKHR CreateBottomLevelAccelerationInstance(instance *Instance);
 
     void CreateImages();
