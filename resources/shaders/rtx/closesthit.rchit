@@ -29,6 +29,7 @@ layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 3, set = 0) uniform UniformData { Ubo ubo; };
 layout(binding = 4, set = 0) buffer _scene_desc { ObjBuffers i[]; } scene_desc;
 layout(binding = 5, set = 0) uniform sampler2D[] textures;
+layout(binding = 9, set = 0) buffer transformMatrices { mat4 Buffer[]; } TransformMatrices;
 
 layout(location = 0) rayPayloadInEXT rayPayload RayPayload;
 hitAttributeEXT vec3 attribs;
@@ -86,6 +87,6 @@ void main()
 
 	RayPayload.Color=BaseColor + Emission;
 	RayPayload.Distance = gl_HitTEXT;
-	RayPayload.ScatterDir = reflect(gl_WorldRayDirectionEXT, normalize(Normal + Roughness * RandomInUnitSphere(RayPayload.RandomState) ));
+	RayPayload.ScatterDir = reflect(gl_WorldRayDirectionEXT, normalize(Normal + RandomInUnitSphere(RayPayload.RandomState) ));
 	RayPayload.Depth++;
 }

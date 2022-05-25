@@ -28,7 +28,7 @@ layout(buffer_reference, scalar) buffer Vertices {vec4 v[]; }; // Positions of a
 layout(buffer_reference, scalar) buffer Indices {uint i[]; }; // Triangle indices
 layout(buffer_reference, scalar) buffer Materials {material m[]; }; // Array of all materials on an object
 
-#include "../Common/geometry.glsl"
+// #include "../Common/geometry.glsl"
 
 // The any hit shader is used for alpha masked textures
 

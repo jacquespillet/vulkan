@@ -86,6 +86,7 @@ private:
     VkCommandBuffer UpdateMaterialCommandBuffer;
     
     buffer SceneDescriptionBuffer;
+    buffer TransformMatricesBuffer;
     storageImage StorageImage;
     storageImage AccumulationImage; 
     struct uniformData

@@ -366,12 +366,15 @@ VkAccelerationStructureInstanceKHR pathTraceRTXRenderer::CreateBottomLevelAccele
 
 void pathTraceRTXRenderer::FillBLASInstances()
 {
+    std::vector<glm::mat4> TransformMatrices;
+
     BLASInstances.resize(0);
     for(auto &InstanceGroup : App->Scene->Instances)
     {
         for(size_t i=0; i<InstanceGroup.second.size(); i++)
         {
             BLASInstances.push_back(CreateBottomLevelAccelerationInstance(&InstanceGroup.second[i]));
+            TransformMatrices.push_back(InstanceGroup.second[i].InstanceData.Transform);
         }
     }
 
@@ -383,6 +386,17 @@ void pathTraceRTXRenderer::FillBLASInstances()
         sizeof(VkAccelerationStructureInstanceKHR) * BLASInstances.size(),
         BLASInstances.data()
     ));
+
+    VK_CALL(vulkanTools::CreateBuffer(
+        VulkanDevice,
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &TransformMatricesBuffer,
+        sizeof(glm::mat4) * TransformMatrices.size(),
+        TransformMatrices.data()
+    ));
+
+
 }
 
 
@@ -534,6 +548,11 @@ void pathTraceRTXRenderer::CreateRayTracingPipeline()
     SetLayoutBindings.push_back(
         vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 8,  1)
     );
+    
+    //Transform matrices buffer
+    SetLayoutBindings.push_back(
+        vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 9,  1)
+    );
 
     VkDescriptorSetLayoutCreateInfo DescriptorSetLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings);
     VK_CALL(vkCreateDescriptorSetLayout(VulkanDevice->Device, &DescriptorSetLayoutCreateInfo, nullptr, &DescriptorSetLayout));
@@ -668,6 +687,10 @@ void pathTraceRTXRenderer::CreateDescriptorSets()
     );
     WriteDescriptorSets.push_back(
         vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, &App->Scene->SceneMatrices.Descriptor)
+    );
+    
+    WriteDescriptorSets.push_back(
+        vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 9, &TransformMatricesBuffer.Descriptor)
     );
 
     
@@ -903,6 +926,7 @@ void pathTraceRTXRenderer::Destroy()
     vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, 1, &UpdateMaterialCommandBuffer);
     UpdateMaterialStagingBuffer.Destroy();
     SceneDescriptionBuffer.Destroy();
+    TransformMatricesBuffer.Destroy();
     StorageImage.Destroy();
     AccumulationImage.Destroy();
     UBO.Destroy();

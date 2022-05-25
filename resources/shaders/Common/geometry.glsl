@@ -30,5 +30,9 @@ triangle UnpackTriangle(uint index, int vertexSize) {
 	Triangle.uv = Triangle.vertices[0].uv * barycentricCoords.x + Triangle.vertices[1].uv * barycentricCoords.y + Triangle.vertices[2].uv * barycentricCoords.z;
 	Triangle.materialIndex = Triangle.vertices[0].materialIndex;
 	
+	mat4 Transform = TransformMatrices.Buffer[gl_InstanceCustomIndexEXT];
+	Triangle.normal = (Transform * vec4(Triangle.normal, 0)).xyz;
+	Triangle.tangent.xyz = (Transform * vec4(Triangle.tangent.xyz, 0)).xyz;
+	
 	return Triangle;
 }
