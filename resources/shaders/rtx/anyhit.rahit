@@ -6,10 +6,10 @@
 #extension GL_EXT_buffer_reference2 : require
 #extension GL_EXT_scalar_block_layout : enable
 
-#include "Common/random.glsl"
-#include "../material.glsl"
-#include "Common/ubo.glsl"
-#include "Common/geometryTypes.glsl"
+#include "../Common/random.glsl"
+#include "../Common/material.glsl"
+#include "../Common/ubo.glsl"
+#include "../Common/geometryTypes.glsl"
 
 hitAttributeEXT vec3 attribs;
 
@@ -28,7 +28,7 @@ layout(buffer_reference, scalar) buffer Vertices {vec4 v[]; }; // Positions of a
 layout(buffer_reference, scalar) buffer Indices {uint i[]; }; // Triangle indices
 layout(buffer_reference, scalar) buffer Materials {material m[]; }; // Array of all materials on an object
 
-#include "Common/geometry.glsl"
+#include "../Common/geometry.glsl"
 
 // The any hit shader is used for alpha masked textures
 

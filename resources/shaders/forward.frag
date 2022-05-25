@@ -1,6 +1,6 @@
 #version 450
 
-#include "Material.glsl"
+#include "Common/Material.glsl"
 layout (set=1, binding = 0) uniform materialUBO 
 {
     material Material; 
@@ -14,7 +14,7 @@ layout (set=1, binding = 5) uniform sampler2D samplerEmission;
 
 
 
-#include "SceneUBO.glsl"
+#include "Common/SceneUBO.glsl"
 layout (set=0, binding = 0) uniform UBO 
 {
     sceneUbo Data;
@@ -52,10 +52,10 @@ layout (constant_id = 5) const int HAS_NORMAL_MAP=0;
 layout (constant_id = 6) const int HAS_CLEARCOAT=0;
 layout (constant_id = 7) const int HAS_SHEEN=0;
 
-#include "Functions.glsl"
-#include "Tonemapping.glsl"
-#include "MaterialForward.glsl"
-#include "IBL.glsl"
+#include "Common/Functions.glsl"
+#include "Common/Tonemapping.glsl"
+#include "Common/MaterialForward.glsl"
+#include "Common/IBL.glsl"
 
 void main() 
 {

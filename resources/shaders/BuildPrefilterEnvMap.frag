@@ -14,7 +14,7 @@ layout (location = 1) in vec3 inPosition;
 layout (location = 0) out vec4 outColor;
 
 
-#include "Common.glsl"
+#include "Common/Common.glsl"
 
 void main() 
 {

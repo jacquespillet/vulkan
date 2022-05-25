@@ -3,16 +3,16 @@
 #extension GL_GOOGLE_include_directive : require
 
 
-#include "Common/random.glsl"
-#include "Common/raypayload.glsl"
-#include "Common/ubo.glsl"
-#include "../Tonemapping.glsl"
+#include "../Common/random.glsl"
+#include "../Common/raypayload.glsl"
+#include "../Common/ubo.glsl"
+#include "../Common/Tonemapping.glsl"
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 1, set = 0, rgba8) uniform image2D outputImage;
 layout(binding = 2, set = 0, rgba32f) uniform image2D accumulationImage;
 layout(binding = 3, set = 0) uniform UniformData { Ubo ubo; };
 
-#include "../SceneUBO.glsl"
+#include "../Common/SceneUBO.glsl"
 layout (set=0, binding = 8) uniform UBO 
 {
     sceneUbo Data;

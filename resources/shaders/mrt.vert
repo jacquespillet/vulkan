@@ -6,7 +6,7 @@ layout (location = 1) in vec4 inNormal;
 layout (location = 2) in vec4 inTangent;
 
 
-#include "SceneUBO.glsl"
+#include "Common/SceneUBO.glsl"
 layout (set=0, binding = 0) uniform UBO 
 {
 	sceneUbo Data;	

@@ -6,7 +6,7 @@
 #extension GL_EXT_buffer_reference2 : require
 #extension GL_EXT_scalar_block_layout : enable
 
-#include "Common/geometryTypes.glsl"
+#include "../Common/geometryTypes.glsl"
 
 struct ObjBuffers
 {
@@ -15,15 +15,15 @@ struct ObjBuffers
 	uint64_t materials;
 };
 
-#include "../material.glsl"
+#include "../Common/material.glsl"
 
 layout(buffer_reference, scalar) buffer Vertices {vec4 v[]; }; // Positions of an object
 layout(buffer_reference, scalar) buffer Indices {uint i[]; }; // Triangle indices
 layout(buffer_reference, scalar) buffer Materials {material m[]; }; // Array of all materials on an object
 
-#include "Common/random.glsl"
-#include "Common/raypayload.glsl"
-#include "Common/ubo.glsl"
+#include "../Common/random.glsl"
+#include "../Common/raypayload.glsl"
+#include "../Common/ubo.glsl"
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 3, set = 0) uniform UniformData { Ubo ubo; };
@@ -33,7 +33,7 @@ layout(binding = 5, set = 0) uniform sampler2D[] textures;
 layout(location = 0) rayPayloadInEXT rayPayload RayPayload;
 hitAttributeEXT vec3 attribs;
 
-#include "Common/geometry.glsl"
+#include "../Common/geometry.glsl"
 
 void main()
 {

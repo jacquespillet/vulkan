@@ -2,15 +2,15 @@
 #extension GL_EXT_ray_tracing : require
 #extension GL_GOOGLE_include_directive : require
 
-#include "Common/raypayload.glsl"
-#include "Common/ubo.glsl"
+#include "../Common/raypayload.glsl"
+#include "../Common/ubo.glsl"
 
 layout(location = 0) rayPayloadInEXT rayPayload RayPayload;
 layout(binding = 3, set = 0) uniform UniformData { Ubo ubo; };
 layout(binding = 6, set = 0) uniform samplerCube IrradianceMap;
 layout(binding = 7, set = 0) uniform samplerCube Cubemap;
 
-#include "../SceneUBO.glsl"
+#include "../Common/SceneUBO.glsl"
 layout (set=0, binding =8) uniform UBO 
 {
     sceneUbo Data;

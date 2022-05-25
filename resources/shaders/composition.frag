@@ -17,7 +17,7 @@ layout (set=1, binding = 3) uniform samplerCube PrefilteredEnv;
 layout (set=1, binding = 4) uniform sampler2D BRDFLUT;
 
 
-#include "SceneUBO.glsl"
+#include "Common/SceneUBO.glsl"
 layout (set=2, binding = 0) uniform UBO 
 {
 	sceneUbo Data;	
@@ -31,10 +31,10 @@ layout (location = 0) in vec2 inUV;
 
 layout (location = 0) out vec4 outFragcolor;
 
-#include "Functions.glsl"
-#include "MaterialDeferred.glsl"
-#include "IBL.glsl"
-#include "Tonemapping.glsl"
+#include "Common/Functions.glsl"
+#include "Common/MaterialDeferred.glsl"
+#include "Common/IBL.glsl"
+#include "Common/Tonemapping.glsl"
 
 void main() 
 {

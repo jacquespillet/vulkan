@@ -2,7 +2,7 @@
 
 
 
-#include "SceneUBO.glsl"
+#include "Common/SceneUBO.glsl"
 layout (set=0, binding = 0) uniform UBO 
 {
 	sceneUbo Data;
@@ -17,7 +17,7 @@ layout (location = 0) in vec3 inPosition;
 
 layout (location = 0) out vec4 outColor;
 
-#include "Tonemapping.glsl"
+#include "Common/Tonemapping.glsl"
 
 void main() 
 {

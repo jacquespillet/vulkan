@@ -2,13 +2,13 @@
 
 
 
-#include "SceneUBO.glsl"
+#include "Common/SceneUBO.glsl"
 layout (set=0, binding = 0) uniform UBO 
 {
     sceneUbo Data;
 } SceneUbo;
 
-#include "Material.glsl"
+#include "Common/Material.glsl"
 layout (set=1, binding = 0) uniform materialUBO 
 {
     material Material;   
@@ -44,8 +44,8 @@ layout (constant_id = 5) const int HAS_NORMAL_MAP=0;
 layout (constant_id = 6) const int HAS_CLEARCOAT=0;
 layout (constant_id = 7) const int HAS_SHEEN=0;
 
-#include "Functions.glsl"
-#include "MaterialForward.glsl"
+#include "Common/Functions.glsl"
+#include "Common/MaterialForward.glsl"
 
 void main() 
 {
