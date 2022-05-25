@@ -213,7 +213,7 @@ void pathTraceRTXRenderer::Render()
         ResetAccumulation=false;
     }  
 
-    if(UniformData.CurrentSampleCount < UniformData.MaxSamples)
+    if(UniformData.CurrentSampleCount < (uint32_t)UniformData.MaxSamples)
     {
         UniformData.CurrentSampleCount += UniformData.SamplersPerFrame;
     }
@@ -371,7 +371,7 @@ void pathTraceRTXRenderer::FillBLASInstances()
     BLASInstances.resize(0);
     for(auto &InstanceGroup : App->Scene->Instances)
     {
-        for(size_t i=0; i<InstanceGroup.second.size(); i++)
+        for(size_t i=0; i<InstanceGroup.second.size(); i++)	
         {
             BLASInstances.push_back(CreateBottomLevelAccelerationInstance(&InstanceGroup.second[i]));
             TransformMatrices.push_back(InstanceGroup.second[i].InstanceData.Transform);
@@ -783,7 +783,6 @@ void pathTraceRTXRenderer::Setup()
     CreateTopLevelAccelerationStructure();
     CreateMaterialBuffer();
 
-    uint32_t MatIndexOffset = 0;
     std::vector<sceneModelInfo> SceneModelInfos;
     for(size_t i=0; i<App->Scene->Meshes.size(); i++)
     {
@@ -835,7 +834,7 @@ void pathTraceRTXRenderer::RenderGUI()
         bool ShouldReset=false;
         ShouldReset |= ImGui::SliderInt("Samples Per Pixel", &UniformData.SamplersPerFrame, 1, 32);
         ShouldReset |= ImGui::SliderInt("Ray Bounces", &UniformData.RayBounces, 1, 32);
-        ShouldReset |= ImGui::SliderInt("Max Samples", &UniformData.MaxSamples, 1, 4096);
+        ShouldReset |= ImGui::SliderInt("Max Samples", &UniformData.MaxSamples, 1, 16384);
         ImGui::Text("Num Samples %d", UniformData.CurrentSampleCount);
 
         if(ShouldReset)
@@ -885,7 +884,7 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
             &ShaderBindingTables.Miss.StrideDeviceAddressRegion,
             &ShaderBindingTables.Hit.StrideDeviceAddressRegion,
             &EmptySbtEntry,
-            App->Width - App->GuiWidth, App->Height, 1
+            App->Width - (int)App->GuiWidth, App->Height, 1
         );
 
         vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->Swapchain.Images[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);

@@ -96,7 +96,7 @@ private:
         int SamplersPerFrame=4;
         int RayBounces=8;
 
-        int MaxSamples = 64;
+        int MaxSamples = 8192;
         glm::ivec3 Padding;
     } UniformData;
     buffer UBO;

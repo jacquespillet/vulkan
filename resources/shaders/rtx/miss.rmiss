@@ -26,18 +26,18 @@ void main()
 		
 		if(RayPayload.Depth == 0) 
 		{
-			RayPayload.Color = texture(Cubemap, Direction).rgb;
+			RayPayload.Emission = texture(Cubemap, Direction).rgb;
 		}
 		else
 		{
-			RayPayload.Color = texture(IrradianceMap, Direction).rgb;
+			RayPayload.Emission = texture(IrradianceMap, Direction).rgb;
 		}
 	}
 	else
 	{
-		RayPayload.Color = SceneUbo.Data.BackgroundColor;
+		RayPayload.Emission = SceneUbo.Data.BackgroundColor;
 	}
-	RayPayload.Color *= SceneUbo.Data.BackgroundIntensity;
+	RayPayload.Emission *= SceneUbo.Data.BackgroundIntensity;
 
 	RayPayload.Distance = -1.0;
 }

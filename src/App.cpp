@@ -206,7 +206,8 @@ void vulkanApp::BuildScene()
     //  Scene->Load("resources/models/sponza/sponza.dae", CopyCommand);
     // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
-    Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
+    Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
+    // Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
 
@@ -293,8 +294,6 @@ void vulkanApp::RenderGUI()
     ImGui::SetNextWindowSize(ImVec2(GuiWidth, (float)Height));
     ImGui::SetNextWindowPos(ImVec2(0,0), ImGuiCond_Always);
 
-    renderer *Renderer = Renderers[CurrentRenderer];
-
     Scene->ViewportStart=0;
 
     static int CurrentSceneItemIndex = -1;
@@ -302,7 +301,7 @@ void vulkanApp::RenderGUI()
     static int CurrentFlatIndex=-1;
 
 
-    uint32_t RunningFlatIndex=-1;
+    int32_t RunningFlatIndex=-1;
     if(ImGui::Begin("Parameters"))
     {
         Scene->ViewportStart += GuiWidth;
