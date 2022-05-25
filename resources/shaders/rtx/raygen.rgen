@@ -25,29 +25,33 @@ void main()
 	RayPayload.RandomState = uint(uint(gl_LaunchIDEXT.x) * uint(1973) + uint(gl_LaunchIDEXT.y) * uint(9277) + uint(ubo.currentSamplesCount) * uint(26699)) | uint(1); 
 	RayPayload.Depth=0;
 	vec3 Color = vec3(0.0);
-	for(uint i=0; i<ubo.samplesPerFrame; i++)
+
+	if(ubo.currentSamplesCount < ubo.MaxSamples)
 	{
-		vec4 Origin = SceneUbo.Data.InvView * vec4(0.0, 0.0, 0.0, 1.0);
-		vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_LaunchIDEXT.xy)) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
-		vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
-		
-		vec3 SampleColor = vec3(1.0);
-
-		for(int j=0; j<5; j++)
+		for(uint i=0; i<ubo.samplesPerFrame; i++)
 		{
-			traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0, Origin.xyz, 0.001, Direction.xyz, 10000.0, 0);		
-			SampleColor *= RayPayload.Color;
+			vec4 Origin = SceneUbo.Data.InvView * vec4(0.0, 0.0, 0.0, 1.0);
+			vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_LaunchIDEXT.xy)) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
+			vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
+			
+			vec3 SampleColor = vec3(1.0);
 
-			if(RayPayload.Distance <0 || !RayPayload.DoScatter)
+			for(int j=0; j<ubo.rayBounces; j++)
 			{
-				break;
-			}
+				traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0, Origin.xyz, 0.001, Direction.xyz, 10000.0, 0);		
+				SampleColor *= RayPayload.Color;
 
-			Origin = Origin + RayPayload.Distance * Direction;
-			Direction = vec4(RayPayload.ScatterDir, 0.0f);
-		}	
-		
-		Color += SampleColor;
+				if(RayPayload.Distance <0 || !RayPayload.DoScatter)
+				{
+					break;
+				}
+
+				Origin = Origin + RayPayload.Distance * Direction;
+				Direction = vec4(RayPayload.ScatterDir, 0.0f);
+			}	
+			
+			Color += SampleColor;
+		}
 	}
 
 	vec3 LastFrameColor = vec3(0);

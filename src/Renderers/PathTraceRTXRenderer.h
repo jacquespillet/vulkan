@@ -92,8 +92,11 @@ private:
     {
         uint32_t VertexSize;
         uint32_t CurrentSampleCount=0;
-        uint32_t SamplersPerFrame=4;
-        uint32_t RayBounces=8;
+        int SamplersPerFrame=4;
+        int RayBounces=8;
+
+        int MaxSamples = 64;
+        glm::ivec3 Padding;
     } UniformData;
     buffer UBO;
     VkDescriptorSetLayout DescriptorSetLayout;

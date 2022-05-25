@@ -213,9 +213,9 @@ void pathTraceRTXRenderer::Render()
         ResetAccumulation=false;
     }  
 
-    if(UniformData.CurrentSampleCount < 2500)
+    if(UniformData.CurrentSampleCount < UniformData.MaxSamples)
     {
-        UniformData.CurrentSampleCount += 4;
+        UniformData.CurrentSampleCount += UniformData.SamplersPerFrame;
     }
 
     VkResult Result = App->Swapchain.AcquireNextImage(App->Semaphores.PresentComplete, &App->CurrentBuffer);
@@ -678,8 +678,6 @@ void pathTraceRTXRenderer::CreateDescriptorSets()
 void pathTraceRTXRenderer::UpdateUniformBuffers()
 {
     UniformData.VertexSize = sizeof(vertex);
-    UniformData.SamplersPerFrame = 4;
-    UniformData.RayBounces=4;
     memcpy(UBO.Mapped, &UniformData, sizeof(UniformData));
 }   
 
@@ -809,7 +807,19 @@ void pathTraceRTXRenderer::CreateCommandBuffers()
 
 void pathTraceRTXRenderer::RenderGUI()
 {
+    if(ImGui::CollapsingHeader("Path Tracing Options"))
+    {
+        bool ShouldReset=false;
+        ShouldReset |= ImGui::SliderInt("Samples Per Pixel", &UniformData.SamplersPerFrame, 1, 32);
+        ShouldReset |= ImGui::SliderInt("Ray Bounces", &UniformData.RayBounces, 1, 32);
+        ShouldReset |= ImGui::SliderInt("Max Samples", &UniformData.MaxSamples, 1, 4096);
+        ImGui::Text("Num Samples %d", UniformData.CurrentSampleCount);
 
+        if(ShouldReset)
+        {
+            ResetAccumulation=true;
+        }
+    }
 }
 
 
