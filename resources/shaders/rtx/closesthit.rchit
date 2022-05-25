@@ -68,9 +68,11 @@ void main()
 
 	// Roughness / metallic
 	RayPayload.Roughness = Material.Roughness;
+	RayPayload.Metallic = Material.Metallic;
 	if(Material.MetallicRoughnessTextureID >=0 && Material.UseMetallicRoughnessMap>0)
 	{
 		vec2 RoughnessMetallic = texture(textures[Material.MetallicRoughnessTextureID], Triangle.uv).rg;
+		RayPayload.Metallic *= RoughnessMetallic.r;
 		RayPayload.Roughness *= RoughnessMetallic.g;
 	}
 	

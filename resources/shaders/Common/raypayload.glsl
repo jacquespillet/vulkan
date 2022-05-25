@@ -8,4 +8,5 @@ struct rayPayload {
 	uint RandomState;
 	uint Depth;
 	float Roughness;
+	float Metallic;
 };
