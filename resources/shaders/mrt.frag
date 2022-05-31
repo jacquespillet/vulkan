@@ -14,6 +14,15 @@ layout (set=1, binding = 0) uniform materialUBO
     material Material;   
 } MaterialUBO;
 
+
+layout (set=2, binding = 0) uniform instance 
+{
+	mat4 Model;
+	mat4 Normal;
+	float Selected;
+	vec3 Padding;
+} InstanceUBO;
+
 layout (set=1, binding = 1) uniform sampler2D samplerColor;
 layout (set=1, binding = 2) uniform sampler2D samplerSpecular;
 layout (set=1, binding = 3) uniform sampler2D samplerNormal;
@@ -132,6 +141,8 @@ void main()
             BaseColor = vec4(BaseColor.rgb, 1);
         }
     }        
+
+    if(InstanceUBO.Selected>0) BaseColor += vec4(0.5, 0.5, 0, 0);     
 	
     //Change BaseColor based on debug channels
 	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.r = packHalf2x16(BaseColor.rg);
