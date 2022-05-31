@@ -64,6 +64,11 @@ void main()
 					Radiance += RayPayload.Emission * Attenuation;
 					break;
 				}
+				
+				{
+					//Here : Sample a light and add to Radiance : 
+					//Radiance += Attenuation * UniformSampleOneLight();
+				}
 	
 				{
 					//Sample 2 random vars for sampling the distribution

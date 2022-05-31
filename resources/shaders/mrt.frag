@@ -52,6 +52,7 @@ void main()
     vec4 BaseColor = GetBaseColor();
     materialInfo MaterialInfo;
 
+
     //Metallic Roughness
     float Metallic = MaterialUBO.Material.Metallic;
     float PerceptualRoughness = MaterialUBO.Material.Roughness;
@@ -69,25 +70,77 @@ void main()
     {
         AmbientOcclusion = texture(samplerOcclusion, FragUv).r;
     }    
-	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.r = packHalf2x16(BaseColor.rg);
-	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.g = packHalf2x16(BaseColor.ba);
-	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.b = packHalf2x16(vec2(Metallic, PerceptualRoughness));
-	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.a = packHalf2x16(vec2(AmbientOcclusion, OcclusionStrength));
 
 
-    // outEmissionEmissionStrength.r = packHalf2x16()
     vec3 FinalEmissive = MaterialUBO.Material.Emission * MaterialUBO.Material.EmissiveStrength;
     if(HAS_EMISSIVE_MAP > 0 && MaterialUBO.Material.UseEmissionMap>0)
     {
         FinalEmissive *= texture(samplerEmission, FragUv).rgb;
     }
-    outEmission = vec4(FinalEmissive, 1.0);
 
-    
+    //Normal
     normalInfo NormalInfo = getNormalInfo();
-    outNormal.xyz = NormalInfo.n  * 0.5 + 0.5;
+
+    if(MaterialUBO.Material.DebugChannel>0 || SceneUbo.Data.DebugChannel>0)
+    {
+        if(MaterialUBO.Material.DebugChannel == 1 || SceneUbo.Data.DebugChannel == 1)
+        {
+            BaseColor = vec4(FragUv, 0, 1);
+        }
+        else  if((MaterialUBO.Material.DebugChannel == 2)  || (SceneUbo.Data.DebugChannel == 2))
+        {
+            BaseColor = vec4(NormalInfo.ntex, 1);
+        }
+        else  if((MaterialUBO.Material.DebugChannel == 3)  || (SceneUbo.Data.DebugChannel == 3))
+        {
+            BaseColor = vec4(NormalInfo.ng, 1);
+        }
+        else  if((MaterialUBO.Material.DebugChannel == 4)  || (SceneUbo.Data.DebugChannel == 4))
+        {
+            BaseColor = vec4(NormalInfo.t, 1);
+        }
+        else  if((MaterialUBO.Material.DebugChannel == 5)  || (SceneUbo.Data.DebugChannel == 5))
+        {
+            BaseColor = vec4(NormalInfo.b, 1);
+        }
+        else  if((MaterialUBO.Material.DebugChannel == 6)  || (SceneUbo.Data.DebugChannel == 6))
+        {
+            BaseColor = vec4(NormalInfo.n, 1);
+        }
+        else  if((MaterialUBO.Material.DebugChannel == 7)  || (SceneUbo.Data.DebugChannel == 7))
+        {
+            BaseColor = BaseColor.aaaa;
+        }
+        else  if((MaterialUBO.Material.DebugChannel == 8)  || (SceneUbo.Data.DebugChannel == 8))
+        {
+            BaseColor = vec4(vec3(AmbientOcclusion), 1);
+        }
+        else  if((MaterialUBO.Material.DebugChannel == 9)  || (SceneUbo.Data.DebugChannel == 9))
+        {
+            BaseColor = vec4(FinalEmissive, 1);
+        }
+        else  if((MaterialUBO.Material.DebugChannel == 10) || (SceneUbo.Data.DebugChannel == 10))
+        {
+            BaseColor = vec4(vec3(MaterialInfo.Metallic), 1);
+        }
+        else  if((MaterialUBO.Material.DebugChannel == 11) || (SceneUbo.Data.DebugChannel == 11))
+        {
+            BaseColor = vec4(vec3(MaterialInfo.PerceptualRoughness), 1);
+        }
+        else  if((MaterialUBO.Material.DebugChannel == 12) || (SceneUbo.Data.DebugChannel == 12))
+        {
+            BaseColor = vec4(BaseColor.rgb, 1);
+        }
+    }        
 	
     //Change BaseColor based on debug channels
+	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.r = packHalf2x16(BaseColor.rg);
+	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.g = packHalf2x16(BaseColor.ba);
+	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.b = packHalf2x16(vec2(Metallic, PerceptualRoughness));
+	outAlbedoMetallicRoughnessOcclusionOcclusionStrength.a = packHalf2x16(vec2(AmbientOcclusion, OcclusionStrength));
+    
+    outEmission = vec4(FinalEmissive, 1.0);
+    outNormal.xyz = NormalInfo.n  * 0.5 + 0.5;
     outPositionDepth = vec4(FragWorldPos, 0);
 
 }

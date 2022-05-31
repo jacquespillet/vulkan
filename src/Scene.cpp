@@ -216,7 +216,7 @@ void scene::UpdateUniformBufferMatrices()
     UBOSceneMatrices.InvView = glm::inverse(UBOSceneMatrices.View);
     UBOSceneMatrices.Model = glm::mat4(1);
     UBOSceneMatrices.CameraPosition = App->Scene->Camera.worldPosition;
-    
+
     VK_CALL(SceneMatrices.Map());
     SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
     SceneMatrices.Unmap();

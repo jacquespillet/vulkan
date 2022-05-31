@@ -327,7 +327,8 @@ public:
         float BackgroundType = 0;
         
         float BackgroundIntensity = 15;
-        glm::vec3 Padding;
+        float DebugChannel=-1;
+        glm::vec2 Padding;
     } UBOSceneMatrices;    
     
     camera Camera;

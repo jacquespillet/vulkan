@@ -111,6 +111,13 @@ void main()
     vec3 Color = vec3(0);
     Color = FinalEmissive + FinalDiffuse + FinalSpecular;
 
+	if(SceneUbo.Data.DebugChannel>0)
+    {
+    	outFragcolor = vec4(BaseColor.rgb, 1);
+	}
+	else
+	{
+    	outFragcolor = vec4(toneMap(Color, SceneUbo.Data.Exposure), BaseColor.a);	
+	}
 
-    outFragcolor = vec4(toneMap(Color, SceneUbo.Data.Exposure), BaseColor.a);   
 }

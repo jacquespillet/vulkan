@@ -160,53 +160,53 @@ void main()
     outputColor = vec4(toneMap(Color, SceneUbo.Data.Exposure), BaseColor.a);   
     if(InstanceUBO.Selected>0) outputColor += vec4(0.5, 0.5, 0, 0);     
 
-    if(MaterialUBO.Material.DebugChannel>0)
+    if(MaterialUBO.Material.DebugChannel>0 || SceneUbo.Data.DebugChannel>0)
     {
-        if(MaterialUBO.Material.DebugChannel == 1)
+        if(MaterialUBO.Material.DebugChannel == 1 || SceneUbo.Data.DebugChannel == 1)
         {
             outputColor = vec4(FragUv, 0, 1);
         }
-        else  if(MaterialUBO.Material.DebugChannel == 2)
+        else  if((MaterialUBO.Material.DebugChannel == 2)  || (SceneUbo.Data.DebugChannel == 2))
         {
             outputColor = vec4(NormalInfo.ntex, 1);
         }
-        else  if(MaterialUBO.Material.DebugChannel == 3)
+        else  if((MaterialUBO.Material.DebugChannel == 3)  || (SceneUbo.Data.DebugChannel == 3))
         {
             outputColor = vec4(NormalInfo.ng, 1);
         }
-        else  if(MaterialUBO.Material.DebugChannel == 4)
+        else  if((MaterialUBO.Material.DebugChannel == 4)  || (SceneUbo.Data.DebugChannel == 4))
         {
             outputColor = vec4(NormalInfo.t, 1);
         }
-        else  if(MaterialUBO.Material.DebugChannel == 5)
+        else  if((MaterialUBO.Material.DebugChannel == 5)  || (SceneUbo.Data.DebugChannel == 5))
         {
             outputColor = vec4(NormalInfo.b, 1);
         }
-        else  if(MaterialUBO.Material.DebugChannel == 6)
+        else  if((MaterialUBO.Material.DebugChannel == 6)  || (SceneUbo.Data.DebugChannel == 6))
         {
             outputColor = vec4(NormalInfo.n, 1);
         }
-        else  if(MaterialUBO.Material.DebugChannel == 7)
+        else  if((MaterialUBO.Material.DebugChannel == 7)  || (SceneUbo.Data.DebugChannel == 7))
         {
             outputColor = BaseColor.aaaa;
         }
-        else  if(MaterialUBO.Material.DebugChannel == 8)
+        else  if((MaterialUBO.Material.DebugChannel == 8)  || (SceneUbo.Data.DebugChannel == 8))
         {
             outputColor = vec4(vec3(AmbientOcclusion), 1);
         }
-        else  if(MaterialUBO.Material.DebugChannel == 9)
+        else  if((MaterialUBO.Material.DebugChannel == 9)  || (SceneUbo.Data.DebugChannel == 9))
         {
             outputColor = vec4(FinalEmissive, 1);
         }
-        else  if(MaterialUBO.Material.DebugChannel == 10)
+        else  if((MaterialUBO.Material.DebugChannel == 10) || (SceneUbo.Data.DebugChannel == 10))
         {
             outputColor = vec4(vec3(MaterialInfo.Metallic), 1);
         }
-        else  if(MaterialUBO.Material.DebugChannel == 11)
+        else  if((MaterialUBO.Material.DebugChannel == 11) || (SceneUbo.Data.DebugChannel == 11))
         {
             outputColor = vec4(vec3(MaterialInfo.PerceptualRoughness), 1);
         }
-        else  if(MaterialUBO.Material.DebugChannel == 12)
+        else  if((MaterialUBO.Material.DebugChannel == 12) || (SceneUbo.Data.DebugChannel == 12))
         {
             outputColor = vec4(BaseColor.rgb, 1);
         }
