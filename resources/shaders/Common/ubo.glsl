@@ -5,5 +5,6 @@ struct Ubo {
 	int rayBounces;
 
 	int MaxSamples;
-	ivec3 Padding;
+	int ShouldAccumulate;
+	ivec2 Padding;
 };

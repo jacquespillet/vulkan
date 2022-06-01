@@ -136,6 +136,7 @@ namespace vulkanTools
     VkResult CreateBuffer(vulkanDevice *VulkanDevice, VkBufferUsageFlags UsageFlags, VkMemoryPropertyFlags MemoryPropertyFlags, buffer *Buffer, VkDeviceSize Size, void *Data=nullptr);
     
     void CopyBuffer(vulkanDevice *VulkanDevice, VkCommandPool CommandPool, VkQueue Queue, buffer *Source, buffer *Dest);
+    void CopyImageToBuffer(vulkanDevice *VulkanDevice, VkCommandPool CommandPool, VkQueue Queue, VkImage Source, buffer *Dest, uint32_t Width, uint32_t Height);
 
     VkCommandBuffer CreateCommandBuffer(VkDevice Device, VkCommandPool CommandPool,VkCommandBufferLevel Level, bool Begin);
 

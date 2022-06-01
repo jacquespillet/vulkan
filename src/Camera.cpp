@@ -19,6 +19,8 @@ void camera::mousePressEvent(int button) {
 }
 
 void camera::mouseReleaseEvent(int button) {
+    if(Locked) return;
+    
     IsLeftMousePressed=false;
     IsRightMousePressed=false;
     prevPos = glm::ivec2(-1, -1);

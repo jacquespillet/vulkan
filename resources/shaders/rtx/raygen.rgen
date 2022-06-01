@@ -25,112 +25,119 @@ layout(location = 0) rayPayloadEXT rayPayload RayPayload;
 
 void main() 
 {
-	RayPayload.RandomState = uint(uint(gl_LaunchIDEXT.x) * uint(1973) + uint(gl_LaunchIDEXT.y) * uint(9277) + uint(ubo.currentSamplesCount) * uint(26699)) | uint(1); 
-	RayPayload.Depth=0;
-	vec3 SamplesColor = vec3(0.0);
-	
-	if(ubo.currentSamplesCount < ubo.MaxSamples)
+	if(ubo.ShouldAccumulate>0)
 	{
-		for(uint i=0; i<ubo.samplesPerFrame; i++)
+		RayPayload.RandomState = uint(uint(gl_LaunchIDEXT.x) * uint(1973) + uint(gl_LaunchIDEXT.y) * uint(9277) + uint(ubo.currentSamplesCount) * uint(26699)) | uint(1); 
+		RayPayload.Depth=0;
+		vec3 SamplesColor = vec3(0.0);
+		
+		if(ubo.currentSamplesCount < ubo.MaxSamples)
 		{
-			vec2 jitter = vec2(RandomUnilateral(RayPayload.RandomState), RandomUnilateral(RayPayload.RandomState)) - 0.5;
-			vec4 Origin = SceneUbo.Data.InvView * vec4(0.0, 0.0, 0.0, 1.0);
-			vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_LaunchIDEXT.xy) + jitter) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
-			vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
-			
-			vec3 Attenuation = vec3(1.0);
-			vec3 Radiance = vec3(0);
-			float alpha = 1.0;
-			
-
-			for(int j=0; j<ubo.rayBounces; j++)
+			for(uint i=0; i<ubo.samplesPerFrame; i++)
 			{
+				vec2 jitter = vec2(RandomUnilateral(RayPayload.RandomState), RandomUnilateral(RayPayload.RandomState)) - 0.5;
+				vec4 Origin = SceneUbo.Data.InvView * vec4(0.0, 0.0, 0.0, 1.0);
+				vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_LaunchIDEXT.xy) + jitter) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
+				vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
 				
-				traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0, Origin.xyz, 0.001, Direction.xyz, 10000.0, 0);
-
-				//Didn't hit anything
-				if (RayPayload.Distance < 0)
-				{
-					//Primary ray hits the sky
-					if (j == 0)
-						alpha = 0.0;
-						Radiance += RayPayload.Emission * Attenuation;
-					break;
-				}
-
-				if(length(RayPayload.Emission)>0)
-				{
-					// Ray hit an emissive triangle
-					Radiance += RayPayload.Emission * Attenuation;
-					break;
-				}
+				vec3 Attenuation = vec3(1.0);
+				vec3 Radiance = vec3(0);
+				float alpha = 1.0;
 				
+
+				for(int j=0; j<ubo.rayBounces; j++)
 				{
-					//Here : Sample a light and add to Radiance : 
-					//Radiance += Attenuation * UniformSampleOneLight();
-				}
-	
-				{
-					//Sample 2 random vars for sampling the distribution
-					vec2 Xi = vec2(RandomUnilateral(RayPayload.RandomState),RandomUnilateral(RayPayload.RandomState));
-					//Find the halfway vector
-					vec3 Halfway  = ImportanceSampleGGX(Xi, RayPayload.Normal, RayPayload.Roughness);
-					RayPayload.ScatterDir = reflect(normalize(Direction.xyz), normalize(Halfway));
-					float NdotL = max(dot(RayPayload.Normal, RayPayload.ScatterDir), 0.0);
-					if(NdotL > 0.0)
+					
+					traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0, Origin.xyz, 0.001, Direction.xyz, 10000.0, 0);
+
+					//Didn't hit anything
+					if (RayPayload.Distance < 0)
 					{
-						float p =  DistributionGGX(RayPayload.Normal, Halfway, RayPayload.Roughness);
-						float NdotH = max(dot(RayPayload.Normal, Halfway), 0.0);
-						float HdotV = max(dot(Halfway, -Direction.xyz), 0.0);        
-						float pdf = (p * NdotH / (4.0 * HdotV)) + 0.0001; 
-						vec3 BRDF =  GGX(RayPayload.Normal, 
-										 Halfway, 
-										 -Direction.xyz, 
-										 RayPayload.ScatterDir, 
-										 RayPayload.Roughness, 
-										 1.0, 
-										 RayPayload.Color);						
-						// BRDF = p * RayPayload.Color;
-						// scatterSample.f = DisneySample(state, -ray.direction, state.ffnormal, scatterSample.L, scatterSample.pdf);
-						if (pdf > 0.0)
-							Attenuation *= abs(dot(RayPayload.Normal, RayPayload.ScatterDir)) * BRDF / pdf;
-						else
-							break;
-					}
-					else break;
-				}
-
-				// Move ray origin to hit point and set direction for next bounce
-				
-				Origin = Origin + RayPayload.Distance * Direction;
-				Direction = vec4(RayPayload.ScatterDir, 0.0f);
-
-				// Russian roulette
-				if (j >= 3)
-				{
-					float q = min(max(Attenuation.x, max(Attenuation.y, Attenuation.z)) + 0.001, 0.95);
-					if (RandomUnilateral(RayPayload.RandomState) > q)
+						//Primary ray hits the sky
+						if (j == 0)
+							alpha = 0.0;
+							Radiance += RayPayload.Emission * Attenuation;
 						break;
-					Attenuation /= q;
+					}
+
+					if(length(RayPayload.Emission)>0)
+					{
+						// Ray hit an emissive triangle
+						Radiance += RayPayload.Emission * Attenuation;
+						break;
+					}
+					
+					{
+						//Here : Sample a light and add to Radiance : 
+						//Radiance += Attenuation * UniformSampleOneLight();
+					}
+		
+					{
+						//Sample 2 random vars for sampling the distribution
+						vec2 Xi = vec2(RandomUnilateral(RayPayload.RandomState),RandomUnilateral(RayPayload.RandomState));
+						//Find the halfway vector
+						vec3 Halfway  = ImportanceSampleGGX(Xi, RayPayload.Normal, RayPayload.Roughness);
+						RayPayload.ScatterDir = reflect(normalize(Direction.xyz), normalize(Halfway));
+						float NdotL = max(dot(RayPayload.Normal, RayPayload.ScatterDir), 0.0);
+						if(NdotL > 0.0)
+						{
+							float p =  DistributionGGX(RayPayload.Normal, Halfway, RayPayload.Roughness);
+							float NdotH = max(dot(RayPayload.Normal, Halfway), 0.0);
+							float HdotV = max(dot(Halfway, -Direction.xyz), 0.0);        
+							float pdf = (p * NdotH / (4.0 * HdotV)) + 0.0001; 
+							vec3 BRDF =  GGX(RayPayload.Normal, 
+											Halfway, 
+											-Direction.xyz, 
+											RayPayload.ScatterDir, 
+											RayPayload.Roughness, 
+											1.0, 
+											RayPayload.Color);						
+							// BRDF = p * RayPayload.Color;
+							// scatterSample.f = DisneySample(state, -ray.direction, state.ffnormal, scatterSample.L, scatterSample.pdf);
+							if (pdf > 0.0)
+								Attenuation *= abs(dot(RayPayload.Normal, RayPayload.ScatterDir)) * BRDF / pdf;
+							else
+								break;
+						}
+						else break;
+					}
+
+					// Move ray origin to hit point and set direction for next bounce
+					
+					Origin = Origin + RayPayload.Distance * Direction;
+					Direction = vec4(RayPayload.ScatterDir, 0.0f);
+
+					// Russian roulette
+					if (j >= 3)
+					{
+						float q = min(max(Attenuation.x, max(Attenuation.y, Attenuation.z)) + 0.001, 0.95);
+						if (RandomUnilateral(RayPayload.RandomState) > q)
+							break;
+						Attenuation /= q;
+					}
 				}
+
+				SamplesColor += Radiance;			
 			}
-
-			SamplesColor += Radiance;			
 		}
-	}
 
-	vec3 LastFrameColor = vec3(0);
-	if(ubo.samplesPerFrame != ubo.currentSamplesCount)
+		vec3 LastFrameColor = vec3(0);
+		if(ubo.samplesPerFrame != ubo.currentSamplesCount)
+		{
+			LastFrameColor = imageLoad(accumulationImage, ivec2(gl_LaunchIDEXT.xy)).rgb;
+		}
+
+		vec3 AccumulatedColor = LastFrameColor + SamplesColor;
+		imageStore(accumulationImage, ivec2(gl_LaunchIDEXT.xy), vec4(AccumulatedColor, 0));
+
+		vec3 Color = AccumulatedColor / ubo.currentSamplesCount;
+
+		Color = toneMap(Color, SceneUbo.Data.Exposure);
+
+		imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(Color, 0));
+	}
+	else
 	{
-		LastFrameColor = imageLoad(accumulationImage, ivec2(gl_LaunchIDEXT.xy)).rgb;
+		
 	}
-
-	vec3 AccumulatedColor = LastFrameColor + SamplesColor;
-	imageStore(accumulationImage, ivec2(gl_LaunchIDEXT.xy), vec4(AccumulatedColor, 0));
-
-	vec3 Color = AccumulatedColor / ubo.currentSamplesCount;
-
-	Color = toneMap(Color, SceneUbo.Data.Exposure);
-
-	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(Color, 0));
 }

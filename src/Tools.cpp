@@ -1141,6 +1141,40 @@ namespace vulkanTools
         vkCmdCopyBuffer(CopyCommand, Source->Buffer, Dest->Buffer, 1, &BufferCopy);
         FlushCommandBuffer(VulkanDevice->Device, CommandPool, CopyCommand, Queue, true);
     }
+    
+    void CopyImageToBuffer(vulkanDevice *VulkanDevice, VkCommandPool CommandPool, VkQueue Queue, VkImage Source, buffer *Dest, uint32_t Width, uint32_t Height)
+    {
+        VkCommandBuffer CopyCommand = CreateCommandBuffer(VulkanDevice->Device, CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+        
+        // TransitionImageLayout(
+        //     CopyCommand,
+        //     Source,
+        //     VK_IMAGE_ASPECT_COLOR_BIT,
+        //     VK_IMAGE_LAYOUT_GENERAL,
+        //     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+        // );
+
+        VkImageSubresourceLayers ImageSubresource = {};
+        ImageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        ImageSubresource.baseArrayLayer=0;
+        ImageSubresource.layerCount=1;
+        ImageSubresource.mipLevel=0;
+
+        VkBufferImageCopy BufferImageCopy = {};
+        BufferImageCopy.imageExtent.depth=1;
+        BufferImageCopy.imageExtent.width = Width;
+        BufferImageCopy.imageExtent.height = Height;
+        BufferImageCopy.imageOffset = {0,0,0};
+        BufferImageCopy.imageSubresource = ImageSubresource;
+
+        BufferImageCopy.bufferOffset=0;
+        BufferImageCopy.bufferImageHeight = 0;
+        BufferImageCopy.bufferRowLength=0;
+        
+        vkCmdCopyImageToBuffer(CopyCommand, Source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, Dest->Buffer,1,  &BufferImageCopy);
+        
+        FlushCommandBuffer(VulkanDevice->Device, CommandPool, CopyCommand, Queue, true);        
+    }
 
     sceneMesh BuildQuad(vulkanDevice *VulkanDevice)
     {

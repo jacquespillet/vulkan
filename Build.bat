@@ -13,6 +13,13 @@ REM stb
 set stbInclude= ..\ext\stb
 REM --------------------
 
+REM oidn
+set oidnLib=..\ext\oidn\lib\OpenImageDenoise.lib
+set oidnIncludes=..\ext\oidn\include
+set oidnBin= ..\ext\oidn\lib\OpenImageDenoise.dll 
+set tbbBin= ..\ext\oidn\lib\tbb.dll 
+REM --------------------
+
 
 REM VULKAN
 set vulkanInclude=%VULKAN_SDK%\Include
@@ -65,8 +72,8 @@ REM --------------------
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/miss.rmiss -o resources/shaders/spv/miss.rmiss.spv --target-spv=spv1.4 -g
 
 
-set compilerFlags=  -MP -MT -nologo -EHa- -Od -Oi -W4 -Z7 -EHsc -wd4201 -wd4310 -wd4100  /I ../src /I ..\ext\glm /I ..\ext\gli  /I %glfwInclude% /I %vulkanInclude% /I %assimpIncludes% /I %imguiInclude% /I %stbInclude%  /I %tinygltfInclude%
-set linkerFlags=  -opt:ref Gdi32.lib Shell32.lib User32.lib opengl32.lib %glfwLib%  %vulkanLib% %assimpLib%
+set compilerFlags=  -MP -MT -nologo -EHa- -Od -Oi -W4 -Z7 -EHsc -wd4201 -wd4310 -wd4100  /I ../src /I ..\ext\glm /I ..\ext\gli  /I %glfwInclude% /I %vulkanInclude% /I %assimpIncludes% /I %imguiInclude% /I %stbInclude%  /I %tinygltfInclude% /I %oidnIncludes% 
+set linkerFlags=  -opt:ref Gdi32.lib Shell32.lib User32.lib opengl32.lib %glfwLib%  %vulkanLib% %assimpLib% %oidnLib%
 
 set srcFiles= ..\src\App.cpp ..\src\Resources.cpp ..\src\Device.cpp ..\src\Tools.cpp 
 set srcFiles= %srcFiles%  ..\src\Scene.cpp ..\src\Debug.cpp ..\src\Buffer.cpp ..\src\Shader.cpp 
@@ -78,6 +85,8 @@ IF NOT EXIST .\build mkdir .\build
 pushd .\build
 cl.exe %compilerFlags% ..\Main.cpp  %srcFiles%  /link %linkerFlags%
 
+copy %oidnBin% .\ >nul
+copy %tbbBin% .\ >nul
 copy %assimpBin% .\ >nul
 
 @REM IF NOT EXIST .\shaders mkdir .\shaders

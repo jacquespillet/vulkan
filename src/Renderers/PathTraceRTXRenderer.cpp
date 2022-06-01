@@ -1,6 +1,7 @@
 #include "PathTraceRTXRenderer.h"
 #include "App.h"
 #include "imgui.h"
+#include "OpenImageDenoise/oidn.hpp"
 
 void accelerationStructure::Create(vulkanDevice *_VulkanDevice, VkAccelerationStructureTypeKHR Type, VkAccelerationStructureBuildSizesInfoKHR BuildSizeInfo)
 {
@@ -107,7 +108,7 @@ void storageImage::Create(vulkanDevice *_VulkanDevice, VkCommandPool CommandPool
     ImageCreateInfo.arrayLayers=1;
     ImageCreateInfo.samples=VK_SAMPLE_COUNT_1_BIT;
     ImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    ImageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    ImageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     ImageCreateInfo.initialLayout=VK_IMAGE_LAYOUT_UNDEFINED;
     VK_CALL(vkCreateImage(VulkanDevice->Device, &ImageCreateInfo, nullptr, &Image));
 
@@ -205,6 +206,7 @@ void pathTraceRTXRenderer::Render()
     if(App->Scene->Camera.Changed)
     {
         ResetAccumulation=true;
+        UniformData.ShouldAccumulate=1;
     }
 
     if(ResetAccumulation)
@@ -235,6 +237,78 @@ void pathTraceRTXRenderer::Render()
     VK_CALL(vkQueueSubmit(App->Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
     Result = App->Swapchain.QueuePresent(App->Queue, App->CurrentBuffer, App->Semaphores.RenderComplete);
     VK_CALL(vkQueueWaitIdle(App->Queue));
+
+    if(ShouldDenoise)
+    {
+        DenoiseBuffer.Map();
+        memcpy(DenoiserInputUint.data(), DenoiseBuffer.Mapped, DenoiserInputUint.size() * sizeof(rgba));
+        DenoiseBuffer.Unmap();
+        std::cout << "COPY " << std::endl;
+
+        for(size_t i=0; i<DenoiserInputUint.size(); i++)
+        {
+            DenoiserInput[i].r = (float)DenoiserInputUint[i].r / 255.0f;
+            DenoiserInput[i].g = (float)DenoiserInputUint[i].g / 255.0f;
+            DenoiserInput[i].b = (float)DenoiserInputUint[i].b / 255.0f;
+        }
+
+        oidn::DeviceRef device = oidn::newDevice();
+        device.commit();
+
+        oidn::FilterRef filter = device.newFilter("RT"); // generic ray tracing filter
+        filter.setImage("color", DenoiserInput.data(), oidn::Format::Float3, App->Width, App->Height, 0, 0, 0);
+        filter.setImage("output", DenoiserOutput.data(), oidn::Format::Float3, App->Width, App->Height, 0, 0, 0);
+        filter.set("hdr", true);
+        filter.commit();
+        filter.execute();
+
+        for(size_t i=0; i<DenoiserInputUint.size(); i++)
+        {
+            DenoiserInputUint[i].r = (uint8_t)(DenoiserOutput[i].r * 255.0f);
+            DenoiserInputUint[i].g = (uint8_t)(DenoiserOutput[i].g * 255.0f);
+            DenoiserInputUint[i].b = (uint8_t)(DenoiserOutput[i].b * 255.0f);
+            // DenoiserInputUint[i].r = (uint8_t)(0);
+            // DenoiserInputUint[i].g = (uint8_t)(255);
+            // DenoiserInputUint[i].b = (uint8_t)(0);
+        }
+        DenoiseBuffer.Map();
+        memcpy(DenoiseBuffer.Mapped, DenoiserInputUint.data(), DenoiserInputUint.size() * sizeof(rgba));
+        DenoiseBuffer.Unmap();
+        
+
+        //Copy buffer back into storage buffer
+        VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+        
+        VkImageSubresourceLayers ImageSubresource = {};
+        ImageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        ImageSubresource.baseArrayLayer=0;
+        ImageSubresource.layerCount=1;
+        ImageSubresource.mipLevel=0;
+
+        VkBufferImageCopy BufferImageCopy = {};
+        BufferImageCopy.imageExtent.depth=1;
+        BufferImageCopy.imageExtent.width = App->Width;
+        BufferImageCopy.imageExtent.height = App->Height;
+        BufferImageCopy.imageOffset = {0,0,0};
+        BufferImageCopy.imageSubresource = ImageSubresource;
+
+        BufferImageCopy.bufferOffset=0;
+        BufferImageCopy.bufferImageHeight = 0;
+        BufferImageCopy.bufferRowLength=0;
+        
+
+        // vkCmdCopyImageToBuffer(CopyCommand, StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, DenoiseBuffer.Buffer,1,  &BufferImageCopy);        
+        vulkanTools::TransitionImageLayout(CommandBuffer, StorageImage.Image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        vkCmdCopyBufferToImage(CommandBuffer, DenoiseBuffer.Buffer, StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &BufferImageCopy);
+        vulkanTools::TransitionImageLayout(CommandBuffer, StorageImage.Image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+        
+        vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, CommandBuffer, App->Queue, true);
+
+        VK_CALL(vkQueueWaitIdle(App->Queue));
+
+        ShouldDenoise=false;
+        UniformData.ShouldAccumulate=0;
+    }
 
     UpdateUniformBuffers();
 }
@@ -513,6 +587,11 @@ void pathTraceRTXRenderer::CreateImages()
     
     //Contains the accumulated colors, not divided by the sample count
     AccumulationImage.Create(VulkanDevice, App->CommandPool, App->Queue, VK_FORMAT_R32G32B32A32_SFLOAT, {App->Width, App->Height, 1});
+
+    VK_CALL(vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &DenoiseBuffer, App->Width * App->Height * 4, nullptr));
+    DenoiserInput.resize(App->Width * App->Height);
+    DenoiserOutput.resize(App->Width * App->Height);
+    DenoiserInputUint.resize(App->Width * App->Height);
 }
 
 void pathTraceRTXRenderer::CreateRayTracingPipeline()
@@ -825,7 +904,11 @@ void pathTraceRTXRenderer::CreateCommandBuffers()
 }
 
 
-
+void pathTraceRTXRenderer::Denoise()
+{
+    ShouldDenoise=true;
+    // vulkanTools::CopyImageToBuffer(VulkanDevice, App->CommandPool, App->Queue, StorageImage.Image, &DenoiseBuffer, App->Width, App->Height);
+}
 
 void pathTraceRTXRenderer::RenderGUI()
 {
@@ -837,6 +920,10 @@ void pathTraceRTXRenderer::RenderGUI()
         ShouldReset |= ImGui::SliderInt("Max Samples", &UniformData.MaxSamples, 1, 16384);
         ImGui::Text("Num Samples %d", UniformData.CurrentSampleCount);
 
+        if(ImGui::Button("Denoise"))
+        {
+            Denoise();
+        }
         if(ShouldReset)
         {
             ResetAccumulation=true;
@@ -899,6 +986,28 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
         CopyRegion.extent = {App->Width - (int)App->GuiWidth, App->Height, 1};
         vkCmdCopyImage(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, App->Swapchain.Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &CopyRegion);
 
+        if(ShouldDenoise)
+        {
+            VkImageSubresourceLayers ImageSubresource = {};
+            ImageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            ImageSubresource.baseArrayLayer=0;
+            ImageSubresource.layerCount=1;
+            ImageSubresource.mipLevel=0;
+
+            VkBufferImageCopy BufferImageCopy = {};
+            BufferImageCopy.imageExtent.depth=1;
+            BufferImageCopy.imageExtent.width = App->Width;
+            BufferImageCopy.imageExtent.height = App->Height;
+            BufferImageCopy.imageOffset = {0,0,0};
+            BufferImageCopy.imageSubresource = ImageSubresource;
+
+            BufferImageCopy.bufferOffset=0;
+            BufferImageCopy.bufferImageHeight = 0;
+            BufferImageCopy.bufferRowLength=0;
+            
+            vkCmdCopyImageToBuffer(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, DenoiseBuffer.Buffer,1,  &BufferImageCopy);
+        }
+
         vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->Swapchain.Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, SubresourceRange);
         vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, SubresourceRange);
         
@@ -928,6 +1037,7 @@ void pathTraceRTXRenderer::Destroy()
     TransformMatricesBuffer.Destroy();
     StorageImage.Destroy();
     AccumulationImage.Destroy();
+    DenoiseBuffer.Destroy();
     UBO.Destroy();
     
     vkDestroyDescriptorSetLayout(VulkanDevice->Device, DescriptorSetLayout, nullptr);

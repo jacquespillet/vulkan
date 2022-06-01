@@ -97,7 +97,8 @@ private:
         int RayBounces=5;
 
         int MaxSamples = 8192;
-        glm::ivec3 Padding;
+        int ShouldAccumulate=1;
+        glm::ivec2 Padding;
     } UniformData;
     buffer UBO;
     VkDescriptorSetLayout DescriptorSetLayout;
@@ -116,7 +117,16 @@ private:
 
     std::vector<VkAccelerationStructureInstanceKHR> BLASInstances{};
     buffer InstancesBuffer;
+
+    bool ShouldDenoise=false;
+    buffer DenoiseBuffer;
+    std::vector<glm::vec3> DenoiserInput;
+    std::vector<glm::vec3> DenoiserOutput;
+    struct rgba {uint8_t b, g, r, a;};
+    std::vector<rgba> DenoiserInputUint;
     
+    void Denoise();
+
     void CreateMaterialBuffer();
     void CreateBottomLevelAccelarationStructure(scene *Scene);
     void FillBLASInstances();
