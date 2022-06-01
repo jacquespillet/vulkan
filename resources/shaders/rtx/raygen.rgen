@@ -81,17 +81,22 @@ void main()
 						float NdotL = max(dot(RayPayload.Normal, RayPayload.ScatterDir), 0.0);
 						if(NdotL > 0.0)
 						{
+							//Calculate PDF
 							float p =  DistributionGGX(RayPayload.Normal, Halfway, RayPayload.Roughness);
 							float NdotH = max(dot(RayPayload.Normal, Halfway), 0.0);
 							float HdotV = max(dot(Halfway, -Direction.xyz), 0.0);        
 							float pdf = (p * NdotH / (4.0 * HdotV)) + 0.0001; 
+							
+							//Calculate BRDF
 							vec3 BRDF =  GGX(RayPayload.Normal, 
 											Halfway, 
 											-Direction.xyz, 
 											RayPayload.ScatterDir, 
 											RayPayload.Roughness, 
-											1.0, 
-											RayPayload.Color);						
+											RayPayload.Metallic, 
+											RayPayload.Color);
+							// BRDF = RayPayload.Color;
+							// pdf=1;
 							// BRDF = p * RayPayload.Color;
 							// scatterSample.f = DisneySample(state, -ray.direction, state.ffnormal, scatterSample.L, scatterSample.pdf);
 							if (pdf > 0.0)

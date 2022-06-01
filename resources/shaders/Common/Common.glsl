@@ -92,7 +92,7 @@ vec3 GGX(vec3 N, vec3 H, vec3 V, vec3 L, float roughness, float metallic, vec3 a
 
     float NDF = DistributionGGX(N, H, roughness);   
     float G   = GeometrySmith(N, V, L, roughness);    
-    vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);        
+    vec3 F    = fresnelSchlickRoughness(max(dot(H, V), 0.0), F0, roughness);        
     
     vec3 numerator    = NDF * G * F;
     float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; // + 0.0001 to prevent divide by zero
