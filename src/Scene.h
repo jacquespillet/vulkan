@@ -294,6 +294,8 @@ private:
 
 
 public:
+    //Have a forward render pipeline here that renders things only on click
+    
     void Destroy();
     
     buffer VertexBuffer;

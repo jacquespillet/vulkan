@@ -267,9 +267,6 @@ void pathTraceRTXRenderer::Render()
             DenoiserInputUint[i].r = (uint8_t)(DenoiserOutput[i].r * 255.0f);
             DenoiserInputUint[i].g = (uint8_t)(DenoiserOutput[i].g * 255.0f);
             DenoiserInputUint[i].b = (uint8_t)(DenoiserOutput[i].b * 255.0f);
-            // DenoiserInputUint[i].r = (uint8_t)(0);
-            // DenoiserInputUint[i].g = (uint8_t)(255);
-            // DenoiserInputUint[i].b = (uint8_t)(0);
         }
         DenoiseBuffer.Map();
         memcpy(DenoiseBuffer.Mapped, DenoiserInputUint.data(), DenoiserInputUint.size() * sizeof(rgba));
