@@ -90,6 +90,7 @@ void main()
 
 	RayPayload.Color = BaseColor;
 
+
 	
 	RayPayload.ScatterDir = reflect(gl_WorldRayDirectionEXT, normalize(Normal + RandomInUnitSphere(RayPayload.RandomState) ));
 	RayPayload.Distance = gl_HitTEXT;

@@ -240,11 +240,12 @@ void pathTraceRTXRenderer::Render()
 
     if(ShouldDenoise)
     {
+        //Copy the content of the denoise buffer from gpu to cpu
         DenoiseBuffer.Map();
         memcpy(DenoiserInputUint.data(), DenoiseBuffer.Mapped, DenoiserInputUint.size() * sizeof(rgba));
         DenoiseBuffer.Unmap();
-        std::cout << "COPY " << std::endl;
-
+        
+        //Denoise
         for(size_t i=0; i<DenoiserInputUint.size(); i++)
         {
             DenoiserInput[i].r = (float)DenoiserInputUint[i].r / 255.0f;
@@ -268,6 +269,8 @@ void pathTraceRTXRenderer::Render()
             DenoiserInputUint[i].g = (uint8_t)(DenoiserOutput[i].g * 255.0f);
             DenoiserInputUint[i].b = (uint8_t)(DenoiserOutput[i].b * 255.0f);
         }
+
+        //Copy back to gpu
         DenoiseBuffer.Map();
         memcpy(DenoiseBuffer.Mapped, DenoiserInputUint.data(), DenoiserInputUint.size() * sizeof(rgba));
         DenoiseBuffer.Unmap();
@@ -665,6 +668,19 @@ void pathTraceRTXRenderer::CreateRayTracingPipeline()
     }
 
     {
+        ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/spv/missShadow.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_KHR));
+        ShaderModules.push_back(ShaderStages[ShaderStages.size()-1].module);
+        VkRayTracingShaderGroupCreateInfoKHR ShaderGroup {VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR};
+        ShaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+        ShaderGroup.generalShader = static_cast<uint32_t>(ShaderStages.size())-1;
+        ShaderGroup.closestHitShader = VK_SHADER_UNUSED_KHR;
+        ShaderGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
+        ShaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
+        
+        ShaderGroups.push_back(ShaderGroup);
+    }
+
+    {
         ShaderStages.push_back(LoadShader(VulkanDevice->Device, "resources/shaders/spv/closestHit.rchit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
         ShaderModules.push_back(ShaderStages[ShaderStages.size()-1].module);
         VkRayTracingShaderGroupCreateInfoKHR ShaderGroup {VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR};
@@ -684,7 +700,7 @@ void pathTraceRTXRenderer::CreateRayTracingPipeline()
     RayTracingPipelineCreateInfo.pStages = ShaderStages.data();
     RayTracingPipelineCreateInfo.groupCount = static_cast<uint32_t>(ShaderGroups.size());
     RayTracingPipelineCreateInfo.pGroups = ShaderGroups.data();
-    RayTracingPipelineCreateInfo.maxPipelineRayRecursionDepth=1;
+    RayTracingPipelineCreateInfo.maxPipelineRayRecursionDepth=2;
     RayTracingPipelineCreateInfo.layout = PipelineLayout;
     VK_CALL(VulkanDevice->_vkCreateRayTracingPipelinesKHR(VulkanDevice->Device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &RayTracingPipelineCreateInfo, nullptr, &Pipeline));
 }
@@ -700,12 +716,12 @@ void pathTraceRTXRenderer::CreateShaderBindingTable()
     VK_CALL(VulkanDevice->_vkGetRayTracingShaderGroupHandlesKHR(VulkanDevice->Device, Pipeline, 0, GroupCount, SBTSize, ShaderHandleStorage.data()));
 
     ShaderBindingTables.Raygen.Create(VulkanDevice, 1, RayTracingPipelineProperties);
-    ShaderBindingTables.Miss.Create(VulkanDevice, 1, RayTracingPipelineProperties);
+    ShaderBindingTables.Miss.Create(VulkanDevice, 2, RayTracingPipelineProperties);
     ShaderBindingTables.Hit.Create(VulkanDevice, 1, RayTracingPipelineProperties);
 
     memcpy(ShaderBindingTables.Raygen.Mapped, ShaderHandleStorage.data(), HandleSize);
     memcpy(ShaderBindingTables.Miss.Mapped, ShaderHandleStorage.data() + HandleSizeAligned, HandleSize);
-    memcpy(ShaderBindingTables.Hit.Mapped, ShaderHandleStorage.data() + HandleSizeAligned*2, HandleSize);
+    memcpy(ShaderBindingTables.Hit.Mapped, ShaderHandleStorage.data() + HandleSizeAligned*3, HandleSize);
 }
 
 void pathTraceRTXRenderer::CreateDescriptorSets()
@@ -985,6 +1001,7 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
 
         if(ShouldDenoise)
         {
+            //Copy result to the denoise buffer
             VkImageSubresourceLayers ImageSubresource = {};
             ImageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
             ImageSubresource.baseArrayLayer=0;

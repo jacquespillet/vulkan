@@ -6,6 +6,7 @@
 #include "../Common/ubo.glsl"
 
 layout(location = 0) rayPayloadInEXT rayPayload RayPayload;
+layout(location = 1) rayPayloadInEXT bool isShadowed;
 layout(binding = 3, set = 0) uniform UniformData { Ubo ubo; };
 layout(binding = 6, set = 0) uniform samplerCube IrradianceMap;
 layout(binding = 7, set = 0) uniform samplerCube Cubemap;
@@ -19,6 +20,8 @@ layout (set=0, binding =8) uniform UBO
 
 void main()
 {
+	isShadowed=false;
+	
 	if(SceneUbo.Data.BackgroundType ==0)
 	{
 		vec3 Direction = normalize(gl_WorldRayDirectionEXT);

@@ -19,6 +19,7 @@ layout (set=0, binding = 8) uniform UBO
 } SceneUbo;
 
 layout(location = 0) rayPayloadEXT rayPayload RayPayload;
+layout(location = 1) rayPayloadEXT bool isShadowed;
 
 
 #include "../Common/Common.glsl"
@@ -46,6 +47,7 @@ void main()
 				
 
 				for(int j=0; j<ubo.rayBounces; j++)
+				// for(int j=0; j<1; j++)
 				{
 					
 					traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0, Origin.xyz, 0.001, Direction.xyz, 10000.0, 0);
@@ -66,12 +68,37 @@ void main()
 						Radiance += RayPayload.Emission * Attenuation;
 						break;
 					}
-					
+#if 0
 					{
-						//Here : Sample a light and add to Radiance : 
+						//Here : Sample the sky and add to radiance : 
 						//Radiance += Attenuation * UniformSampleOneLight();
+	
+						float tMin   = 0.001;
+						float tMax   = 10000.0;
+						vec3  origin = Origin.xyz + Direction.xyz * RayPayload.Distance;
+						vec3  rayDir = normalize(vec3(0,1,0));
+						uint  flags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+						isShadowed = true;
+						traceRayEXT(topLevelAS,  // acceleration structure
+								flags, // rayFlags
+								0xFF,        // cullMask
+								0,           // sbtRecordOffset
+								0,           // sbtRecordStride
+								0,           // missIndex
+								origin,      // ray origin
+								tMin,        // ray min range
+								rayDir,      // ray direction
+								tMax,        // ray max range
+								1            // payload (location = 1)
+						);
+
+						if(!isShadowed)
+						{
+							Radiance += vec3(2) * Attenuation;
+							// RayPayload.Color *= 0.0;
+						}											
 					}
-		
+#endif
 					{
 						//Sample 2 random vars for sampling the distribution
 						vec2 Xi = vec2(RandomUnilateral(RayPayload.RandomState),RandomUnilateral(RayPayload.RandomState));
@@ -93,7 +120,7 @@ void main()
 											-Direction.xyz, 
 											RayPayload.ScatterDir, 
 											RayPayload.Roughness, 
-											RayPayload.Metallic, 
+											1.0, 
 											RayPayload.Color);
 							// BRDF = RayPayload.Color;
 							// pdf=1;
@@ -138,7 +165,7 @@ void main()
 		vec3 Color = AccumulatedColor / ubo.currentSamplesCount;
 
 		Color = toneMap(Color, SceneUbo.Data.Exposure);
-
+		Color = clamp(Color, 0, 1);
 		imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(Color, 0));
 	}
 	else

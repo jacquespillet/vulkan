@@ -70,6 +70,7 @@ REM --------------------
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/closesthit.rchit -o resources/shaders/spv/closesthit.rchit.spv --target-spv=spv1.4 -g
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/raygen.rgen -o resources/shaders/spv/raygen.rgen.spv --target-spv=spv1.4 -g
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/miss.rmiss -o resources/shaders/spv/miss.rmiss.spv --target-spv=spv1.4 -g
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/missShadow.rmiss -o resources/shaders/spv/missShadow.rmiss.spv --target-spv=spv1.4 -g
 
 
 set compilerFlags=  -MP -MT -nologo -EHa- -Od -Oi -W4 -Z7 -EHsc -wd4201 -wd4310 -wd4100  /I ../src /I ..\ext\glm /I ..\ext\gli  /I %glfwInclude% /I %vulkanInclude% /I %assimpIncludes% /I %imguiInclude% /I %stbInclude%  /I %tinygltfInclude% /I %oidnIncludes% 
