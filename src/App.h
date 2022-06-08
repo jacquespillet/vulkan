@@ -65,6 +65,7 @@ public:
         bool Right=false;
         float PosX;
         float PosY;
+        float Wheel;
     } Mouse;
 
     //High level objects
@@ -139,4 +140,5 @@ public:
     void MouseAction(int Button, int Action, int Mods);
     void Scroll(float YOffset);
     void Resize(uint32_t Width, uint32_t Height);
+    void KeyEvent(int KeyCode, int Action);
 };

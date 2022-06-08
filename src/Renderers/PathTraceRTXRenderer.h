@@ -76,7 +76,7 @@ public:
     
     void UpdateCamera();
     void UpdateMaterial(size_t Index);
-    void UpdateBLASInstance(uint32_t InstanceGroupIndex, uint32_t InstanceIndex, uint32_t FlatIndex);
+    void UpdateBLASInstance(uint32_t InstanceIndex);
 private:
     std::vector<accelerationStructure> BottomLevelAccelerationStructures;
     accelerationStructure TopLevelAccelerationStructure;

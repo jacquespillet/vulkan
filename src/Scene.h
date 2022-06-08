@@ -305,6 +305,7 @@ public:
     std::vector<sceneMaterial> Materials;
     std::vector<sceneMesh> Meshes;
     std::unordered_map<int, std::vector<instance>> Instances;
+    std::vector<instance*> InstancesPointers;
     
     
     std::vector<vertex> GVertices;

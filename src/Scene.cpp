@@ -128,6 +128,7 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
                                         &InstanceGroup.second[i].UniformBuffer,
                                         sizeof(InstanceGroup.second[i].InstanceData),
                                         &InstanceGroup.second[i].InstanceData);
+                InstancesPointers.push_back(&InstanceGroup.second[i]);
             }
             NumInstances += InstanceGroup.second.size();
         }

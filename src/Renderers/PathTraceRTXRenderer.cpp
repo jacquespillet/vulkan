@@ -248,9 +248,9 @@ void pathTraceRTXRenderer::Render()
         //Denoise
         for(size_t i=0; i<DenoiserInputUint.size(); i++)
         {
-            DenoiserInput[i].r = (float)DenoiserInputUint[i].r / 255.0f;
-            DenoiserInput[i].g = (float)DenoiserInputUint[i].g / 255.0f;
-            DenoiserInput[i].b = (float)DenoiserInputUint[i].b / 255.0f;
+            DenoiserInput[i].r = std::max(0.0f, std::min(0.99f, (float)DenoiserInputUint[i].r / 255.0f));
+            DenoiserInput[i].g = std::max(0.0f, std::min(0.99f, (float)DenoiserInputUint[i].g / 255.0f));
+            DenoiserInput[i].b = std::max(0.0f, std::min(0.99f, (float)DenoiserInputUint[i].b / 255.0f));
         }
 
         oidn::DeviceRef device = oidn::newDevice();
@@ -443,13 +443,10 @@ void pathTraceRTXRenderer::FillBLASInstances()
     std::vector<glm::mat4> TransformMatrices;
 
     BLASInstances.resize(0);
-    for(auto &InstanceGroup : App->Scene->Instances)
-    {
-        for(size_t i=0; i<InstanceGroup.second.size(); i++)	
-        {
-            BLASInstances.push_back(CreateBottomLevelAccelerationInstance(&InstanceGroup.second[i]));
-            TransformMatrices.push_back(InstanceGroup.second[i].InstanceData.Transform);
-        }
+    for(size_t i=0; i<App->Scene->InstancesPointers.size(); i++)
+    {	
+        BLASInstances.push_back(CreateBottomLevelAccelerationInstance(App->Scene->InstancesPointers[i]));
+        TransformMatrices.push_back(App->Scene->InstancesPointers[i]->InstanceData.Transform);
     }
 
     VK_CALL(vulkanTools::CreateBuffer(
@@ -474,12 +471,12 @@ void pathTraceRTXRenderer::FillBLASInstances()
 }
 
 
-void pathTraceRTXRenderer::UpdateBLASInstance(uint32_t InstanceGroupIndex, uint32_t InstanceIndex, uint32_t FlatIndex)
+void pathTraceRTXRenderer::UpdateBLASInstance(uint32_t InstanceIndex)
 {
-    BLASInstances[FlatIndex] = CreateBottomLevelAccelerationInstance(&App->Scene->Instances[InstanceGroupIndex][InstanceIndex]);
+    BLASInstances[InstanceIndex] = CreateBottomLevelAccelerationInstance(App->Scene->InstancesPointers[InstanceIndex]);
 
     InstancesBuffer.Map();
-    InstancesBuffer.CopyTo(&BLASInstances[FlatIndex], sizeof(VkAccelerationStructureInstanceKHR), FlatIndex * sizeof(VkAccelerationStructureInstanceKHR));
+    InstancesBuffer.CopyTo(&BLASInstances[InstanceIndex], sizeof(VkAccelerationStructureInstanceKHR), InstanceIndex * sizeof(VkAccelerationStructureInstanceKHR));
     InstancesBuffer.Unmap();
 
     CreateTopLevelAccelerationStructure();
@@ -617,10 +614,10 @@ void pathTraceRTXRenderer::CreateRayTracingPipeline()
     
     //Cubemap textures
     SetLayoutBindings.push_back(
-        vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 6,  1)
+        vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,VK_SHADER_STAGE_RAYGEN_BIT_KHR, 6,  1)
     );
     SetLayoutBindings.push_back(
-        vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 7,  1)
+        vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,VK_SHADER_STAGE_RAYGEN_BIT_KHR, 7,  1)
     );
 
     //Scene uniform
