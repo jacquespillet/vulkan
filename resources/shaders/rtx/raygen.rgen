@@ -26,315 +26,7 @@ layout (set=0, binding = 8) uniform UBO
 
 layout(location = 0) rayPayloadEXT rayPayload RayPayload;
 
-
-#include "../Common/Common.glsl"
-
-
-#define TWO_PI (2.0f * PI)
-#define ONE_OVER_PI (1.0f / PI)
-#define ONE_OVER_TWO_PI (1.0f / TWO_PI)
-#define MIN_DIELECTRICS_F0 0.04
-
-vec4 getRotationToZAxis(vec3 vector) {
-
-	// Handle special case when vector is exact or near opposite of (0, 0, 1)
-	if (vector.z < -0.99999f) return vec4(1.0f, 0.0f, 0.0f, 0.0f);
-
-	return normalize(vec4(vector.y, -vector.x, 0.0f, 1.0f + vector.z));
-}
-vec3 rotatePoint(vec4 q, vec3 v) {
-	const vec3 qAxis = vec3(q.x, q.y, q.z);
-	return 2.0f * dot(qAxis, v) * qAxis + (q.w * q.w - dot(qAxis, qAxis)) * v + 2.0f * q.w * cross(qAxis, v);
-}
-// Returns the quaternion with inverted rotation
-vec4 invertRotation(vec4 q)
-{
-	return vec4(-q.x, -q.y, -q.z, q.w);
-}
-vec3 sampleHemisphere(vec2 u, inout float pdf) {
-
-	float a = sqrt(u.x);
-	float b = TWO_PI * u.y;
-
-	vec3 result = vec3(
-		a * cos(b),
-		a * sin(b),
-		sqrt(1.0f - u.x));
-
-	pdf = result.z * ONE_OVER_PI;
-
-	return result;
-}
-vec3 sampleHemisphere(vec2 u) {
-	float pdf;
-	return sampleHemisphere(u, pdf);
-}
-struct BrdfData
-{
-	// Material properties
-	vec3 specularF0;
-	vec3 diffuseReflectance;
-
-	// Roughnesses
-	float roughness;    //< perceptively linear roughness (artist's input)
-	float alpha;        //< linear roughness - often 'alpha' in specular BRDF equations
-	float alphaSquared; //< alpha squared - pre-calculated value commonly used in BRDF equations
-
-	// Commonly used terms for BRDF evaluation
-	vec3 F; //< Fresnel term
-
-	// Vectors
-	vec3 V; //< Direction to viewer (or opposite direction of incident ray)
-	vec3 N; //< Shading normal
-	vec3 H; //< Half vector (microfacet normal)
-	vec3 L; //< Direction to light (or direction of reflecting ray)
-
-	float NdotL;
-	float NdotV;
-
-	float LdotH;
-	float NdotH;
-	float VdotH;
-
-	// True when V/L is backfacing wrt. shading normal N
-	bool Vbackfacing;
-	bool Lbackfacing;
-};
-
-vec3 baseColorToSpecularF0(vec3 baseColor, float metalness) {
-	return mix(vec3(MIN_DIELECTRICS_F0, MIN_DIELECTRICS_F0, MIN_DIELECTRICS_F0), baseColor, metalness);
-}
-
-vec3 baseColorToDiffuseReflectance(vec3 baseColor, float metalness)
-{
-	return baseColor * (1.0f - metalness);
-}
-vec3 evalFresnelSchlick(vec3 f0, float f90, float NdotS)
-{
-	return f0 + (f90 - f0) * pow(1.0f - NdotS, 5.0f);
-}
-vec3 evalFresnel(vec3 f0, float f90, float NdotS)
-{
-	// Default is Schlick's approximation
-	return evalFresnelSchlick(f0, f90, NdotS);
-}
-float luminance(vec3 rgb)
-{
-	return dot(rgb, vec3(0.2126f, 0.7152f, 0.0722f));
-}
-float shadowedF90(vec3 F0) {
-	// This scaler value is somewhat arbitrary, Schuler used 60 in his article. In here, we derive it from MIN_DIELECTRICS_F0 so
-	// that it takes effect for any reflectance lower than least reflective dielectrics
-	//const float t = 60.0f;
-	const float t = (1.0f / MIN_DIELECTRICS_F0);
-	return min(1.0f, t * luminance(F0));
-}
-
-
-BrdfData prepareBRDFData(vec3 N, vec3 L, vec3 V, rayPayload RayPayload) {
-	BrdfData data;
-
-	// Evaluate VNHL vectors
-	data.V = V;
-	data.N = N;
-	data.H = normalize(L + V);
-	data.L = L;
-
-	float NdotL = dot(N, L);
-	float NdotV = dot(N, V);
-	data.Vbackfacing = (NdotV <= 0.0f);
-	data.Lbackfacing = (NdotL <= 0.0f);
-
-	// Clamp NdotS to prevent numerical instability. Assume vectors below the hemisphere will be filtered using 'Vbackfacing' and 'Lbackfacing' flags
-	data.NdotL = min(max(0.00001f, NdotL), 1.0f);
-	data.NdotV = min(max(0.00001f, NdotV), 1.0f);
-
-	data.LdotH = clamp(dot(L, data.H), 0, 1);
-	data.NdotH = clamp(dot(N, data.H), 0, 1);
-	data.VdotH = clamp(dot(V, data.H), 0, 1);
-
-	// Unpack material properties
-	data.specularF0 = baseColorToSpecularF0(RayPayload.Color, RayPayload.Metallic);
-	data.diffuseReflectance = baseColorToDiffuseReflectance(RayPayload.Color, RayPayload.Metallic);
-
-	// Unpack 'perceptively linear' -> 'linear' -> 'squared' roughness
-	data.roughness = RayPayload.Roughness;
-	data.alpha = RayPayload.Roughness * RayPayload.Roughness;
-	data.alphaSquared = data.alpha * data.alpha;
-
-	// Pre-calculate some more BRDF terms
-	data.F = evalFresnel(data.specularF0, shadowedF90(data.specularF0), data.LdotH);
-
-	return data;
-}
-
-float lambertian(const BrdfData data) {
-	return 1.0f;
-}
-
-vec3 sampleSpecularHalfVector(vec3 Ve, vec2 alpha2D, vec2 u) {
-
-	// Section 3.2: transforming the view direction to the hemisphere configuration
-	vec3 Vh = normalize(vec3(alpha2D.x * Ve.x, alpha2D.y * Ve.y, Ve.z));
-
-	// Section 4.1: orthonormal basis (with special case if cross product is zero)
-	float lensq = Vh.x * Vh.x + Vh.y * Vh.y;
-	vec3 T1 = lensq > 0.0f ? vec3(-Vh.y, Vh.x, 0.0f) * inversesqrt(lensq) : vec3(1.0f, 0.0f, 0.0f);
-	vec3 T2 = cross(Vh, T1);
-
-	// Section 4.2: parameterization of the projected area
-	float r = sqrt(u.x);
-	float phi = TWO_PI * u.y;
-	float t1 = r * cos(phi);
-	float t2 = r * sin(phi);
-	float s = 0.5f * (1.0f + Vh.z);
-	t2 = mix(sqrt(1.0f - t1 * t1), t2, s);
-
-	// Section 4.3: reprojection onto hemisphere
-	vec3 Nh = t1 * T1 + t2 * T2 + sqrt(max(0.0f, 1.0f - t1 * t1 - t2 * t2)) * Vh;
-
-	// Section 3.4: transforming the normal back to the ellipsoid configuration
-	return normalize(vec3(alpha2D.x * Nh.x, alpha2D.y * Nh.y, max(0.0f, Nh.z)));
-}
-float Smith_G1_GGX(float a) {
-	float a2 = a * a;
-	return 2.0f / (sqrt((a2 + 1.0f) / a2) + 1.0f);
-}
-
-// Smith G1 term (masking function) further optimized for GGX distribution (by substituting G_a into G1_GGX)
-float Smith_G1_GGX(float alpha, float NdotS, float alphaSquared, float NdotSSquared) {
-	return 2.0f / (sqrt(((alphaSquared * (1.0f - NdotSSquared)) + NdotSSquared) / NdotSSquared) + 1.0f);
-}
-
-float Smith_G2_Over_G1_Height_Correlated(float alpha, float alphaSquared, float NdotL, float NdotV) {
-	float G1V = Smith_G1_GGX(alpha, NdotV, alphaSquared, NdotV * NdotV);
-	float G1L = Smith_G1_GGX(alpha, NdotL, alphaSquared, NdotL * NdotL);
-	return G1L / (G1V + G1L - G1V * G1L);
-}
-
-
-float specularSampleWeightGGXVNDF(float alpha, float alphaSquared, float NdotL, float NdotV, float HdotL, float NdotH) {
-	return Smith_G2_Over_G1_Height_Correlated(alpha, alphaSquared, NdotL, NdotV);
-}
-
-vec3 sampleSpecularMicrofacet(vec3 Vlocal, float alpha, float alphaSquared, vec3 specularF0, vec2 u, inout vec3 weight) {
-
-	// Sample a microfacet normal (H) in local space
-	vec3 Hlocal;
-	if (alpha == 0.0f) {
-		// Fast path for zero roughness (perfect reflection), also prevents NaNs appearing due to divisions by zeroes
-		Hlocal = vec3(0.0f, 0.0f, 1.0f);
-	} else {
-		// For non-zero roughness, this calls VNDF sampling for GG-X distribution or Walter's sampling for Beckmann distribution
-		Hlocal = sampleSpecularHalfVector(Vlocal, vec2(alpha, alpha), u);
-	}
-
-	// Reflect view direction to obtain light vector
-	vec3 Llocal = reflect(-Vlocal, Hlocal);
-
-	// Note: HdotL is same as HdotV here
-	// Clamp dot products here to small value to prevent numerical instability. Assume that rays incident from below the hemisphere have been filtered
-	float HdotL = max(0.00001f, min(1.0f, dot(Hlocal, Llocal)));
-	const vec3 Nlocal = vec3(0.0f, 0.0f, 1.0f);
-	float NdotL = max(0.00001f, min(1.0f, dot(Nlocal, Llocal)));
-	float NdotV = max(0.00001f, min(1.0f, dot(Nlocal, Vlocal)));
-	float NdotH = max(0.00001f, min(1.0f, dot(Nlocal, Hlocal)));
-	vec3 F = evalFresnel(specularF0, shadowedF90(specularF0), HdotL);
-
-	// Calculate weight of the sample specific for selected sampling method 
-	// (this is microfacet BRDF divided by PDF of sampling method - notice how most terms cancel out)
-	weight = F * specularSampleWeightGGXVNDF(alpha, alphaSquared, NdotL, NdotV, HdotL, NdotH);
-
-	return Llocal;
-}
-
-// This is an entry point for evaluation of all other BRDFs based on selected configuration (for indirect light)
-bool SampleSpecularBRDF(vec2 u, vec3 shadingNormal, vec3 V, int brdfType, inout vec3 rayDirection, inout vec3 sampleWeight) {
-	if (dot(shadingNormal, V) <= 0.0f) return false;
-
-	// Transform view direction into local space of our sampling routines 
-	// (local space is oriented so that its positive Z axis points along the shading normal)
-	vec4 qRotationToZ = getRotationToZAxis(shadingNormal);
-	vec3 Vlocal = rotatePoint(qRotationToZ, V);
-	const vec3 Nlocal = vec3(0.0f, 0.0f, 1.0f);
-
-	vec3 rayDirectionLocal = vec3(0.0f, 0.0f, 0.0f);
-
-
-	const BrdfData data = prepareBRDFData(Nlocal, rayDirectionLocal, Vlocal, RayPayload);
-
-	// vec3 sampleSpecularMicrofacet(vec3 Vlocal, float alpha, float alphaSquared, vec3 specularF0, vec2 u, inout vec3 weight) {
-	rayDirectionLocal = sampleSpecularMicrofacet(Vlocal, data.alpha, data.alphaSquared, data.specularF0, u, sampleWeight);
-
-	// Prevent tracing direction with no contribution
-	if (luminance(sampleWeight) == 0.0f) return false;
-
-	// Transform sampled direction Llocal back to V vector space
-	rayDirection = normalize(rotatePoint(invertRotation(qRotationToZ), rayDirectionLocal));
-
-	// // Prevent tracing direction "under" the hemisphere (behind the triangle)
-	// if (dot(geometryNormal, rayDirection) <= 0.0f) return false;
-
-	return true;
-}
-
-bool SampleDiffuseBRDF(vec2 u, vec3 shadingNormal, vec3 V, int brdfType, inout vec3 rayDirection, inout vec3 sampleWeight) {
-
-	// Ignore incident ray coming from "below" the hemisphere
-	if (dot(shadingNormal, V) <= 0.0f) return false;
-
-	// Transform view direction into local space of our sampling routines 
-	// (local space is oriented so that its positive Z axis points along the shading normal)
-	vec4 qRotationToZ = getRotationToZAxis(shadingNormal);
-	vec3 Vlocal = rotatePoint(qRotationToZ, V);
-	const vec3 Nlocal = vec3(0.0f, 0.0f, 1.0f);
-
-	vec3 rayDirectionLocal = vec3(0.0f, 0.0f, 0.0f);
-
-	// Sample diffuse ray using cosine-weighted hemisphere sampling 
-	rayDirectionLocal = sampleHemisphere(u);
-	const BrdfData data = prepareBRDFData(Nlocal, rayDirectionLocal, Vlocal, RayPayload);
-
-	// Function 'diffuseTerm' is predivided by PDF of sampling the cosine weighted hemisphere
-	sampleWeight = data.diffuseReflectance * lambertian(data);
-
-	// Sample a half-vector of specular BRDF. Note that we're reusing random variable 'u' here, but correctly it should be an new independent random number
-	vec3 Hspecular = sampleSpecularHalfVector(Vlocal, vec2(data.alpha, data.alpha), u);
-
-	// Clamp HdotL to small value to prevent numerical instability. Assume that rays incident from below the hemisphere have been filtered
-	float VdotH = max(0.00001f, min(1.0f, dot(Vlocal, Hspecular)));
-	sampleWeight *= (vec3(1.0f, 1.0f, 1.0f) - evalFresnel(data.specularF0, shadowedF90(data.specularF0), VdotH));
-
-	// Prevent tracing direction with no contribution
-	if (luminance(sampleWeight) == 0.0f) return false;
-
-	// Transform sampled direction Llocal back to V vector space
-	rayDirection = normalize(rotatePoint(invertRotation(qRotationToZ), rayDirectionLocal));
-
-	// // Prevent tracing direction "under" the hemisphere (behind the triangle)
-	// if (dot(geometryNormal, rayDirection) <= 0.0f) return false;
-
-	return true;
-}
-
-float getBrdfProbability(rayPayload RayPayload, vec3 V, vec3 shadingNormal) {
-	
-	// Evaluate Fresnel term using the shading normal
-	// Note: we use the shading normal instead of the microfacet normal (half-vector) for Fresnel term here. That's suboptimal for rough surfaces at grazing angles, but half-vector is yet unknown at this point
-	float specularF0 = luminance(baseColorToSpecularF0(RayPayload.Color, RayPayload.Metallic));
-	float diffuseReflectance = luminance(baseColorToDiffuseReflectance(RayPayload.Color, RayPayload.Metallic));
-	float Fresnel = clamp(luminance(evalFresnel(vec3(specularF0), shadowedF90(vec3(specularF0)), max(0.0f, dot(V, shadingNormal)))), 0, 1);
-
-	// Approximate relative contribution of BRDFs using the Fresnel term
-	float specular = Fresnel;
-	float diffuse = diffuseReflectance * (1.0f - Fresnel); //< If diffuse term is weighted by Fresnel, apply it here as well
-
-	// Return probability of selecting specular BRDF over diffuse BRDF
-	float p = (specular / max(0.0001f, (specular + diffuse)));
-
-	// Clamp probability to avoid undersampling of less prominent BRDF
-	return clamp(p, 0.1f, 0.9f);
-}
+#include "BRDF.glsl"
 
 void main() 
 {
@@ -382,7 +74,10 @@ void main()
 					
 					Radiance += Attenuation * RayPayload.Emission;
 
-					vec3 V = -Direction.xyz;
+					//Sample lights
+					{
+						
+					}
 
 
 					if(j == ubo.rayBounces-1) break;
@@ -397,17 +92,16 @@ void main()
 							Attenuation /= q;
 						}
 					}
+					
 
 					//Eval brdf
 					{
-						int brdfType;
+						vec3 V = -Direction.xyz;
+						int brdfType = DIFFUSE_TYPE;
 						if (RayPayload.Metallic == 1.0f && RayPayload.Roughness == 0.0f) {
-							// Fast path for mirrors
 							brdfType = SPECULAR_TYPE;
 						} else {
-
-							// Decide whether to sample diffuse or specular BRDF (based on Fresnel term)
-							float brdfProbability = getBrdfProbability(RayPayload, V, RayPayload.Normal);
+							float brdfProbability = GetBrdfProbability(RayPayload, V, RayPayload.Normal);
 
 							if (RandomUnilateral(RayPayload.RandomState) < brdfProbability) {
 								brdfType = SPECULAR_TYPE;
@@ -424,19 +118,18 @@ void main()
 						
 						if(brdfType == DIFFUSE_TYPE)
 						{
-							if (!SampleDiffuseBRDF(Xi, RayPayload.Normal, V,brdfType,  ScatterDir, brdfWeight)) {
+							if (!SampleDiffuseBRDF(Xi, RayPayload.Normal, V,  ScatterDir, brdfWeight)) {
 								break;
 							}
 						}
 						else if(brdfType == SPECULAR_TYPE)
 						{
-							if (!SampleSpecularBRDF(Xi, RayPayload.Normal, V,brdfType,  ScatterDir, brdfWeight)) {
+							if (!SampleSpecularBRDF(Xi, RayPayload.Normal, V,  ScatterDir, brdfWeight)) {
 								break;
 							}
 						}
 
-
-						// Account for surface properties using the BRDF "weight"
+						//the weights already contains color * brdf * cosine term / pdf
 						Attenuation *= brdfWeight;						
 
 						Origin = Origin + RayPayload.Distance * Direction;
@@ -444,7 +137,6 @@ void main()
 					}					
 
 
-					// Move ray origin to hit point and set direction for next bounce
 					
 				}
 

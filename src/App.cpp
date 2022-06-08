@@ -288,7 +288,6 @@ void vulkanApp::RenderGUI()
     io.MousePos = ImVec2(Mouse.PosX, Mouse.PosY);
     io.MouseDown[0] = Mouse.Left;
     io.MouseDown[1] = Mouse.Right;    
-    io.MouseWheel = Mouse.Wheel;
     
     //Render scene gui
     ImGui::NewFrame();
@@ -543,6 +542,8 @@ void vulkanApp::Scroll(float YOffset)
 {
     Scene->Camera.Scroll(YOffset);
     Mouse.Wheel=YOffset;
+    ImGuiIO& io = ImGui::GetIO();
+    io.AddMouseWheelEvent(0, Mouse.Wheel);
 }
 
 
