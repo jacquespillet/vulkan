@@ -73,6 +73,7 @@ public:
     VkPhysicalDeviceAccelerationStructureFeaturesKHR AccelerationStructureFeatures{};
 
 
+    bool ResetAccumulation=true;
     
     void UpdateCamera();
     void UpdateMaterial(size_t Index);
@@ -106,7 +107,6 @@ private:
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> ShaderGroups;
     VkPipeline Pipeline;
     VkDescriptorSet DescriptorSet;
-    bool ResetAccumulation=true;
 
     struct shaderBindingTables
     {

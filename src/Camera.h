@@ -62,6 +62,9 @@ public:
 
     float GetNearPlane() {return nearPlane;}
     float GetFarPlane() {return farPlane;}
+
+    void Lock();
+    void Unlock();
 private:    
     float fov;
     float nearPlane, farPlane;

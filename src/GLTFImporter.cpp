@@ -748,7 +748,6 @@ namespace GLTFImporter
                 {
                     Instance.Name = "Mesh" + std::to_string(GLTFNode.mesh) + "_" + std::to_string(i);
                 }
-                util::DecomposeMatrix(Transform, &Instance.Position, &Instance.Rotation, &Instance.Scale);
                 int MatFlag = Instance.Mesh->Material->Flags;
                 Instances[MatFlag].push_back(Instance);
             }

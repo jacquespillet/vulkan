@@ -28,7 +28,7 @@ REM --------------------
 
 REM IMGUI
 set imguiInclude=..\ext\imgui
-set imguiSrc=%imguiInclude%\imgui_impl_vulkan.cpp %imguiInclude%\imgui_impl_glfw.cpp %imguiInclude%\imgui.cpp %imguiInclude%\imgui_demo.cpp %imguiInclude%\imgui_draw.cpp %imguiInclude%\imgui_widgets.cpp %imguiInclude%\imgui_tables.cpp
+set imguiSrc=%imguiInclude%\imgui_impl_vulkan.cpp %imguiInclude%\imgui_impl_glfw.cpp %imguiInclude%\imgui.cpp %imguiInclude%\imgui_demo.cpp %imguiInclude%\imgui_draw.cpp %imguiInclude%\imgui_widgets.cpp %imguiInclude%\imgui_tables.cpp  %imguiInclude%\ImGuizmo.cpp
 REM --------------------
 
 REM ASSIMP

@@ -3,7 +3,7 @@
 #include "Renderers/DeferredRenderer.h"
 #include "Renderers/PathTraceRTXRenderer.h"
 #include "imgui.h"
-
+#include "ImGuizmo.h"
 void vulkanApp::InitVulkan()
 {
     Instance = vulkanTools::CreateInstance(EnableValidation);
@@ -288,9 +288,10 @@ void vulkanApp::RenderGUI()
     io.MousePos = ImVec2(Mouse.PosX, Mouse.PosY);
     io.MouseDown[0] = Mouse.Left;
     io.MouseDown[1] = Mouse.Right;    
-    
+
     //Render scene gui
     ImGui::NewFrame();
+    ImGuizmo::BeginFrame();
     ImGui::SetNextWindowSize(ImVec2(GuiWidth, (float)Height));
     ImGui::SetNextWindowPos(ImVec2(0,0), ImGuiCond_Always);
 
@@ -384,6 +385,26 @@ void vulkanApp::RenderGUI()
 
         if(CurrentSceneItemIndex>=0)
         {
+            static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::ROTATE);
+            static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::WORLD);
+            
+            bool UpdateTransform=false;
+            {
+                glm::mat4 projectionMatrix = Scene->Camera.GetProjectionMatrix();
+                projectionMatrix[1][1] *= -1;
+                
+                ImGuizmo::SetRect(Scene->ViewportStart, 0, Width-Scene->ViewportStart, (float)Height);
+                UpdateTransform |= ImGuizmo::Manipulate(glm::value_ptr(Scene->Camera.GetViewMatrix()), 
+                                     glm::value_ptr(projectionMatrix), 
+                                     mCurrentGizmoOperation, 
+                                     mCurrentGizmoMode, 
+                                     glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Transform), 
+                                     NULL, 
+                                     NULL);  
+                
+            }                
+            
+
             ImGui::SetNextWindowSize(ImVec2((float)GuiWidth, (float)Height));
             ImGui::SetNextWindowPos(ImVec2((float)GuiWidth,0), ImGuiCond_Always);
             if(ImGui::Begin(Scene->InstancesPointers[CurrentSceneItemIndex]->Name.c_str()))
@@ -391,14 +412,25 @@ void vulkanApp::RenderGUI()
                 Scene->ViewportStart+=GuiWidth;
                 if(ImGui::CollapsingHeader("Transform"))
                 {
-                    bool UpdateTransform=false;
-                    UpdateTransform |= ImGui::DragFloat3("Position", glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->Position), 0.01f);
-                    UpdateTransform |= ImGui::DragFloat3("Rotation", glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->Rotation), 0.01f);
-                    UpdateTransform |= ImGui::DragFloat3("Scale", glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->Scale), 0.01f);
+                    if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
+                        mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+                    ImGui::SameLine();
+                    if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
+                        mCurrentGizmoOperation = ImGuizmo::ROTATE;
+                    ImGui::SameLine();
+                    if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
+                        mCurrentGizmoOperation = ImGuizmo::SCALE;                    
+
+                    glm::vec3 Translation, Rotation, Scale;
+                    ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Transform), glm::value_ptr(Translation), glm::value_ptr(Rotation), glm::value_ptr(Scale));
+                    UpdateTransform |= ImGui::DragFloat3("Position", glm::value_ptr(Translation), 0.01f);
+                    UpdateTransform |= ImGui::DragFloat3("Rotation", glm::value_ptr(Rotation), 0.01f);
+                    UpdateTransform |= ImGui::DragFloat3("Scale", glm::value_ptr(Scale), 0.01f);
+                    ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Transform), glm::value_ptr(Translation), glm::value_ptr(Rotation), glm::value_ptr(Scale));
 
                     if(UpdateTransform) 
                     {
-                        Scene->InstancesPointers[CurrentSceneItemIndex]->RecalculateModelMatrixAndUpload();
+                        Scene->InstancesPointers[CurrentSceneItemIndex]->UploadUniform();
                         if(RayTracing)
                         {
                             for(size_t i=0; i<Renderers.size(); i++)
@@ -407,12 +439,14 @@ void vulkanApp::RenderGUI()
                                 if(PathTracer)
                                 {
                                     PathTracer->UpdateBLASInstance(CurrentSceneItemIndex);
+                                    PathTracer->ResetAccumulation=true;
                                 }
                             }
                         }                        
                     }
                 }
 
+                
                 if(ImGui::CollapsingHeader("Material"))
                 {
                     //If changing material, disable the colouring
@@ -490,15 +524,10 @@ void vulkanApp::RenderGUI()
     }
 
     ImGui::End();
-     
-    
-  
-
-
 
     // ImGui::ShowDemoWindow();
-    if(ImGui::IsAnyItemHovered() || ImGui::IsAnyItemActive() || ImGui::IsAnyItemFocused()) Scene->Camera.Locked=true;
-    else Scene->Camera.Locked=false;
+    if(ImGui::IsAnyItemHovered() || ImGui::IsAnyItemActive() || ImGui::IsAnyItemFocused() || ImGuizmo::IsUsing()) Scene->Camera.Lock();
+    else Scene->Camera.Unlock();
     
 
     // Render to generate draw buffers

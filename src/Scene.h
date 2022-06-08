@@ -199,10 +199,6 @@ struct instance
     uint32_t MeshIndex;
     
 
-    glm::vec3 Position;
-    glm::vec3 Rotation;
-    glm::vec3 Scale;
-
     struct 
     {
         glm::mat4 Transform;
@@ -214,28 +210,6 @@ struct instance
     buffer UniformBuffer;
     VkDescriptorSet DescriptorSet;
     
-    void RecalculateMatrix()
-    {
-        glm::mat4 translateM = glm::translate(glm::mat4(1.0f), Position);
-        
-        glm::mat4 scaleM = glm::scale(glm::mat4(1.0f), Scale);
-
-        glm::mat4 rotxPM = glm::rotate(glm::mat4(1.0f), glm::radians(Rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));//rot x axis
-        glm::mat4 rotyPM = glm::rotate(glm::mat4(1.0f), glm::radians(Rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));//rot y axis
-        glm::mat4 rotzPM = glm::rotate(glm::mat4(1.0f), glm::radians(Rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));//rot z axis
-
-        glm::mat4 rotM = rotyPM * rotxPM * rotzPM; 	
-            
-        InstanceData.Transform = translateM * rotM * scaleM;   
-
-        InstanceData.Normal = glm::inverseTranspose(InstanceData.Transform);
-    }
-
-    void RecalculateModelMatrixAndUpload()
-    {
-        RecalculateMatrix();
-        UploadUniform();
-    }
 
     void UploadUniform()
     {

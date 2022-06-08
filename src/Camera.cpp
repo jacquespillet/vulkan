@@ -79,3 +79,15 @@ void camera::GetScreenRay(glm::vec2 ndc, float aspect, glm::vec3& rayOrig, glm::
     rayOrig = glm::vec3(modelMatrix * glm::vec4(0, 0, 0, 1)); 
 
 }
+
+
+void camera::Lock()
+{
+    if(IsLeftMousePressed) IsLeftMousePressed=false;
+    Locked=true;
+}
+
+void camera::Unlock()
+{
+    Locked=false;
+}
