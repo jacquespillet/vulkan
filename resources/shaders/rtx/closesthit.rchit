@@ -77,22 +77,17 @@ void main()
 	}
 	
 	
-	RayPayload.DoScatter=true;
-	
 	// Emission
 	RayPayload.Emission = Material.Emission * Material.EmissiveStrength;
 	if(Material.EmissionMapTextureID >=0 && Material.UseEmissionMap>0)
 	{
 		RayPayload.Emission *= texture(textures[Material.EmissionMapTextureID], Triangle.uv).rgb;
 	}
-	if(length(RayPayload.Emission)>0) RayPayload.DoScatter=false;
-	// Emission = vec3(0);
-
+	
 	RayPayload.Color = BaseColor;
 
 
 	
-	RayPayload.ScatterDir = reflect(gl_WorldRayDirectionEXT, normalize(Normal + RandomInUnitSphere(RayPayload.RandomState) ));
 	RayPayload.Distance = gl_HitTEXT;
 	RayPayload.Normal = Normal;
 	RayPayload.Depth++;
