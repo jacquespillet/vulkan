@@ -989,7 +989,7 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
             &ShaderBindingTables.Miss.StrideDeviceAddressRegion,
             &ShaderBindingTables.Hit.StrideDeviceAddressRegion,
             &EmptySbtEntry,
-            App->Width - (int)App->GuiWidth, App->Height, 1
+            App->Width - (int)App->Scene->ViewportStart, App->Height, 1
         );
 
         vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->Swapchain.Images[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
