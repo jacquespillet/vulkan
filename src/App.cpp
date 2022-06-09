@@ -370,15 +370,28 @@ void vulkanApp::RenderGUI()
             }
             if (ImGui::BeginTabItem("Environment"))
             {
+                bool UpdateBackground= false;
                 static int BackGroundType = 0;
-                ImGui::Combo("Background Mode", &BackGroundType, "Cubemap\0Solid Color\0\0");
+                UpdateBackground |= ImGui::Combo("Background Mode", &BackGroundType, "Cubemap\0Solid Color\0\0");
                 Scene->UBOSceneMatrices.BackgroundType = (float)BackGroundType;
-                ImGui::DragFloat("Background Intensity", &Scene->UBOSceneMatrices.BackgroundIntensity, 0.1f, 0, 100);
+                UpdateBackground |= ImGui::DragFloat("Background Intensity", &Scene->UBOSceneMatrices.BackgroundIntensity, 0.1f, 0, 100);
 
                 if(BackGroundType == 1)
                 {
-                    ImGui::ColorPicker3("Background Color", &Scene->UBOSceneMatrices.BackgroundColor[0]);
+                    UpdateBackground |= ImGui::ColorPicker3("Background Color", &Scene->UBOSceneMatrices.BackgroundColor[0]);
                 }
+
+                if(UpdateBackground && RayTracing)
+                {
+                    for(size_t i=0; i<Renderers.size(); i++)
+                    {
+                        pathTraceRTXRenderer *PathTracer = dynamic_cast<pathTraceRTXRenderer*>(Renderers[i]);
+                        if(PathTracer)
+                        {
+                            PathTracer->ResetAccumulation=true;
+                        }
+                    }
+                }                
                 
                 ImGui::EndTabItem();
             }
@@ -531,6 +544,7 @@ void vulkanApp::RenderGUI()
                                 if(PathTracer)
                                 {
                                     PathTracer->UpdateMaterial(Scene->InstancesPointers[CurrentSceneItemIndex]->Mesh->Material->Index);
+                                    PathTracer->ResetAccumulation=true;
                                 }
                             }
                         }
