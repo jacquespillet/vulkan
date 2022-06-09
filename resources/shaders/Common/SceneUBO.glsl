@@ -15,4 +15,7 @@ struct sceneUbo
 	float BackgroundIntensity;
 	float DebugChannel;
 	vec2 Padding;
+
+	vec3 LightDirection;
+	float Padding1;
 };

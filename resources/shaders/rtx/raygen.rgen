@@ -27,7 +27,7 @@ layout (set=0, binding = 8) uniform UBO
 layout(location = 0) rayPayloadEXT rayPayload RayPayload;
 
 #include "BRDF.glsl"
-
+#include "../Common/Defines.glsl"
 void main() 
 {
 	bool debug=false;
@@ -62,13 +62,13 @@ void main()
 						{
 							if(RayPayload.Distance < 0)
 							{
-								if(SceneUbo.Data.BackgroundType ==0)
+								if(SceneUbo.Data.BackgroundType ==BACKGROUND_TYPE_CUBEMAP)
 								{
 									vec3 SkyDirection = Direction.xyz;
 									SkyDirection.y *=-1;
 									Radiance += Attenuation * SceneUbo.Data.BackgroundIntensity * texture(IrradianceMap, SkyDirection).rgb;
 								}
-								else
+								else if(SceneUbo.Data.BackgroundType ==BACKGROUND_TYPE_COLOR)
 								{
 									Radiance += Attenuation * SceneUbo.Data.BackgroundIntensity * SceneUbo.Data.BackgroundColor;
 								}

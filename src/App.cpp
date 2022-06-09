@@ -372,13 +372,19 @@ void vulkanApp::RenderGUI()
             {
                 bool UpdateBackground= false;
                 static int BackGroundType = 0;
-                UpdateBackground |= ImGui::Combo("Background Mode", &BackGroundType, "Cubemap\0Solid Color\0\0");
+                UpdateBackground |= ImGui::Combo("Background Mode", &BackGroundType, "Cubemap\0Solid Color\0Directional Light\0\0");
                 Scene->UBOSceneMatrices.BackgroundType = (float)BackGroundType;
                 UpdateBackground |= ImGui::DragFloat("Background Intensity", &Scene->UBOSceneMatrices.BackgroundIntensity, 0.1f, 0, 100);
 
                 if(BackGroundType == 1)
                 {
                     UpdateBackground |= ImGui::ColorPicker3("Background Color", &Scene->UBOSceneMatrices.BackgroundColor[0]);
+                }
+                if(BackGroundType == 2)
+                {
+                    static glm::vec3 LightDirection = Scene->UBOSceneMatrices.LightDirection;
+                    UpdateBackground |= ImGui::SliderFloat3("Direction", &LightDirection[0], -1, 1);
+                    Scene->UBOSceneMatrices.LightDirection = glm::normalize(LightDirection);
                 }
 
                 if(UpdateBackground && RayTracing)

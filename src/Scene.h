@@ -308,6 +308,9 @@ public:
         float BackgroundIntensity = 3;
         float DebugChannel=-1;
         glm::vec2 Padding;
+        
+        glm::vec3 LightDirection = glm::vec3(-1,-1,-1);
+        float Padding1;
     } UBOSceneMatrices;    
     
     camera Camera;

@@ -106,3 +106,45 @@ vec3 GGX(vec3 N, vec3 H, vec3 V, vec3 L, float roughness, float metallic, vec3 a
     // return  specular;
     return (kD * albedo / PI + specular);   
 }
+
+
+vec3 FresnelShlick(vec3 f0, vec3 F90, float VdotH)
+{
+    return f0 + (F90 - f0) * pow(clamp(1.0 - VdotH, 0.0, 1.0), 5.0);
+}
+
+float V_GGX(float NdotL, float NdotV, float AlphaRoughness)
+{
+    float alphaRoughnessSq = AlphaRoughness * AlphaRoughness;
+
+    float GGXV = NdotL * sqrt(NdotV * NdotV * (1.0 - alphaRoughnessSq) + alphaRoughnessSq);
+    float GGXL = NdotV * sqrt(NdotL * NdotL * (1.0 - alphaRoughnessSq) + alphaRoughnessSq);
+
+    float GGX = GGXV + GGXL;
+    if (GGX > 0.0)
+    {
+        return 0.5 / GGX;
+    }
+    return 0.0;
+}
+
+float D_GGX(float NdotH, float AlphaRoughness)
+{
+    float alphaRoughnessSq = AlphaRoughness * AlphaRoughness;
+    float f = (NdotH * NdotH) * (alphaRoughnessSq - 1.0) + 1.0;
+    return alphaRoughnessSq / (PI * f * f);
+}
+
+vec3 GetBRDFLambertian(vec3 f0, vec3 F90, vec3 diffuseColor, float SpecularWeight, float VdotH)
+{
+    return (1.0 - SpecularWeight * FresnelShlick(f0, F90, VdotH)) * (diffuseColor / PI);
+}
+
+vec3 GetBRDFSpecularGGX(vec3 f0, vec3 F90, float AlphaRoughness, float SpecularWeight, float VdotH, float NdotL, float NdotV, float NdotH)
+{
+    vec3 F = FresnelShlick(f0, F90, VdotH);
+    float Vis = V_GGX(NdotL, NdotV, AlphaRoughness);
+    float D = D_GGX(NdotH, AlphaRoughness);
+
+    return SpecularWeight * F * Vis * D;
+}

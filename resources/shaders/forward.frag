@@ -1,5 +1,7 @@
 #version 450
 
+#include "Common/Defines.glsl"
+
 #include "Common/Material.glsl"
 layout (set=1, binding = 0) uniform materialUBO 
 {
@@ -56,6 +58,7 @@ layout (constant_id = 7) const int HAS_SHEEN=0;
 #include "Common/Tonemapping.glsl"
 #include "Common/MaterialForward.glsl"
 #include "Common/IBL.glsl"
+#include "Common/Common.glsl"
 
 void main() 
 {
@@ -109,8 +112,20 @@ void main()
 // #endif
 
 //     // // Calculate lighting contribution from image based lighting source (IBL)
-    FinalSpecular += GetIBLRadianceGGX(Normal, View, MaterialInfo.PerceptualRoughness, MaterialInfo.f0, MaterialInfo.SpecularWeight);
-    FinalDiffuse += GetIBLRadianceLambertian(Normal, View, MaterialInfo.PerceptualRoughness, MaterialInfo.c_diff, MaterialInfo.f0, MaterialInfo.SpecularWeight);
+    if(SceneUbo.Data.BackgroundType == BACKGROUND_TYPE_CUBEMAP || SceneUbo.Data.BackgroundType == BACKGROUND_TYPE_COLOR)
+    {
+        FinalSpecular += GetIBLRadianceGGX(Normal, View, MaterialInfo.PerceptualRoughness, MaterialInfo.f0, MaterialInfo.SpecularWeight);
+        FinalDiffuse += GetIBLRadianceLambertian(Normal, View, MaterialInfo.PerceptualRoughness, MaterialInfo.c_diff, MaterialInfo.f0, MaterialInfo.SpecularWeight);
+    }
+    else if(SceneUbo.Data.BackgroundType==BACKGROUND_TYPE_DIRLIGHT)
+    {
+        vec3 H = normalize(-SceneUbo.Data.LightDirection + View);
+        float NdotL = ClampedDot(Normal, -SceneUbo.Data.LightDirection);
+        float VdotH = ClampedDot(View, H);
+        float NdotH = ClampedDot(Normal, H);
+        FinalDiffuse += SceneUbo.Data.BackgroundIntensity * NdotL *  GetBRDFLambertian(MaterialInfo.f0, MaterialInfo.F90, MaterialInfo.c_diff, MaterialInfo.SpecularWeight, VdotH);
+        FinalSpecular += SceneUbo.Data.BackgroundIntensity * NdotL * GetBRDFSpecularGGX(MaterialInfo.f0, MaterialInfo.F90, MaterialInfo.AlphaRoughness, MaterialInfo.SpecularWeight, VdotH, NdotL, NdotV, NdotH);
+    }
 
 
     float AmbientOcclusion = 1.0;

@@ -1,4 +1,5 @@
 #version 450
+#include "Common/Defines.glsl"
 
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
@@ -35,7 +36,7 @@ layout (location = 0) out vec4 outFragcolor;
 #include "Common/MaterialDeferred.glsl"
 #include "Common/IBL.glsl"
 #include "Common/Tonemapping.glsl"
-
+#include "Common/Common.glsl"
 void main() 
 {
 	vec4 PositionDepth = texture(samplerPositionDepth, inUV);
@@ -86,9 +87,20 @@ void main()
     vec3 FinalSheen = vec3(0.0);
     vec3 FinalTransmission = vec3(0.0);
     
-	FinalSpecular += GetIBLRadianceGGX(Normal, View, MaterialInfo.PerceptualRoughness, MaterialInfo.f0, MaterialInfo.SpecularWeight);
-    FinalDiffuse += GetIBLRadianceLambertian(Normal, View, MaterialInfo.PerceptualRoughness, MaterialInfo.c_diff, MaterialInfo.f0, MaterialInfo.SpecularWeight);
-
+    if(SceneUbo.Data.BackgroundType == BACKGROUND_TYPE_CUBEMAP || SceneUbo.Data.BackgroundType == BACKGROUND_TYPE_COLOR)
+    {
+        FinalSpecular += GetIBLRadianceGGX(Normal, View, MaterialInfo.PerceptualRoughness, MaterialInfo.f0, MaterialInfo.SpecularWeight);
+        FinalDiffuse += GetIBLRadianceLambertian(Normal, View, MaterialInfo.PerceptualRoughness, MaterialInfo.c_diff, MaterialInfo.f0, MaterialInfo.SpecularWeight);
+    }
+    else if(SceneUbo.Data.BackgroundType==BACKGROUND_TYPE_DIRLIGHT)
+    {
+        vec3 H = normalize(-SceneUbo.Data.LightDirection + View);
+        float NdotL = ClampedDot(Normal, -SceneUbo.Data.LightDirection);
+        float VdotH = ClampedDot(View, H);
+        float NdotH = ClampedDot(Normal, H);
+        FinalDiffuse += SceneUbo.Data.BackgroundIntensity * NdotL *  GetBRDFLambertian(MaterialInfo.f0, MaterialInfo.F90, MaterialInfo.c_diff, MaterialInfo.SpecularWeight, VdotH);
+        FinalSpecular += SceneUbo.Data.BackgroundIntensity * NdotL * GetBRDFSpecularGGX(MaterialInfo.f0, MaterialInfo.F90, MaterialInfo.AlphaRoughness, MaterialInfo.SpecularWeight, VdotH, NdotL, NdotV, NdotH);
+    }
 
 	// FinalDiffuse = mix(FinalDiffuse, FinalDiffuse * AmbientOcclusion, MaterialUBO.OcclusionStrength);
 	// FinalSpecular = mix(FinalSpecular, FinalSpecular * AmbientOcclusion, MaterialUBO.OcclusionStrength);
