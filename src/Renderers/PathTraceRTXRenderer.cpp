@@ -1039,6 +1039,27 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
     }
 }
 
+void pathTraceRTXRenderer::Resize(uint32_t Width, uint32_t Height)
+{
+    vkQueueWaitIdle(App->Queue);
+    vkDeviceWaitIdle(VulkanDevice->Device);
+
+    // StorageImage.Destroy();
+    // AccumulationImage.Destroy();
+    DenoiseBuffer.Destroy();
+    CreateImages();
+
+
+    VkDescriptorImageInfo StorageImageDescriptor {VK_NULL_HANDLE, StorageImage.ImageView, VK_IMAGE_LAYOUT_GENERAL};
+    VkDescriptorImageInfo AccumImageDescriptor {VK_NULL_HANDLE, AccumulationImage.ImageView, VK_IMAGE_LAYOUT_GENERAL};
+    std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
+    {
+        vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &StorageImageDescriptor),
+        vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2, &AccumImageDescriptor),
+    };
+    vkUpdateDescriptorSets(VulkanDevice->Device, static_cast<uint32_t>(WriteDescriptorSets.size()), WriteDescriptorSets.data(), 0, VK_NULL_HANDLE);    
+}
+
 
 void pathTraceRTXRenderer::Destroy()
 {

@@ -59,6 +59,7 @@ public:
     void Setup() override;    
     void Destroy() override;    
     void RenderGUI() override;
+    void Resize(uint32_t Width, uint32_t Height) override;
 
     std::vector<VkCommandBuffer> DrawCommandBuffers;
 
@@ -134,12 +135,12 @@ private:
     
     VkAccelerationStructureInstanceKHR CreateBottomLevelAccelerationInstance(instance *Instance);
 
+    void CreateCommandBuffers();
     void CreateImages();
     void CreateRayTracingPipeline();
     void CreateShaderBindingTable();
     void CreateDescriptorSets();
     void UpdateUniformBuffers();    
-    void CreateCommandBuffers();
     void BuildUniformBuffers();
     void BuildCommandBuffers();
 };

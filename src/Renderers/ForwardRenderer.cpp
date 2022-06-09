@@ -357,7 +357,9 @@ void forwardRenderer::BuildCommandBuffers()
     }
 }
 
-
+void forwardRenderer::Resize(uint32_t Width, uint32_t Height) 
+{
+}
 
 void forwardRenderer::Destroy()
 {

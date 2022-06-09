@@ -13,10 +13,12 @@ class objectPicker
 {
 public:
     void Initialize(vulkanDevice *Device, vulkanApp *App);
+    
     void Render();
     void FillCommandBuffer();
     void Pick(int MouseX, int MouseY);
     void Destroy();
+    void Resize(uint32_t NewWidth, uint32_t NewHeight);
 private:
     vulkanDevice *VulkanDevice;
     vulkanApp *App;

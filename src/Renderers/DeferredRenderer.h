@@ -11,6 +11,8 @@ public:
     void Setup() override;    
     void Destroy() override;    
     void RenderGUI() override{};
+    void Resize(uint32_t Width, uint32_t Height) override;
+
 
     std::vector<VkCommandBuffer> DrawCommandBuffers;
 
@@ -63,9 +65,9 @@ private:
     void SetupDescriptorPool();
     void BuildUniformBuffers();
     void BuildQuads();
+    void BuildCommandBuffers();
     void BuildOffscreenBuffers();
     void BuildLayoutsAndDescriptors();
     void BuildPipelines();
-    void BuildCommandBuffers();
     void BuildDeferredCommandBuffers();
 };

@@ -711,6 +711,29 @@ void deferredRenderer::UpdateCamera()
     UpdateUniformBufferSSAOParams();
 }
 
+void deferredRenderer::Resize(uint32_t Width, uint32_t Height) 
+{
+    Framebuffers.Offscreen.Destroy(VulkanDevice->Device);
+    Framebuffers.SSAO.Destroy(VulkanDevice->Device);
+    Framebuffers.SSAOBlur.Destroy(VulkanDevice->Device);
+    BuildOffscreenBuffers();
+
+    VkDescriptorSet TargetDescriptorSet = Resources.DescriptorSets->Get("Composition");
+    std::vector<descriptor> Descriptors = 
+    {
+        descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+        descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+        descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[2].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+        descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[3].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+    };
+    std::vector<VkWriteDescriptorSet> WriteDescriptorSets(4);
+    WriteDescriptorSets[0] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[0].DescriptorType, 0, &Descriptors[0].DescriptorImageInfo); 
+    WriteDescriptorSets[1] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[1].DescriptorType, 1, &Descriptors[1].DescriptorImageInfo); 
+    WriteDescriptorSets[2] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[2].DescriptorType, 2, &Descriptors[2].DescriptorImageInfo); 
+    WriteDescriptorSets[3] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[3].DescriptorType, 3, &Descriptors[3].DescriptorImageInfo); 
+    vkUpdateDescriptorSets(VulkanDevice->Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);        
+}
+
 void deferredRenderer::Destroy()
 {
     vkDestroySemaphore(VulkanDevice->Device, OffscreenSemaphore, nullptr);
@@ -730,6 +753,7 @@ void deferredRenderer::Destroy()
     UniformBuffers.SSAOParams.Destroy();
     Resources.Destroy();
     vkDestroyDescriptorPool(VulkanDevice->Device, DescriptorPool, nullptr);
+    
     
     vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, (uint32_t)DrawCommandBuffers.size(), DrawCommandBuffers.data());
     vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, 1, &OffscreenCommandBuffer);

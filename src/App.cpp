@@ -556,8 +556,6 @@ void vulkanApp::Render()
     RenderGUI();
     Renderers[CurrentRenderer]->Render();
 
-    // ObjectPicker.Render();
-    
     if(Scene->Camera.Changed) Scene->Camera.Changed=false;
 }
 
@@ -731,7 +729,31 @@ void vulkanApp::Resize(uint32_t NewWidth, uint32_t NewHeight)
 {
     Width = NewWidth;
     Height = NewHeight;
+
     Swapchain.Create(&Width, &Height, true);
+    vkDestroyImageView(Device, DepthStencil.View, nullptr);
+    vkDestroyImage(Device, DepthStencil.Image, nullptr);
+    vkFreeMemory(Device, DepthStencil.Memory, nullptr);
+    SetupDepthStencil();
+
+    for(size_t i=0; i<AppFramebuffers.size(); i++)
+    {
+        vkDestroyFramebuffer(Device, AppFramebuffers[i], nullptr);
+    }
+    SetupFramebuffer();
+
+    ObjectPicker.Resize(NewWidth, NewHeight);
+    for(uint32_t i=0; i<Renderers.size(); i++)
+    {
+        Renderers[i]->Resize(NewWidth, NewHeight);
+    }
+
+    vkQueueWaitIdle(Queue);
+    vkDeviceWaitIdle(Device);
+
+    Scene->Camera.SetAspectRatio((float)Width / (float)Height);
+
+
 }
 
 void vulkanApp::DestroyGeneralResources()

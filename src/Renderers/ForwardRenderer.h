@@ -9,6 +9,7 @@ public:
     void Setup() override;    
     void Destroy() override;    
     void RenderGUI() override;
+    void Resize(uint32_t Width, uint32_t Height) override;
 
     std::vector<VkCommandBuffer> DrawCommandBuffers;
 
@@ -22,12 +23,12 @@ public:
 
     void UpdateCamera();
 private:
-    void CreateCommandBuffers();
     void SetupDescriptorPool();
     void BuildUniformBuffers();
     void BuildQuads();
     void BuildLayoutsAndDescriptors();
     void BuildPipelines();
     void BuildCommandBuffers();
+    void CreateCommandBuffers();
 
 };

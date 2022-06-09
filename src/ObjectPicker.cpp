@@ -119,6 +119,22 @@ void objectPicker::Initialize(vulkanDevice *_VulkanDevice, vulkanApp *_App)
 	FillCommandBuffer();
 }
 
+void objectPicker::Resize(uint32_t NewWidth, uint32_t NewHeight)
+{
+    Framebuffer.Destroy(VulkanDevice->Device);
+    
+    OffscreenCommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+    {
+        Framebuffer.SetSize(App->Width, App->Height)
+                              .SetLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+                              .SetImageFlags(VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+                              .SetAttachmentCount(1)
+                              .SetAttachmentFormat(0, VK_FORMAT_R32_UINT);
+        Framebuffer.BuildBuffers(VulkanDevice,OffscreenCommandBuffer);
+    }    
+    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, OffscreenCommandBuffer, App->Queue, false); 
+}
+
 void objectPicker::FillCommandBuffer()
 {
 

@@ -27,4 +27,7 @@ public:
     virtual void Setup()=0;
     virtual void Destroy()=0;
     virtual void RenderGUI()=0;
+
+    virtual void Resize(uint32_t Width, uint32_t Height)=0;
+
 };
