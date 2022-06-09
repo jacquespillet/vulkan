@@ -253,7 +253,6 @@ void objectPicker::Pick(int MouseX, int MouseY)
     ImageBuffer.Unmap();
     int MouseIndex = MouseY * Framebuffer.Width + MouseX;
     uint32_t InstanceInx = Data[MouseIndex];
-    std::cout << InstanceInx << std::endl;
     //Set it selected
     App->SetSelectedItem(InstanceInx, false);
     ImageBuffer.Destroy();

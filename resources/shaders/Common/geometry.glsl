@@ -19,7 +19,7 @@ triangle UnpackTriangle(uint index, int vertexSize) {
 		Triangle.vertices[i].pos = d0.xyz;
 		Triangle.vertices[i].uv = vec2(d0.w, d1.w);
 		Triangle.vertices[i].normal = d1.xyz;
-		Triangle.vertices[i].tangent = vec4(d2.xyzw);
+		Triangle.vertices[i].tangent = d2;
 		Triangle.vertices[i].materialIndex = int(d3.x);
 		Triangle.vertices[i].bitangent = normalize(cross(d1.xyz, d2.xyz) * d2.w); 
 	}
@@ -34,9 +34,9 @@ triangle UnpackTriangle(uint index, int vertexSize) {
 	Triangle.materialIndex = Triangle.vertices[0].materialIndex;
 	
 	mat4 Transform = TransformMatrices.Buffer[gl_InstanceCustomIndexEXT];
-	Triangle.normal = (Transform * vec4(Triangle.normal, 0)).xyz;
-	Triangle.tangent.xyz = (Transform * vec4(Triangle.tangent.xyz, 0)).xyz;
-	Triangle.bitangent.xyz = (Transform * vec4(Triangle.bitangent.xyz, 0)).xyz;
+	Triangle.normal = normalize((Transform * vec4(Triangle.normal, 0)).xyz);
+	Triangle.tangent.xyz = normalize((Transform * vec4(Triangle.tangent.xyz, 0)).xyz);
+	Triangle.bitangent.xyz = normalize((Transform * vec4(Triangle.bitangent.xyz, 0)).xyz);
 	
 	return Triangle;
 }

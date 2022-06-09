@@ -304,7 +304,7 @@ public:
         glm::vec3 BackgroundColor = glm::vec3(1);
         float BackgroundType = 0;
         
-        float BackgroundIntensity = 15;
+        float BackgroundIntensity = 3;
         float DebugChannel=-1;
         glm::vec2 Padding;
     } UBOSceneMatrices;    

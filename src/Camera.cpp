@@ -10,7 +10,6 @@ void camera::RecalculateLookat() {
 
 void camera::mousePressEvent(int button) {
     if(Locked) return;
-    std::cout << button << std::endl;
     if(button==0) {
         IsLeftMousePressed=true;
     } else if(button==1) {
