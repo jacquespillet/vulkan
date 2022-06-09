@@ -59,7 +59,7 @@ void main()
 	if (Material.NormalMapTextureID >=0 && Material.UseNormalMap > 0) {
 		if (length(Triangle.tangent) != 0) {
 			vec3 T = normalize(Triangle.tangent.xyz);
-			vec3 B = cross(Triangle.normal, Triangle.tangent.xyz) * Triangle.tangent.w;
+			vec3 B = normalize(Triangle.bitangent);
 			vec3 N = normalize(Triangle.normal);
 			mat3 TBN = mat3(T, B, N);
 			Normal = TBN * normalize(texture(textures[Material.NormalMapTextureID], Triangle.uv).rgb * 2.0 - vec3(1.0));

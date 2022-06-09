@@ -4,6 +4,7 @@ struct vertex
   vec3 normal;
   vec2 uv;
   vec4 tangent;
+  vec3 bitangent;
   int materialIndex;
 };
 

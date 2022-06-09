@@ -29,7 +29,7 @@ void vulkanApp::InitVulkan()
 
     //Build logical device
     VulkanDevice = new vulkanDevice(PhysicalDevice, Instance);
-    VK_CALL(VulkanDevice->CreateDevice(EnabledFeatures));
+    VK_CALL(VulkanDevice->CreateDevice(EnabledFeatures, RayTracing));
     Device = VulkanDevice->Device;
 
     //Get queue

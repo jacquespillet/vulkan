@@ -31,7 +31,7 @@ vulkanDevice::vulkanDevice(VkPhysicalDevice PhysicalDevice, VkInstance Instance)
     }
 }
 
-VkResult vulkanDevice::CreateDevice(VkPhysicalDeviceFeatures EnabledFeatures)
+VkResult vulkanDevice::CreateDevice(VkPhysicalDeviceFeatures EnabledFeatures, bool RayTracing)
 {
     bool UseSwapchain=true;
     VkQueueFlags RequestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;

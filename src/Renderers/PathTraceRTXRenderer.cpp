@@ -992,8 +992,8 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
         CopyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
         CopyRegion.srcOffset = {0,0,0};
         CopyRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-        CopyRegion.dstOffset = {(int)App->GuiWidth,0,0};
-        CopyRegion.extent = {App->Width - (int)App->GuiWidth, App->Height, 1};
+        CopyRegion.dstOffset = {(int)App->Scene->ViewportStart,0,0};
+        CopyRegion.extent = {App->Width - (int)App->Scene->ViewportStart, App->Height, 1};
         vkCmdCopyImage(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, App->Swapchain.Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &CopyRegion);
 
         if(ShouldDenoise)

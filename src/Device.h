@@ -36,7 +36,7 @@ public:
 
     bool ExtensionSupported(std::string Extension);
 
-    VkResult CreateDevice(VkPhysicalDeviceFeatures EnabledFeatures);
+    VkResult CreateDevice(VkPhysicalDeviceFeatures EnabledFeatures, bool RayTracing);
 
     uint32_t GetMemoryType(uint32_t TypeBits, VkMemoryPropertyFlags RequestedProperties, VkBool32 *MemoryTypeFound=nullptr);
 
@@ -51,7 +51,7 @@ public:
     PFN_vkCmdTraceRaysKHR _vkCmdTraceRaysKHR;
     PFN_vkCreateRayTracingPipelinesKHR _vkCreateRayTracingPipelinesKHR;
     PFN_vkDestroyAccelerationStructureKHR _vkDestroyAccelerationStructureKHR;
-    bool RayTracing=false;
+    // bool RayTracing=false;
 
     void *DevicePNextChain=nullptr;
     
