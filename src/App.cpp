@@ -2,6 +2,7 @@
 #include "Renderers/ForwardRenderer.h"
 #include "Renderers/DeferredRenderer.h"
 #include "Renderers/PathTraceRTXRenderer.h"
+#include "Renderers/HybridRenderer.h"
 #include "imgui.h"
 #include "ImGuizmo.h"
 void vulkanApp::InitVulkan()
@@ -264,6 +265,7 @@ void vulkanApp::CreateGeneralResources()
     if(RayTracing) 
     {
         Renderers.push_back(new pathTraceRTXRenderer(this));
+        Renderers.push_back(new hybridRenderer(this));
     }
     for(int i=0; i<Renderers.size(); i++)
     {
@@ -404,7 +406,7 @@ void vulkanApp::RenderGUI()
             if (ImGui::BeginTabItem("Renderer"))
             {
                 static int RendererInx = 0;
-                ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0PathTraceRTX\0\0");
+                ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0PathTraceRTX\0HybridRTX\0\0");
                 CurrentRenderer = RendererInx;   
 
                 ImGui::DragFloat("Exposure", &Scene->UBOSceneMatrices.Exposure, 0.01f);

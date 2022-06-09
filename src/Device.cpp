@@ -132,6 +132,7 @@ VkResult vulkanDevice::CreateDevice(VkPhysicalDeviceFeatures EnabledFeatures, bo
         DeviceExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
         DeviceExtensions.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
         DeviceExtensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
+        DeviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
 
         EnabledFeatures.samplerAnisotropy=VK_TRUE;
         EnabledFeatures.shaderInt64 = VK_TRUE;   
@@ -150,7 +151,13 @@ VkResult vulkanDevice::CreateDevice(VkPhysicalDeviceFeatures EnabledFeatures, bo
         EnabledDescriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
         EnabledDescriptorIndexingFeatures.runtimeDescriptorArray=VK_TRUE;
         EnabledDescriptorIndexingFeatures.pNext = &EnabledAccelerationStructureFeatures;
-        DevicePNextChain = &EnabledDescriptorIndexingFeatures;
+
+        EnabledRayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+        EnabledRayQueryFeatures.rayQuery=VK_TRUE;
+        EnabledRayQueryFeatures.pNext = &EnabledDescriptorIndexingFeatures;
+
+
+        DevicePNextChain = &EnabledRayQueryFeatures;
         // DeviceCreateInfo.pNext = &EnabledDescriptorIndexingFeatures;
     }
 

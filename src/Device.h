@@ -59,5 +59,6 @@ public:
 	VkPhysicalDeviceBufferDeviceAddressFeatures EnabledBufferDeviceAddresFeatures{};
 	VkPhysicalDeviceRayTracingPipelineFeaturesKHR EnabledRayTracingPipelineFeatures{};
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR EnabledAccelerationStructureFeatures{};
+    VkPhysicalDeviceRayQueryFeaturesKHR EnabledRayQueryFeatures{};
     void LoadRayTracingFuncs();
 };

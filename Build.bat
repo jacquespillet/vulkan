@@ -75,6 +75,9 @@ REM --------------------
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/miss.rmiss -o resources/shaders/spv/miss.rmiss.spv --target-spv=spv1.4 -g
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/missShadow.rmiss -o resources/shaders/spv/missShadow.rmiss.spv --target-spv=spv1.4 -g
 
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybrid.vert -o resources/shaders/spv/hybrid.vert.spv --target-spv=spv1.4 -g
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybrid.frag -o resources/shaders/spv/hybrid.frag.spv --target-spv=spv1.4 -g
+
 
 set compilerFlags=  -MP -MT -nologo -EHa- -Od -Oi -W4 -Z7 -EHsc -wd4201 -wd4310 -wd4100  /I ../src /I ..\ext\glm /I ..\ext\gli  /I %glfwInclude% /I %vulkanInclude% /I %assimpIncludes% /I %imguiInclude% /I %stbInclude%  /I %tinygltfInclude% /I %oidnIncludes% 
 set linkerFlags=  -opt:ref Gdi32.lib Shell32.lib User32.lib opengl32.lib %glfwLib%  %vulkanLib% %assimpLib% %oidnLib%
@@ -83,7 +86,7 @@ set srcFiles= ..\src\App.cpp ..\src\Resources.cpp ..\src\Device.cpp ..\src\Tools
 set srcFiles= %srcFiles%  ..\src\Scene.cpp ..\src\Debug.cpp ..\src\Buffer.cpp ..\src\Shader.cpp 
 set srcFiles= %srcFiles%  ..\src\Camera.cpp ..\src\Renderer.cpp  ..\src\Renderers\DeferredRenderer.cpp  ..\src\Renderers\ForwardRenderer.cpp ..\src\Renderers\PathTraceRTXRenderer.cpp 
 set srcFiles= %srcFiles%  %imguiSrc% ..\src\ImGuiHelper.cpp ..\src\AssimpImporter.cpp ..\src\GLTFImporter.cpp  ..\src\ObjectPicker.cpp  ..\src\Framebuffer.cpp 
-set srcFiles= %srcFiles%  ..\src\TextureLoader.cpp
+set srcFiles= %srcFiles%  ..\src\TextureLoader.cpp ..\src\RayTracingHelper.cpp ..\src\Renderers\HybridRenderer.cpp 
 
 IF NOT EXIST .\build mkdir .\build
 pushd .\build
