@@ -75,8 +75,8 @@ REM --------------------
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/miss.rmiss -o resources/shaders/spv/miss.rmiss.spv --target-spv=spv1.4 -g
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/missShadow.rmiss -o resources/shaders/spv/missShadow.rmiss.spv --target-spv=spv1.4 -g
 
-%VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybrid.vert -o resources/shaders/spv/hybrid.vert.spv --target-spv=spv1.4 -g
-%VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybrid.frag -o resources/shaders/spv/hybrid.frag.spv --target-spv=spv1.4 -g
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybrid.vert -o resources/shaders/spv/hybrid.vert.spv --target-spv=spv1.4  --target-env=vulkan1.2
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybrid.frag -o resources/shaders/spv/hybrid.frag.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 
 
 set compilerFlags=  -MP -MT -nologo -EHa- -Od -Oi -W4 -Z7 -EHsc -wd4201 -wd4310 -wd4100  /I ../src /I ..\ext\glm /I ..\ext\gli  /I %glfwInclude% /I %vulkanInclude% /I %assimpIncludes% /I %imguiInclude% /I %stbInclude%  /I %tinygltfInclude% /I %oidnIncludes% 

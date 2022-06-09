@@ -20,6 +20,7 @@ public:
     VkDescriptorPool DescriptorPool;
     VkDescriptorSet DescriptorSet;
     resources Resources;
+    // VkPipelineLayout PipelineLayout;
 
 
     std::vector<VkShaderModule> ShaderModules;

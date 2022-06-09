@@ -32,7 +32,7 @@ void hybridRenderer::CreateTopLevelAccelerationStructure()
 
     VkAccelerationStructureGeometryKHR AccelerationStructureGeometry = vulkanTools::BuildAccelerationStructureGeometry();
     AccelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
-    AccelerationStructureGeometry.flags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
+    AccelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
     AccelerationStructureGeometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
     AccelerationStructureGeometry.geometry.instances.arrayOfPointers =VK_FALSE;
     AccelerationStructureGeometry.geometry.instances.data = InstanceDataDeviceAddress;
@@ -124,7 +124,7 @@ void hybridRenderer::CreateBottomLevelAccelarationStructure(scene *Scene)
         uint32_t NumTriangles = (uint32_t)App->Scene->Meshes[i].Indices.size() / 3;
 
         VkAccelerationStructureGeometryKHR AccelerationStructureGeometry = vulkanTools::BuildAccelerationStructureGeometry();
-        AccelerationStructureGeometry.flags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
+        AccelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
         AccelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         AccelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
         AccelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
@@ -258,18 +258,21 @@ void hybridRenderer::Setup()
     VkPhysicalDeviceFeatures2 DeviceFeatures2 {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     DeviceFeatures2.pNext = &AccelerationStructureFeatures;
     vkGetPhysicalDeviceFeatures2(App->PhysicalDevice, &DeviceFeatures2);
-
-    CreateCommandBuffers();
-
+    
     CreateBottomLevelAccelarationStructure(App->Scene);
     FillBLASInstances();
     CreateTopLevelAccelerationStructure();
-    
-    
+
     SetupDescriptorPool();
     Resources.Init(VulkanDevice, DescriptorPool, App->TextureLoader);
+
     BuildLayoutsAndDescriptors();
     BuildPipelines();
+
+    CreateCommandBuffers();
+
+    
+    
     BuildCommandBuffers();
 }
 
@@ -306,6 +309,16 @@ inline float Lerp(float a, float b, float f)
 
 void hybridRenderer::BuildLayoutsAndDescriptors()
 {
+    
+    // Shared pipeline layout for all pipelines used in this sample
+    // std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
+    //     vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_FRAGMENT_BIT, 2),
+    // };
+    // VkDescriptorSetLayoutCreateInfo descriptorLayout = vulkanTools::BuildDescriptorSetLayoutCreateInfo(setLayoutBindings);
+    // VK_CALL(vkCreateDescriptorSetLayout(VulkanDevice->Device, &descriptorLayout, nullptr, &DescriptorSetLayout));
+    // VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(&DescriptorSetLayout, 1);
+    // VK_CALL(vkCreatePipelineLayout(VulkanDevice->Device, &pPipelineLayoutCreateInfo, nullptr, &PipelineLayout));
+    
     //Create descriptor set for acceleration structure
     std::vector<VkDescriptorSetLayoutBinding> Bindings = 
     {
@@ -484,6 +497,7 @@ void hybridRenderer::BuildPipelines()
         ShaderModules.push_back(ShaderStages[0].module);
 
         PipelineCreateInfo.renderPass = App->RenderPass;
+        // PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Scene");
         PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Scene");
 
         std::array<VkPipelineColorBlendAttachmentState, 1> BlendAttachmentStates = 
@@ -525,21 +539,21 @@ void hybridRenderer::BuildPipelines()
     
     //Cube map
     {
-        ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/cubemap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/cubemap.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-        ShaderModules.push_back(ShaderStages[1].module);            
-        ShaderModules.push_back(ShaderStages[0].module);
+       ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/cubemap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+       ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/cubemap.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+       ShaderModules.push_back(ShaderStages[1].module);            
+       ShaderModules.push_back(ShaderStages[0].module);
 
-        PipelineCreateInfo.renderPass = App->RenderPass;
-        PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Cubemap");
+       PipelineCreateInfo.renderPass = App->RenderPass;
+       PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Cubemap");
 
-        std::array<VkPipelineColorBlendAttachmentState, 1> BlendAttachmentStates = 
-        {
-            vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE)
-        };
-        ColorBlendState.attachmentCount=(uint32_t)BlendAttachmentStates.size();
-        ColorBlendState.pAttachments=BlendAttachmentStates.data();
-        Resources.Pipelines->Add("Cubemap", PipelineCreateInfo, App->PipelineCache);
+       std::array<VkPipelineColorBlendAttachmentState, 1> BlendAttachmentStates = 
+       {
+           vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE)
+       };
+       ColorBlendState.attachmentCount=(uint32_t)BlendAttachmentStates.size();
+       ColorBlendState.pAttachments=BlendAttachmentStates.data();
+       Resources.Pipelines->Add("Cubemap", PipelineCreateInfo, App->PipelineCache);
     }   
 }
 
@@ -615,12 +629,12 @@ void hybridRenderer::BuildCommandBuffers()
         }
 
         { //Cubemap
-            vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Cubemap"));
-            vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &App->Scene->Cubemap.Mesh.VertexBuffer.Buffer, Offset);
-            vkCmdBindIndexBuffer(DrawCommandBuffers[i], App->Scene->Cubemap.Mesh.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
-            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Cubemap"), 0, 1, &RendererDescriptorSet, 0, nullptr);
-            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Cubemap"), 1, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
-            vkCmdDrawIndexed(DrawCommandBuffers[i], App->Scene->Cubemap.Mesh.IndexCount, 1, 0, 0, 0);
+           vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Cubemap"));
+           vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &App->Scene->Cubemap.Mesh.VertexBuffer.Buffer, Offset);
+           vkCmdBindIndexBuffer(DrawCommandBuffers[i], App->Scene->Cubemap.Mesh.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+           vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Cubemap"), 0, 1, &RendererDescriptorSet, 0, nullptr);
+           vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Cubemap"), 1, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
+           vkCmdDrawIndexed(DrawCommandBuffers[i], App->Scene->Cubemap.Mesh.IndexCount, 1, 0, 0, 0);
         }
 
         App->ImGuiHelper->DrawFrame(DrawCommandBuffers[i]);

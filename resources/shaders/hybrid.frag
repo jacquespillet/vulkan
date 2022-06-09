@@ -66,10 +66,18 @@ layout (constant_id = 7) const int HAS_SHEEN=0;
 
 void main() 
 {
-    vec3 L = vec3(1,0,0);
+    float Shadow=1.0f;
+    vec3 L = normalize(-SceneUbo.Data.LightDirection);
+    // L = normalize(vec3(1,1,1));
 	rayQueryEXT rayQuery;
 	rayQueryInitializeEXT(rayQuery, topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, FragPosition, 0.01, L, 1000.0);
+	// Start the ray traversal, rayQueryProceedEXT returns false if the traversal is complete
+	while (rayQueryProceedEXT(rayQuery)) { }
 
+	// If the intersection has hit a triangle, the fragment is shadowed
+	if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionTriangleEXT ) {
+		Shadow=0.1f;
+	}
     vec4 BaseColor = GetBaseColor();
     
 //     #if ALPHAMODE == ALPHAMODE_OPAQUE
@@ -165,6 +173,7 @@ void main()
 
     vec3 Color = vec3(0);
     Color = FinalEmissive + FinalDiffuse + FinalSpecular;
+    Color = vec3(Shadow);
 //     Color = FinalSheen + Color * AlbedoSheenScaling;
 //     Color = Color * (1.0 - ClearcoatFactor * ClearcoatFresnel) + FinalClearcoat;
 
