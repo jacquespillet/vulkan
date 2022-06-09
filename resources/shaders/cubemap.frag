@@ -3,6 +3,7 @@
 
 
 #include "Common/SceneUBO.glsl"
+#include "Common/Defines.glsl"
 layout (set=0, binding = 0) uniform UBO 
 {
 	sceneUbo Data;
@@ -21,14 +22,18 @@ layout (location = 0) out vec4 outColor;
 
 void main() 
 {
-    if(SceneUbo.Data.BackgroundType==0)
+    if(SceneUbo.Data.BackgroundType==BACKGROUND_TYPE_CUBEMAP)
     {
         vec3 Color = texture(Cubemap, normalize(inPosition)).xyz; 
         outColor = vec4(toneMap(Color, SceneUbo.Data.Exposure), 1);
     }
-    else
+    else if(SceneUbo.Data.BackgroundType==BACKGROUND_TYPE_COLOR)
     {
         outColor = vec4(SceneUbo.Data.BackgroundColor, 1) ;
+    }
+    else if(SceneUbo.Data.BackgroundType==BACKGROUND_TYPE_DIRLIGHT)
+    {
+        outColor = vec4(0,0,0,0);
     }
     outColor *= SceneUbo.Data.BackgroundIntensity;
 }
