@@ -16,6 +16,7 @@ public:
     void Render();
     void FillCommandBuffer();
     void Pick(int MouseX, int MouseY);
+    void Destroy();
 private:
     vulkanDevice *VulkanDevice;
     vulkanApp *App;

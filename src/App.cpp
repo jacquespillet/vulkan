@@ -735,6 +735,8 @@ void vulkanApp::Resize(uint32_t NewWidth, uint32_t NewHeight)
 
 void vulkanApp::DestroyGeneralResources()
 {
+    ObjectPicker.Destroy();
+    
     for(size_t i=0; i<Renderers.size(); i++)
     {
         Renderers[i]->Destroy(); 

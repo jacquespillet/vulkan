@@ -12,22 +12,21 @@ void objectPicker::Initialize(vulkanDevice *_VulkanDevice, vulkanApp *_App)
 
 
     //Create Command Buffers
-    OffscreenCommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
 
     //Build Quad
     Quad = vulkanTools::BuildQuad(VulkanDevice);
 
     //Create framebuffer attachment
-    VkCommandBuffer LayoutCommand = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+    OffscreenCommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
     {
         Framebuffer.SetSize(App->Width, App->Height)
                               .SetLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
                               .SetImageFlags(VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
                               .SetAttachmentCount(1)
                               .SetAttachmentFormat(0, VK_FORMAT_R32_UINT);
-        Framebuffer.BuildBuffers(VulkanDevice,LayoutCommand);
+        Framebuffer.BuildBuffers(VulkanDevice,OffscreenCommandBuffer);
     }    
-    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, LayoutCommand, App->Queue, true);    
+    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, OffscreenCommandBuffer, App->Queue, false);    
 
     //Create descriptor sets and pipeline layout
     {        
@@ -258,4 +257,18 @@ void objectPicker::Pick(int MouseX, int MouseY)
     //Set it selected
     App->SetSelectedItem(InstanceInx, false);
     ImageBuffer.Destroy();
+}
+
+void objectPicker::Destroy()
+{
+    for(size_t i=0; i<ShaderModules.size(); i++)
+    {
+        vkDestroyShaderModule(VulkanDevice->Device, ShaderModules[i], nullptr);
+    }
+    vkDestroyPipeline(VulkanDevice->Device, Pipeline, nullptr);
+    vkDestroyPipelineLayout(VulkanDevice->Device, PipelineLayout, nullptr);
+    Framebuffer.Destroy(VulkanDevice->Device);
+    Quad.Destroy();
+    vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, 1, &OffscreenCommandBuffer);
+    vkDestroySemaphore(VulkanDevice->Device, OffscreenSemaphore, nullptr);
 }

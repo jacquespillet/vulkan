@@ -12,7 +12,7 @@ struct triangle {
 	vertex vertices[3];
 	vec3 normal;
 	vec4 tangent;
-	vec4 bitangent;
+	vec3 bitangent;
 	vec2 uv;
 	int materialIndex;
 };
