@@ -32,6 +32,13 @@ void buffer::CopyTo(void *Data, VkDeviceSize CopySize, size_t Offset)
     memcpy(Mapped + Offset, Data, CopySize);
 }
 
+void buffer::CopyFrom(void *Data, VkDeviceSize CopySize, size_t Offset)
+{
+    assert(Mapped);
+    memcpy(Data, Mapped + Offset, CopySize);
+}
+
+
 void buffer::Destroy()
 {
     if (Buffer)

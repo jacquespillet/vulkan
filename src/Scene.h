@@ -204,7 +204,8 @@ struct instance
         glm::mat4 Transform;
         glm::mat4 Normal;
         float Selected=0;
-        glm::vec3 padding;
+        float InstanceID;
+        glm::vec2 padding;
     } InstanceData;
     
     buffer UniformBuffer;

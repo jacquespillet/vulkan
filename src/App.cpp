@@ -277,8 +277,37 @@ void vulkanApp::Initialize(HWND Window)
     Height = 1080;
     InitVulkan();
     Swapchain.InitSurface(Window);
-
     CreateGeneralResources();
+    
+    ObjectPicker.Initialize(VulkanDevice, this);
+}
+
+void vulkanApp::SetSelectedItem(int Index, bool UnselectIfAlreadySelected)
+{
+    if(Index==-1) return;
+    if (Index != CurrentSceneItemIndex)
+    {
+		//Remove old
+		if (CurrentSceneItemIndex >= 0)
+		{
+			Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Selected=0;
+			Scene->InstancesPointers[CurrentSceneItemIndex]->UploadUniform();     
+		}
+
+        //Set new
+        CurrentSceneItemIndex = Index;
+        Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Selected=1;
+        Scene->InstancesPointers[CurrentSceneItemIndex]->UploadUniform();
+    }
+    else if(UnselectIfAlreadySelected)//Mesh no longer selected
+    {
+        CurrentSceneItemIndex = -1;
+        if(Scene->InstancesPointers[Index]->InstanceData.Selected > 0)
+        {
+            Scene->InstancesPointers[Index]->InstanceData.Selected=0;
+            Scene->InstancesPointers[Index]->UploadUniform();                 
+        }
+    }
 }
 
 void vulkanApp::RenderGUI()
@@ -297,13 +326,12 @@ void vulkanApp::RenderGUI()
 
     Scene->ViewportStart=0;
 
-    static int CurrentSceneItemIndex = -1;
     
     if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_DownArrow))) {
-        if (CurrentSceneItemIndex  < Scene->InstancesPointers.size()-1) CurrentSceneItemIndex++; 
+        if (CurrentSceneItemIndex  < Scene->InstancesPointers.size()-1) SetSelectedItem(CurrentSceneItemIndex+1);
     }
     if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_UpArrow))) {
-        if (CurrentSceneItemIndex > 0) { CurrentSceneItemIndex--; }
+        if (CurrentSceneItemIndex > 0) { SetSelectedItem(CurrentSceneItemIndex-1); }
     }
 
     if(ImGui::Begin("Parameters"))
@@ -314,31 +342,16 @@ void vulkanApp::RenderGUI()
         {
             if (ImGui::BeginTabItem("Scene"))
             {
+                int NewSceneItemIndex=-1;
                 for (size_t i=0; i<Scene->InstancesPointers.size(); i++) {
                     const bool IsSelected = (CurrentSceneItemIndex == i);
                     if (ImGui::Selectable(Scene->InstancesPointers[i]->Name.c_str(), IsSelected))
                     {
-                        if(IsSelected) CurrentSceneItemIndex=-1; //Unselect if click on selected item
-                        else {
-                            CurrentSceneItemIndex = (uint32_t)i;
-                        }
+                        NewSceneItemIndex = (uint32_t)i;
                     }
 
-                    if (IsSelected)
-                    {
-                        ImGui::SetItemDefaultFocus();
-                        Scene->InstancesPointers[i]->InstanceData.Selected=1;
-                        Scene->InstancesPointers[i]->UploadUniform();
-                    }
-                    else //Mesh no longer selected
-                    {
-                        if(Scene->InstancesPointers[i]->InstanceData.Selected > 0)
-                        {
-                            Scene->InstancesPointers[i]->InstanceData.Selected=0;
-                            Scene->InstancesPointers[i]->UploadUniform();                 
-                        }
-                    }
                 }
+                SetSelectedItem(NewSceneItemIndex);
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("Environment"))
@@ -385,29 +398,14 @@ void vulkanApp::RenderGUI()
 
         if(CurrentSceneItemIndex>=0)
         {
-            static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::ROTATE);
+            static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
             static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::WORLD);
             
             bool UpdateTransform=false;
-            {
-                glm::mat4 projectionMatrix = Scene->Camera.GetProjectionMatrix();
-                projectionMatrix[1][1] *= -1;
-                
-                ImGuizmo::SetRect(Scene->ViewportStart, 0, Width-Scene->ViewportStart, (float)Height);
-                UpdateTransform |= ImGuizmo::Manipulate(glm::value_ptr(Scene->Camera.GetViewMatrix()), 
-                                     glm::value_ptr(projectionMatrix), 
-                                     mCurrentGizmoOperation, 
-                                     mCurrentGizmoMode, 
-                                     glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Transform), 
-                                     NULL, 
-                                     NULL);  
-                
-            }                
-            
-
+             
             ImGui::SetNextWindowSize(ImVec2((float)GuiWidth, (float)Height));
             ImGui::SetNextWindowPos(ImVec2((float)GuiWidth,0), ImGuiCond_Always);
-            if(ImGui::Begin(Scene->InstancesPointers[CurrentSceneItemIndex]->Name.c_str()))
+            if(ImGui::Begin(Scene->InstancesPointers[CurrentSceneItemIndex]->Name.c_str(), nullptr, ImGuiWindowFlags_NoSavedSettings))
             {
                 Scene->ViewportStart+=GuiWidth;
                 if(ImGui::CollapsingHeader("Transform"))
@@ -427,23 +425,39 @@ void vulkanApp::RenderGUI()
                     UpdateTransform |= ImGui::DragFloat3("Rotation", glm::value_ptr(Rotation), 0.01f);
                     UpdateTransform |= ImGui::DragFloat3("Scale", glm::value_ptr(Scale), 0.01f);
                     ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Transform), glm::value_ptr(Translation), glm::value_ptr(Rotation), glm::value_ptr(Scale));
+                }
+                
+                //ImGuizmo
+                {
+                    glm::mat4 projectionMatrix = Scene->Camera.GetProjectionMatrix();
+                    projectionMatrix[1][1] *= -1;
+                    
+                    ImGuizmo::SetRect(Scene->ViewportStart, 0, Width-Scene->ViewportStart, (float)Height);
+                    UpdateTransform |= ImGuizmo::Manipulate(glm::value_ptr(Scene->Camera.GetViewMatrix()), 
+                                        glm::value_ptr(projectionMatrix), 
+                                        mCurrentGizmoOperation, 
+                                        mCurrentGizmoMode, 
+                                        glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Transform), 
+                                        NULL, 
+                                        NULL);  
+                    
+                }   
 
-                    if(UpdateTransform) 
+                if(UpdateTransform) 
+                {
+                    Scene->InstancesPointers[CurrentSceneItemIndex]->UploadUniform();
+                    if(RayTracing)
                     {
-                        Scene->InstancesPointers[CurrentSceneItemIndex]->UploadUniform();
-                        if(RayTracing)
+                        for(size_t i=0; i<Renderers.size(); i++)
                         {
-                            for(size_t i=0; i<Renderers.size(); i++)
+                            pathTraceRTXRenderer *PathTracer = dynamic_cast<pathTraceRTXRenderer*>(Renderers[i]);
+                            if(PathTracer)
                             {
-                                pathTraceRTXRenderer *PathTracer = dynamic_cast<pathTraceRTXRenderer*>(Renderers[i]);
-                                if(PathTracer)
-                                {
-                                    PathTracer->UpdateBLASInstance(CurrentSceneItemIndex);
-                                    PathTracer->ResetAccumulation=true;
-                                }
+                                PathTracer->UpdateBLASInstance(CurrentSceneItemIndex);
+                                PathTracer->ResetAccumulation=true;
                             }
-                        }                        
-                    }
+                        }
+                    }                        
                 }
 
                 
@@ -540,6 +554,8 @@ void vulkanApp::Render()
     Scene->Update();
     RenderGUI();
     Renderers[CurrentRenderer]->Render();
+
+    // ObjectPicker.Render();
     
     if(Scene->Camera.Changed) Scene->Camera.Changed=false;
 }
@@ -555,12 +571,26 @@ void vulkanApp::MouseAction(int Button, int Action, int Mods)
 {
     if(Action == GLFW_PRESS)
     {
+        Mouse.PosXPress = Mouse.PosX;
+        Mouse.PosYPress = Mouse.PosY;
+
         if(Button==0) Mouse.Left=true;
         if(Button==1) Mouse.Right=true;
-        Scene->Camera.mousePressEvent(Button);
+        if(Mouse.PosX > Scene->ViewportStart && !ImGuizmo::IsUsing() && !ImGuizmo::IsOver()) 
+        {
+            Scene->Camera.mousePressEvent(Button);
+
+        }
     }
     else if(Action == GLFW_RELEASE)
     {
+        float MousePressDelta = glm::length(glm::vec2(Mouse.PosX - Mouse.PosXPress, Mouse.PosY - Mouse.PosYPress));
+        
+		if (Mouse.PosX > Scene->ViewportStart && !ImGuizmo::IsUsing() && !ImGuizmo::IsOver())
+		{
+			if(MousePressDelta < 5) ObjectPicker.Pick((int)Mouse.PosX, (int)Mouse.PosY);
+		}
+        
         if(Button==0) Mouse.Left=false;
         if(Button==1) Mouse.Right=false;
         Scene->Camera.mouseReleaseEvent(Button);

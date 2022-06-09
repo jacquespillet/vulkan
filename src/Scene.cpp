@@ -96,13 +96,11 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
         std::string Extension = FileName.substr(FileName.find_last_of(".") + 1);
         if(Extension == "gltf" || Extension == "glb")
         {
-            GLTFImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Resources.Textures
-            );    
+            GLTFImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Resources.Textures);    
         }
         else
         {
-            assimpImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Resources.Textures
-            );    
+            assimpImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Resources.Textures);    
         }
 
 
@@ -117,10 +115,12 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
         }
         
         NumInstances=0;
+        uint32_t InstanceInx=0;
         for(auto &InstanceGroup : Instances)
         {
             for (size_t i = 0; i < InstanceGroup.second.size(); i++)
             {
+                InstanceGroup.second[i].InstanceData.InstanceID = (float)InstanceInx;
                 vulkanTools::CreateBuffer(App->VulkanDevice,
                                         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -128,6 +128,7 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
                                         sizeof(InstanceGroup.second[i].InstanceData),
                                         &InstanceGroup.second[i].InstanceData);
                 InstancesPointers.push_back(&InstanceGroup.second[i]);
+                InstanceInx++;
             }
             NumInstances += InstanceGroup.second.size();
         }

@@ -29,6 +29,7 @@ public:
     VkResult Bind(VkDeviceSize Offset=0);
 
     void CopyTo(void *Data, VkDeviceSize CopySize, size_t Offset=0);
+    void CopyFrom(void *Data, VkDeviceSize CopySize, size_t Offset=0);
 
     void Destroy();
 

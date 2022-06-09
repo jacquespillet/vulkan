@@ -66,6 +66,9 @@ REM --------------------
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/ui.vert -o resources/shaders/spv/ui.vert.spv
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/ui.frag -o resources/shaders/spv/ui.frag.spv
 
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/ObjectPicker.vert -o resources/shaders/spv/ObjectPicker.vert.spv
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/ObjectPicker.frag -o resources/shaders/spv/ObjectPicker.frag.spv
+
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/anyhit.rahit -o resources/shaders/spv/anyhit.rahit.spv --target-spv=spv1.4 -g
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/closesthit.rchit -o resources/shaders/spv/closesthit.rchit.spv --target-spv=spv1.4 -g
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/raygen.rgen -o resources/shaders/spv/raygen.rgen.spv --target-spv=spv1.4 -g
@@ -79,7 +82,7 @@ set linkerFlags=  -opt:ref Gdi32.lib Shell32.lib User32.lib opengl32.lib %glfwLi
 set srcFiles= ..\src\App.cpp ..\src\Resources.cpp ..\src\Device.cpp ..\src\Tools.cpp 
 set srcFiles= %srcFiles%  ..\src\Scene.cpp ..\src\Debug.cpp ..\src\Buffer.cpp ..\src\Shader.cpp 
 set srcFiles= %srcFiles%  ..\src\Camera.cpp ..\src\Renderer.cpp  ..\src\Renderers\DeferredRenderer.cpp  ..\src\Renderers\ForwardRenderer.cpp ..\src\Renderers\PathTraceRTXRenderer.cpp 
-set srcFiles= %srcFiles%  %imguiSrc% ..\src\ImGuiHelper.cpp ..\src\AssimpImporter.cpp ..\src\GLTFImporter.cpp
+set srcFiles= %srcFiles%  %imguiSrc% ..\src\ImGuiHelper.cpp ..\src\AssimpImporter.cpp ..\src\GLTFImporter.cpp  ..\src\ObjectPicker.cpp  ..\src\Framebuffer.cpp 
 set srcFiles= %srcFiles%  ..\src\TextureLoader.cpp
 
 IF NOT EXIST .\build mkdir .\build

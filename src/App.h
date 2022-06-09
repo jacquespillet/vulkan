@@ -52,6 +52,8 @@
 #include "Camera.h"
 #include "ImguiHelper.h"
 
+#include "ObjectPicker.h"
+
 class renderer;
 class vulkanApp
 {
@@ -66,6 +68,9 @@ public:
         float PosX;
         float PosY;
         float Wheel;
+        float MousePressDelta;
+        float PosXPress;
+        float PosYPress;
     } Mouse;
 
     //High level objects
@@ -108,9 +113,11 @@ public:
 
     ImGUI *ImGuiHelper;
 
+    objectPicker ObjectPicker;
+
     float GuiWidth=200;
 
-    bool RayTracing=true;
+    bool RayTracing=false;
     
     void InitVulkan();
 
@@ -129,7 +136,11 @@ public:
     void BuildScene();
     
     void Render();
+
+    
+    int CurrentSceneItemIndex = -1;
     void RenderGUI();
+    void SetSelectedItem(int Index, bool UnselectIfAlreadySelected=true);
 
     void Initialize(HWND Window);
 
