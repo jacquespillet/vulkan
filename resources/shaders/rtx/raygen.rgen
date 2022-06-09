@@ -30,137 +30,149 @@ layout(location = 0) rayPayloadEXT rayPayload RayPayload;
 
 void main() 
 {
-	if(ubo.ShouldAccumulate>0)
+	bool debug=false;
+	if(!debug)
 	{
-		RayPayload.RandomState = uint(uint(gl_LaunchIDEXT.x) * uint(1973) + uint(gl_LaunchIDEXT.y) * uint(9277) + uint(ubo.currentSamplesCount) * uint(26699)) | uint(1); 
-		RayPayload.Depth=0;
-		vec3 SamplesColor = vec3(0.0);
-		
-		if(ubo.currentSamplesCount < ubo.MaxSamples)
+
+		if(ubo.ShouldAccumulate>0)
 		{
-			for(uint i=0; i<ubo.samplesPerFrame; i++)
+			RayPayload.RandomState = uint(uint(gl_LaunchIDEXT.x) * uint(1973) + uint(gl_LaunchIDEXT.y) * uint(9277) + uint(ubo.currentSamplesCount) * uint(26699)) | uint(1); 
+			RayPayload.Depth=0;
+			vec3 SamplesColor = vec3(0.0);
+			
+			if(ubo.currentSamplesCount < ubo.MaxSamples)
 			{
-				vec2 jitter = vec2(RandomUnilateral(RayPayload.RandomState), RandomUnilateral(RayPayload.RandomState)) - 0.5;
-				vec4 Origin = SceneUbo.Data.InvView * vec4(0.0, 0.0, 0.0, 1.0);
-				vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_LaunchIDEXT.xy) + jitter) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
-				vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
-				
-				vec3 Attenuation = vec3(1.0);
-				vec3 Radiance = vec3(0);
-				float alpha = 1.0;
-				
-
-				for(int j=0; j<ubo.rayBounces; j++)
+				for(uint i=0; i<ubo.samplesPerFrame; i++)
 				{
-					traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0, Origin.xyz, 0.001, Direction.xyz, 10000.0, 0);
+					vec2 jitter = vec2(RandomUnilateral(RayPayload.RandomState), RandomUnilateral(RayPayload.RandomState)) - 0.5;
+					vec4 Origin = SceneUbo.Data.InvView * vec4(0.0, 0.0, 0.0, 1.0);
+					vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_LaunchIDEXT.xy) + jitter) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
+					vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
 					
-					//Sky
-					{
-						if(RayPayload.Distance < 0)
-						{
-							if(SceneUbo.Data.BackgroundType ==0)
-							{
-								vec3 SkyDirection = Direction.xyz;
-								SkyDirection.y *=-1;
-								Radiance += Attenuation * SceneUbo.Data.BackgroundIntensity * texture(IrradianceMap, SkyDirection).rgb;
-							}
-							else
-							{
-								Radiance += Attenuation * SceneUbo.Data.BackgroundIntensity * SceneUbo.Data.BackgroundColor;
-							}
-							break;
-						}
-					}
+					vec3 Attenuation = vec3(1.0);
+					vec3 Radiance = vec3(0);
+					float alpha = 1.0;
 					
-					Radiance += Attenuation * RayPayload.Emission;
 
-					//Sample lights
+					for(int j=0; j<ubo.rayBounces; j++)
 					{
+						traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0, Origin.xyz, 0.001, Direction.xyz, 10000.0, 0);
 						
-					}
-
-
-					if(j == ubo.rayBounces-1) break;
-					
-					// Russian roulette
-					{
-						if (j >= 3)
+						//Sky
 						{
-							float q = min(max(Attenuation.x, max(Attenuation.y, Attenuation.z)) + 0.001, 0.95);
-							if (RandomUnilateral(RayPayload.RandomState) > q)
+							if(RayPayload.Distance < 0)
+							{
+								if(SceneUbo.Data.BackgroundType ==0)
+								{
+									vec3 SkyDirection = Direction.xyz;
+									SkyDirection.y *=-1;
+									Radiance += Attenuation * SceneUbo.Data.BackgroundIntensity * texture(IrradianceMap, SkyDirection).rgb;
+								}
+								else
+								{
+									Radiance += Attenuation * SceneUbo.Data.BackgroundIntensity * SceneUbo.Data.BackgroundColor;
+								}
 								break;
-							Attenuation /= q;
+							}
 						}
-					}
-					
+						
+						Radiance += Attenuation * RayPayload.Emission;
 
-					//Eval brdf
-					{
-						vec3 V = -Direction.xyz;
-						int brdfType = DIFFUSE_TYPE;
-						if (RayPayload.Metallic == 1.0f && RayPayload.Roughness == 0.0f) {
-							brdfType = SPECULAR_TYPE;
-						} else {
-							float brdfProbability = GetBrdfProbability(RayPayload, V, RayPayload.Normal);
+						//Sample lights
+						{
+							
+						}
 
-							if (RandomUnilateral(RayPayload.RandomState) < brdfProbability) {
+
+						if(j == ubo.rayBounces-1) break;
+						
+						// Russian roulette
+						{
+							if (j >= 3)
+							{
+								float q = min(max(Attenuation.x, max(Attenuation.y, Attenuation.z)) + 0.001, 0.95);
+								if (RandomUnilateral(RayPayload.RandomState) > q)
+									break;
+								Attenuation /= q;
+							}
+						}
+						
+
+						//Eval brdf
+						{
+							vec3 V = -Direction.xyz;
+							int brdfType = DIFFUSE_TYPE;
+							if (RayPayload.Metallic == 1.0f && RayPayload.Roughness == 0.0f) {
 								brdfType = SPECULAR_TYPE;
-								Attenuation /= brdfProbability;
 							} else {
-								brdfType = DIFFUSE_TYPE;
-								Attenuation /= (1.0f - brdfProbability);
-							}
-						}
+								float brdfProbability = GetBrdfProbability(RayPayload, V, RayPayload.Normal);
 
-						vec3 brdfWeight;
-						vec2 Xi = vec2(RandomUnilateral(RayPayload.RandomState),RandomUnilateral(RayPayload.RandomState));
-						vec3 ScatterDir = vec3(0);
+								if (RandomUnilateral(RayPayload.RandomState) < brdfProbability) {
+									brdfType = SPECULAR_TYPE;
+									Attenuation /= brdfProbability;
+								} else {
+									brdfType = DIFFUSE_TYPE;
+									Attenuation /= (1.0f - brdfProbability);
+								}
+							}
+
+							vec3 brdfWeight;
+							vec2 Xi = vec2(RandomUnilateral(RayPayload.RandomState),RandomUnilateral(RayPayload.RandomState));
+							vec3 ScatterDir = vec3(0);
+							
+							if(brdfType == DIFFUSE_TYPE)
+							{
+								if (!SampleDiffuseBRDF(Xi, RayPayload.Normal, V,  ScatterDir, brdfWeight)) {
+									break;
+								}
+							}
+							else if(brdfType == SPECULAR_TYPE)
+							{
+								if (!SampleSpecularBRDF(Xi, RayPayload.Normal, V,  ScatterDir, brdfWeight)) {
+									break;
+								}
+							}
+
+							//the weights already contains color * brdf * cosine term / pdf
+							Attenuation *= brdfWeight;						
+
+							Origin = Origin + RayPayload.Distance * Direction;
+							Direction = vec4(ScatterDir, 0.0f);
+						}					
+
+
 						
-						if(brdfType == DIFFUSE_TYPE)
-						{
-							if (!SampleDiffuseBRDF(Xi, RayPayload.Normal, V,  ScatterDir, brdfWeight)) {
-								break;
-							}
-						}
-						else if(brdfType == SPECULAR_TYPE)
-						{
-							if (!SampleSpecularBRDF(Xi, RayPayload.Normal, V,  ScatterDir, brdfWeight)) {
-								break;
-							}
-						}
+					}
 
-						//the weights already contains color * brdf * cosine term / pdf
-						Attenuation *= brdfWeight;						
-
-						Origin = Origin + RayPayload.Distance * Direction;
-						Direction = vec4(ScatterDir, 0.0f);
-					}					
-
-
-					
+					SamplesColor += Radiance;			
 				}
-
-				SamplesColor += Radiance;			
 			}
+
+			vec3 LastFrameColor = vec3(0);
+			if(ubo.samplesPerFrame != ubo.currentSamplesCount)
+			{
+				LastFrameColor = imageLoad(accumulationImage, ivec2(gl_LaunchIDEXT.xy)).rgb;
+			}
+
+			vec3 AccumulatedColor = LastFrameColor + SamplesColor;
+			imageStore(accumulationImage, ivec2(gl_LaunchIDEXT.xy), vec4(AccumulatedColor, 0));
+
+			vec3 Color = AccumulatedColor / ubo.currentSamplesCount;
+
+			Color = toneMap(Color, SceneUbo.Data.Exposure);
+			Color = clamp(Color, 0, 1);
+			imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(Color, 0));
 		}
-
-		vec3 LastFrameColor = vec3(0);
-		if(ubo.samplesPerFrame != ubo.currentSamplesCount)
-		{
-			LastFrameColor = imageLoad(accumulationImage, ivec2(gl_LaunchIDEXT.xy)).rgb;
-		}
-
-		vec3 AccumulatedColor = LastFrameColor + SamplesColor;
-		imageStore(accumulationImage, ivec2(gl_LaunchIDEXT.xy), vec4(AccumulatedColor, 0));
-
-		vec3 Color = AccumulatedColor / ubo.currentSamplesCount;
-
-		Color = toneMap(Color, SceneUbo.Data.Exposure);
-		Color = clamp(Color, 0, 1);
-		imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(Color, 0));
 	}
 	else
 	{
 		
+		vec4 Origin = SceneUbo.Data.InvView * vec4(0.0, 0.0, 0.0, 1.0);
+		vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_LaunchIDEXT.xy)) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
+		vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
+		traceRayEXT(topLevelAS, gl_RayFlagsNoneEXT, 0xff, 0, 0, 0, Origin.xyz, 0.001, Direction.xyz, 10000.0, 0);
+		
+		vec3 Color = RayPayload.Normal;
+		imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(Color, 0));
 	}
 }

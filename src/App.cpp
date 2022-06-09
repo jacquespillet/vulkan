@@ -207,8 +207,8 @@ void vulkanApp::BuildScene()
     // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
-    Scene->Load("D:/Boulot/Models/Pica pica/scene.gltf", CopyCommand);
-    // Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
+    // Scene->Load("D:/Boulot/Models/Pica pica/scene.gltf", CopyCommand);
+    Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
 
@@ -433,7 +433,7 @@ void vulkanApp::RenderGUI()
                     glm::mat4 projectionMatrix = Scene->Camera.GetProjectionMatrix();
                     projectionMatrix[1][1] *= -1;
                     
-                    ImGuizmo::SetRect(Scene->ViewportStart, 0, Width-Scene->ViewportStart, (float)Height);
+                    ImGuizmo::SetRect(Scene->ViewportStart, 0, Width - Scene->ViewportStart, (float)Height);
                     UpdateTransform |= ImGuizmo::Manipulate(glm::value_ptr(Scene->Camera.GetViewMatrix()), 
                                         glm::value_ptr(projectionMatrix), 
                                         mCurrentGizmoOperation, 

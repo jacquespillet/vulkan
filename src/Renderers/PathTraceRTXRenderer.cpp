@@ -473,6 +473,14 @@ void pathTraceRTXRenderer::FillBLASInstances()
 
 void pathTraceRTXRenderer::UpdateBLASInstance(uint32_t InstanceIndex)
 {
+    TransformMatricesBuffer.Map();
+    TransformMatricesBuffer.CopyTo(
+        glm::value_ptr(App->Scene->InstancesPointers[InstanceIndex]->InstanceData.Transform),
+        sizeof(glm::mat4),
+        InstanceIndex * sizeof(glm::mat4)
+    );
+    TransformMatricesBuffer.Unmap();
+    
     BLASInstances[InstanceIndex] = CreateBottomLevelAccelerationInstance(App->Scene->InstancesPointers[InstanceIndex]);
 
     InstancesBuffer.Map();

@@ -214,6 +214,7 @@ struct instance
 
     void UploadUniform()
     {
+        InstanceData.Normal = glm::inverseTranspose(InstanceData.Transform);
         UniformBuffer.Map();
         UniformBuffer.CopyTo(&InstanceData, sizeof(InstanceData));
         UniformBuffer.Unmap();     
