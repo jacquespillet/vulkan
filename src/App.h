@@ -138,9 +138,9 @@ public:
     void Render();
 
     
-    int CurrentSceneItemIndex = -1;
+    uint32_t CurrentSceneItemIndex = UINT32_MAX;
     void RenderGUI();
-    void SetSelectedItem(int Index, bool UnselectIfAlreadySelected=true);
+    void SetSelectedItem(uint32_t Index, bool UnselectIfAlreadySelected=true);
 
     void Initialize(HWND Window);
 

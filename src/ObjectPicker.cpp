@@ -141,7 +141,7 @@ void objectPicker::FillCommandBuffer()
     VkCommandBufferBeginInfo CommandBufferInfo = vulkanTools::BuildCommandBufferBeginInfo();
 
     VkClearValue ClearValues[2];
-    ClearValues[0].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    ClearValues[0].color.uint32[0] = UINT32_MAX;
     ClearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo RenderPassBeginInfo = vulkanTools::BuildRenderPassBeginInfo();

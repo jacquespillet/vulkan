@@ -207,8 +207,8 @@ void vulkanApp::BuildScene()
     // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
-    // Scene->Load("D:/Boulot/Models/Pica pica/scene.gltf", CopyCommand);
-    Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
+    Scene->Load("D:/Boulot/Models/Pica pica/scene.gltf", CopyCommand);
+    // Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
 
@@ -283,13 +283,27 @@ void vulkanApp::Initialize(HWND Window)
     ObjectPicker.Initialize(VulkanDevice, this);
 }
 
-void vulkanApp::SetSelectedItem(int Index, bool UnselectIfAlreadySelected)
+void vulkanApp::SetSelectedItem(uint32_t Index, bool UnselectIfAlreadySelected)
 {
-    if(Index==-1) return;
+    if(Index==UINT32_MAX) {
+        //Clear the selection
+        if(CurrentSceneItemIndex != UINT32_MAX)
+        {
+            Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Selected=0;
+            Scene->InstancesPointers[CurrentSceneItemIndex]->UploadUniform();
+            CurrentSceneItemIndex = UINT32_MAX;
+			return;
+        }
+        else //Selection is already clear, do nothing
+        {
+            return;
+        }
+    }
+    
     if (Index != CurrentSceneItemIndex)
     {
 		//Remove old
-		if (CurrentSceneItemIndex >= 0)
+		if (CurrentSceneItemIndex != UINT32_MAX)
 		{
 			Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Selected=0;
 			Scene->InstancesPointers[CurrentSceneItemIndex]->UploadUniform();     
@@ -302,7 +316,7 @@ void vulkanApp::SetSelectedItem(int Index, bool UnselectIfAlreadySelected)
     }
     else if(UnselectIfAlreadySelected)//Mesh no longer selected
     {
-        CurrentSceneItemIndex = -1;
+        CurrentSceneItemIndex = UINT32_MAX;
         if(Scene->InstancesPointers[Index]->InstanceData.Selected > 0)
         {
             Scene->InstancesPointers[Index]->InstanceData.Selected=0;
@@ -343,16 +357,15 @@ void vulkanApp::RenderGUI()
         {
             if (ImGui::BeginTabItem("Scene"))
             {
-                int NewSceneItemIndex=-1;
+                uint32_t NewSceneItemIndex=UINT32_MAX;
                 for (size_t i=0; i<Scene->InstancesPointers.size(); i++) {
                     const bool IsSelected = (CurrentSceneItemIndex == i);
                     if (ImGui::Selectable(Scene->InstancesPointers[i]->Name.c_str(), IsSelected))
                     {
                         NewSceneItemIndex = (uint32_t)i;
                     }
-
                 }
-                SetSelectedItem(NewSceneItemIndex);
+                if(NewSceneItemIndex != UINT32_MAX) SetSelectedItem(NewSceneItemIndex);
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("Environment"))
@@ -397,7 +410,7 @@ void vulkanApp::RenderGUI()
         }    
 
 
-        if(CurrentSceneItemIndex>=0)
+        if(CurrentSceneItemIndex != UINT32_MAX)
         {
             static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
             static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::WORLD);
