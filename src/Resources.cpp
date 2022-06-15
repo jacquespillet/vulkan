@@ -40,8 +40,15 @@ void resources::AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, s
     {
         descriptor::type Type = Descriptors[i].Type;
         if(Type == descriptor::Image) { WriteDescriptorSets[i] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[i].DescriptorType, i, &Descriptors[i].DescriptorImageInfo); }
-        else 
-        if(Type == descriptor::Uniform) { WriteDescriptorSets[i] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[i].DescriptorType, i, &Descriptors[i].DescriptorBufferInfo);}
+        else if(Type == descriptor::Uniform) { WriteDescriptorSets[i] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[i].DescriptorType, i, &Descriptors[i].DescriptorBufferInfo);}
+        else if(Type == descriptor::accelerationStructure) { 
+            WriteDescriptorSets[i] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+            WriteDescriptorSets[i].pNext = &Descriptors[i].DescriptorASInfo;
+            WriteDescriptorSets[i].dstSet = TargetDescriptorSet;
+            WriteDescriptorSets[i].dstBinding=i;
+            WriteDescriptorSets[i].descriptorCount=1;
+            WriteDescriptorSets[i].descriptorType=VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;            
+        }
     }
     vkUpdateDescriptorSets(VulkanDevice->Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);        
 }

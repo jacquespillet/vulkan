@@ -160,7 +160,7 @@ void pathTraceRTXRenderer::CreateBottomLevelAccelarationStructure(scene *Scene)
         uint32_t NumTriangles = (uint32_t)App->Scene->Meshes[i].Indices.size() / 3;
 
         VkAccelerationStructureGeometryKHR AccelerationStructureGeometry = vulkanTools::BuildAccelerationStructureGeometry();
-        AccelerationStructureGeometry.flags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
+        AccelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
         AccelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         AccelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
         AccelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
@@ -341,7 +341,7 @@ void pathTraceRTXRenderer::CreateTopLevelAccelerationStructure()
 
     VkAccelerationStructureGeometryKHR AccelerationStructureGeometry = vulkanTools::BuildAccelerationStructureGeometry();
     AccelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
-    AccelerationStructureGeometry.flags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
+    AccelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
     AccelerationStructureGeometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
     AccelerationStructureGeometry.geometry.instances.arrayOfPointers =VK_FALSE;
     AccelerationStructureGeometry.geometry.instances.data = InstanceDataDeviceAddress;

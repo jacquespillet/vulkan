@@ -265,7 +265,7 @@ void vulkanApp::CreateGeneralResources()
     if(RayTracing) 
     {
         Renderers.push_back(new pathTraceRTXRenderer(this));
-        Renderers.push_back(new hybridRenderer(this));
+        Renderers.push_back(new deferredHybridRenderer(this));
     }
     for(int i=0; i<Renderers.size(); i++)
     {

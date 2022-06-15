@@ -1,56 +1,78 @@
 #pragma once
+
+#include "Scene.h"
 #include "../Renderer.h"
 #include "RayTracingHelper.h"
 
-class scene;
-struct instance;
-
-class hybridRenderer : public renderer    
+class deferredHybridRenderer : public renderer    
 {
 public:
-    hybridRenderer(vulkanApp *App);
+    deferredHybridRenderer(vulkanApp *App);
     void Render() override;
     void Setup() override;    
     void Destroy() override;    
-    void RenderGUI() override;
+    void RenderGUI() override{};
     void Resize(uint32_t Width, uint32_t Height) override;
+
 
     std::vector<VkCommandBuffer> DrawCommandBuffers;
 
     VkDescriptorPool DescriptorPool;
-    VkDescriptorSet DescriptorSet;
     resources Resources;
-    // VkPipelineLayout PipelineLayout;
+    
+    struct
+    {
+        glm::mat4 Projection;
+    } UBOSSAOParams;
 
+    sceneMesh Quad;
+    
+    struct 
+    {
+        struct offscreen : public framebuffer {
+        } Offscreen;
+    } Framebuffers;
 
+    struct 
+    {
+        framebuffer Framebuffer;
+        VkDescriptorSetLayout DescriptorSetLayout;
+    } ShadowPass;
+
+    
+    VkCommandBuffer OffscreenCommandBuffer = VK_NULL_HANDLE;
+    bool Rebuild=false;
+    VkSemaphore OffscreenSemaphore;
+    bool EnableSSAO=true;
     std::vector<VkShaderModule> ShaderModules;
     VkSubmitInfo SubmitInfo;
-    VkDescriptorSetLayout DescriptorSetLayout;
 
+
+    void UpdateUniformBufferScreen();
+    void UpdateUniformBufferDeferredMatrices();
     void UpdateCamera();
 private:
-    buffer InstancesBuffer;
 
     VkPhysicalDeviceRayTracingPipelinePropertiesKHR RayTracingPipelineProperties{};
     VkPhysicalDeviceAccelerationStructureFeaturesKHR AccelerationStructureFeatures{};
         
+    buffer InstancesBuffer;
     std::vector<accelerationStructure> BottomLevelAccelerationStructures;
     accelerationStructure TopLevelAccelerationStructure;
     std::vector<VkAccelerationStructureInstanceKHR> BLASInstances{};
-
     
     void CreateBottomLevelAccelarationStructure(scene *Scene);
     void FillBLASInstances();
     void CreateTopLevelAccelerationStructure();
     VkAccelerationStructureInstanceKHR CreateBottomLevelAccelerationInstance(instance *Instance);
 
-
+    void CreateCommandBuffers();
     void SetupDescriptorPool();
     void BuildUniformBuffers();
     void BuildQuads();
+    void BuildCommandBuffers();
+    void BuildOffscreenBuffers();
     void BuildLayoutsAndDescriptors();
     void BuildPipelines();
-    void BuildCommandBuffers();
-    void CreateCommandBuffers();
-
+    void BuildDeferredCommandBuffers();
 };

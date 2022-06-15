@@ -217,12 +217,14 @@ struct descriptor
     enum type
     {
         Image,
-        Uniform
+        Uniform,
+        accelerationStructure
     } Type;
     VkImageView ImageView;
     VkSampler Sampler;
     VkDescriptorImageInfo DescriptorImageInfo;
     VkDescriptorBufferInfo DescriptorBufferInfo;
+    VkWriteDescriptorSetAccelerationStructureKHR DescriptorASInfo;
     VkDescriptorType DescriptorType;
 
     descriptor(VkShaderStageFlags Stage, VkImageView ImageView, VkSampler Sampler, VkImageLayout ImageLayout=VK_IMAGE_LAYOUT_GENERAL) :
@@ -238,6 +240,13 @@ struct descriptor
     {
         Type = Uniform;
         DescriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    }    
+
+    descriptor(VkShaderStageFlags Stage, VkWriteDescriptorSetAccelerationStructureKHR DescriptorASInfo) : 
+                Stage(Stage), DescriptorASInfo(DescriptorASInfo)
+    {
+        Type = accelerationStructure;
+        DescriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     }    
 };
 
