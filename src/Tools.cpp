@@ -988,6 +988,15 @@ namespace vulkanTools
         }
     }
 
+
+    VkComputePipelineCreateInfo BuildComputePipelineCreateInfo(VkPipelineLayout Layout, VkPipelineCreateFlags Flags)
+    {
+        VkComputePipelineCreateInfo Result {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+        Result.layout = Layout;
+        Result.flags = Flags;
+        return Result;        
+    }
+
     
     void CreateAndFillBuffer(vulkanDevice *Device, void *DataToCopy, size_t DataSize, VkBuffer *Buffer, VkDeviceMemory *Memory, VkBufferUsageFlags Flags, VkCommandBuffer CommandBuffer, VkQueue Queue)
     {

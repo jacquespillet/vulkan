@@ -1,4 +1,4 @@
-#include "HybridRenderer.h"
+#include "DeferredHybridRenderer.h"
 #include "App.h"
 
 
@@ -6,7 +6,6 @@ deferredHybridRenderer::deferredHybridRenderer(vulkanApp *App) : renderer(App) {
 
 void deferredHybridRenderer::Render()
 {
-
     BuildCommandBuffers();
     BuildDeferredCommandBuffers();
     UpdateCamera();
@@ -20,27 +19,10 @@ void deferredHybridRenderer::Render()
     SubmitInfo.waitSemaphoreCount = 1;
     SubmitInfo.signalSemaphoreCount=1;
     SubmitInfo.pWaitSemaphores = &App->Semaphores.PresentComplete;
-    SubmitInfo.pSignalSemaphores = &ShadowPass.Semaphore;
+    SubmitInfo.pSignalSemaphores = &OffscreenSemaphore;
     SubmitInfo.commandBufferCount=1;
     SubmitInfo.pCommandBuffers = &OffscreenCommandBuffer;
     VK_CALL(vkQueueSubmit(App->Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
-
-
-    vkWaitForFences(VulkanDevice->Device, 1, &Compute.Fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(VulkanDevice->Device, 1, &Compute.Fence);    
-    
-    VkPipelineStageFlags SubmitPipelineStages = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-    VkSubmitInfo ComputeSubmitInfo = vulkanTools::BuildSubmitInfo();
-    ComputeSubmitInfo.commandBufferCount = 1;
-    ComputeSubmitInfo.pCommandBuffers = &Compute.CommandBuffer;
-    ComputeSubmitInfo.waitSemaphoreCount=1;
-    ComputeSubmitInfo.pWaitSemaphores = &ShadowPass.Semaphore;
-    ComputeSubmitInfo.pWaitDstStageMask = &SubmitPipelineStages;
-    ComputeSubmitInfo.signalSemaphoreCount = 1;
-    ComputeSubmitInfo.pSignalSemaphores = &OffscreenSemaphore;
-
-    VK_CALL(vkQueueSubmit(Compute.Queue, 1, &ComputeSubmitInfo, Compute.Fence));
-        
 
     SubmitInfo.pWaitSemaphores = &OffscreenSemaphore;
     SubmitInfo.pSignalSemaphores = &App->Semaphores.RenderComplete;
@@ -75,17 +57,7 @@ void deferredHybridRenderer::Setup()
     BuildQuads();
     BuildOffscreenBuffers();
     BuildLayoutsAndDescriptors();
-
-
-    VkDeviceQueueCreateInfo queueCreateInfo = {};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.pNext = NULL;
-    queueCreateInfo.queueFamilyIndex = VulkanDevice->QueueFamilyIndices.Compute;
-    queueCreateInfo.queueCount = 1;
-    vkGetDeviceQueue(VulkanDevice->Device, VulkanDevice->QueueFamilyIndices.Compute, 0, &Compute.Queue);    
-    
     BuildPipelines();
-
     
     VkSemaphoreCreateInfo SemaphoreCreateInfo = vulkanTools::BuildSemaphoreCreateInfo();
     VK_CALL(vkCreateSemaphore(Device, &SemaphoreCreateInfo, nullptr, &OffscreenSemaphore));
@@ -325,27 +297,6 @@ void deferredHybridRenderer::CreateCommandBuffers()
     VK_CALL(vkAllocateCommandBuffers(Device, &CommandBufferAllocateInfo, DrawCommandBuffers.data()));
 
     OffscreenCommandBuffer = vulkanTools::CreateCommandBuffer(Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
-
-    VkCommandPoolCreateInfo ComputeCommandPoolCreateInfo = {};
-    ComputeCommandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    ComputeCommandPoolCreateInfo.queueFamilyIndex = VulkanDevice->QueueFamilyIndices.Compute;
-    ComputeCommandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    VK_CALL(vkCreateCommandPool(VulkanDevice->Device, &ComputeCommandPoolCreateInfo, nullptr, &Compute.CommandPool));
-
-    VkCommandBufferAllocateInfo CommandBufferAlllocateInfo =
-        vulkanTools::BuildCommandBufferAllocateInfo(
-            Compute.CommandPool,
-            VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            1);
-
-    VK_CALL(vkAllocateCommandBuffers(VulkanDevice->Device, &CommandBufferAlllocateInfo, &Compute.CommandBuffer));
-
-    // Fence for compute CB sync
-    VkFenceCreateInfo FenceCreateInfo = vulkanTools::BuildFenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
-    VK_CALL(vkCreateFence(VulkanDevice->Device, &FenceCreateInfo, nullptr, &Compute.Fence));
-
-    VkSemaphoreCreateInfo SemaphoreCreateInfo = vulkanTools::BuildSemaphoreCreateInfo();
-    VK_CALL(vkCreateSemaphore(VulkanDevice->Device, &SemaphoreCreateInfo, nullptr, &ShadowPass.Semaphore));    
 }
 
 void deferredHybridRenderer::SetupDescriptorPool()
@@ -389,81 +340,15 @@ void deferredHybridRenderer::BuildOffscreenBuffers()
                               .SetAttachmentFormat(3, VK_FORMAT_R8G8B8A8_UNORM);
         Framebuffers.Offscreen.BuildBuffers(VulkanDevice,LayoutCommand);        
     }    
-    //Shadow
+    //SSAO
     {
-        VkFormat Format = VK_FORMAT_R8_UNORM;
-		
-        VkFormatProperties FormatProperties;
-		vkGetPhysicalDeviceFormatProperties(VulkanDevice->PhysicalDevice, Format, &FormatProperties);
-		assert(FormatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
-
-		// Prepare blit target texture
-		ShadowPass.Texture.Width = App->Width;
-		ShadowPass.Texture.Height = App->Height;
-
-		VkImageCreateInfo ImageCreateInfo = vulkanTools::BuildImageCreateInfo();
-		ImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-		ImageCreateInfo.format = Format;
-		ImageCreateInfo.extent = { App->Width, App->Height, 1 };
-		ImageCreateInfo.mipLevels = 1;
-		ImageCreateInfo.arrayLayers = 1;
-		ImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		ImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		ImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		ImageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-		ImageCreateInfo.flags = 0;
-
-		VkMemoryAllocateInfo MemoryAllocateInfo = vulkanTools::BuildMemoryAllocateInfo();
-		VkMemoryRequirements MemoryRequirements;
-
-		VK_CALL(vkCreateImage(VulkanDevice->Device, &ImageCreateInfo, nullptr, &ShadowPass.Texture.Image));
-		vkGetImageMemoryRequirements(VulkanDevice->Device, ShadowPass.Texture.Image, &MemoryRequirements);
-		MemoryAllocateInfo.allocationSize = MemoryRequirements.size;
-		MemoryAllocateInfo.memoryTypeIndex =  VulkanDevice->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		VK_CALL(vkAllocateMemory(VulkanDevice->Device, &MemoryAllocateInfo, nullptr, &ShadowPass.Texture.DeviceMemory));
-		VK_CALL(vkBindImageMemory(VulkanDevice->Device, ShadowPass.Texture.Image, ShadowPass.Texture.DeviceMemory, 0));
-
-		VkCommandBuffer LayoutCmd = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-
-		ShadowPass.Texture.ImageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		vulkanTools::TransitionImageLayout(
-			LayoutCmd,
-			ShadowPass.Texture.Image,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			ShadowPass.Texture.ImageLayout);
-
-		vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, LayoutCmd, App->Queue, true);
-
-		// Create sampler
-		VkSamplerCreateInfo Sampler = vulkanTools::BuildSamplerCreateInfo();
-		Sampler.magFilter = VK_FILTER_LINEAR;
-		Sampler.minFilter = VK_FILTER_LINEAR;
-		Sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		Sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-		Sampler.addressModeV = Sampler.addressModeU;
-		Sampler.addressModeW = Sampler.addressModeU;
-		Sampler.mipLodBias = 0.0f;
-		Sampler.maxAnisotropy = 1.0f;
-		Sampler.compareOp = VK_COMPARE_OP_NEVER;
-		Sampler.minLod = 0.0f;
-		Sampler.maxLod = 0.0f;
-		Sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-		VK_CALL(vkCreateSampler(VulkanDevice->Device, &Sampler, nullptr, &ShadowPass.Texture.Sampler));
-
-		// Create image view
-		VkImageViewCreateInfo view = vulkanTools::BuildImageViewCreateInfo();
-		view.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		view.format = Format;
-		view.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-		view.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-		view.image = ShadowPass.Texture.Image;
-		VK_CALL(vkCreateImageView(VulkanDevice->Device, &view, nullptr, &ShadowPass.Texture.View));
-
-		// Initialize a descriptor for later use
-		ShadowPass.Texture.Descriptor.imageLayout = ShadowPass.Texture.ImageLayout;
-		ShadowPass.Texture.Descriptor.imageView = ShadowPass.Texture.View;
-		ShadowPass.Texture.Descriptor.sampler = ShadowPass.Texture.Sampler;      
+        uint32_t SSAOWidth = App->Width;
+        uint32_t SSAOHeight = App->Height;
+        ShadowPass.Framebuffer.SetSize(SSAOWidth, SSAOHeight)
+                         .SetAttachmentCount(1)
+                         .SetAttachmentFormat(0, VK_FORMAT_R8_UNORM)
+                         .HasDepth=false;
+        ShadowPass.Framebuffer.BuildBuffers(VulkanDevice,LayoutCommand);        
     }
 
     vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, LayoutCommand, App->Queue, true);
@@ -499,7 +384,7 @@ void deferredHybridRenderer::BuildLayoutsAndDescriptors()
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[2].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[3].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, ShadowPass.Texture.View, ShadowPass.Texture.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, ShadowPass.Framebuffer._Attachments[0].ImageView, ShadowPass.Framebuffer.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
         };
         std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts = 
         {
@@ -517,10 +402,9 @@ void deferredHybridRenderer::BuildLayoutsAndDescriptors()
 
         std::vector<descriptor> Descriptors = 
         {
-            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ShadowPass.Texture.Descriptor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
-            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, DescriptorAccelerationStructureInfo),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, DescriptorAccelerationStructureInfo),
         };
         
         std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts = 
@@ -712,12 +596,18 @@ void deferredHybridRenderer::BuildPipelines()
 
     }
 
-    //Shadow
+    //SSAO
     {
-        VkComputePipelineCreateInfo ComputePipelineCreateInfo = vulkanTools::BuildComputePipelineCreateInfo(Resources.PipelineLayouts->Get("Shadows"), 0);
+        RasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        ColorBlendState.attachmentCount=1;
+        ShaderStages[0] = LoadShader(VulkanDevice->Device, "resources/shaders/spv/Composition.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        ShaderStages[1] = LoadShader(VulkanDevice->Device, "resources/shaders/spv/raytracedShadows.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        ShaderModules.push_back(ShaderStages[0].module);
+        ShaderModules.push_back(ShaderStages[1].module);
 
-		ComputePipelineCreateInfo.stage = LoadShader(VulkanDevice->Device, "resources/shaders/spv/rayTracedShadows.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT);
-		VK_CALL(vkCreateComputePipelines(VulkanDevice->Device, nullptr, 1, &ComputePipelineCreateInfo, nullptr, &ShadowPass.Pipeline));
+        PipelineCreateInfo.renderPass = ShadowPass.Framebuffer.RenderPass;
+        PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Shadows");
+        Resources.Pipelines->Add("Shadows", PipelineCreateInfo, App->PipelineCache);
     }     
 }
 
@@ -888,36 +778,44 @@ void deferredHybridRenderer::BuildDeferredCommandBuffers()
     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     
-    
-    
-    VK_CALL(vkEndCommandBuffer(OffscreenCommandBuffer));
-
-
     if(true)
     {
-		VkCommandBufferBeginInfo ComputeCommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
-		VK_CALL(vkBeginCommandBuffer(Compute.CommandBuffer, &ComputeCommandBufferBeginInfo));
+        ClearValues[0].color = {{0.0f,0.0f,0.0f,0.0f}};
+        ClearValues[1].depthStencil = {1.0f, 0};
 
-        vulkanTools::TransitionImageLayout(Compute.CommandBuffer,
-        ShadowPass.Texture.Image, 
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_IMAGE_LAYOUT_GENERAL);
+        RenderPassBeginInfo.framebuffer = ShadowPass.Framebuffer.Framebuffer;
+        RenderPassBeginInfo.renderPass = ShadowPass.Framebuffer.RenderPass;
+        RenderPassBeginInfo.renderArea.extent.width = ShadowPass.Framebuffer.Width;
+        RenderPassBeginInfo.renderArea.extent.height = ShadowPass.Framebuffer.Height;
+        RenderPassBeginInfo.clearValueCount=2;
+        RenderPassBeginInfo.pClearValues = ClearValues.data();
 
-		vkCmdBindPipeline(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, ShadowPass.Pipeline);
-		vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 0, 1, Resources.DescriptorSets->GetPtr("Shadows"), 0, 0);
-        vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 1, 1, &RendererDescriptorSet, 0, nullptr);			
-        vkCmdDispatch(Compute.CommandBuffer, App->Width / 16, App->Height / 16, 1);
+        vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        Viewport = vulkanTools::BuildViewport((float)Framebuffers.Offscreen.Width, (float)Framebuffers.Offscreen.Height, 0.0f, 1.0f, 0, 0);
+        vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
+
+        Scissor = vulkanTools::BuildRect2D(ShadowPass.Framebuffer.Width,ShadowPass.Framebuffer.Height,0,0);
+        vkCmdSetScissor(OffscreenCommandBuffer, 0, 1, &Scissor);
+
         
-        vulkanTools::TransitionImageLayout(Compute.CommandBuffer,
-        ShadowPass.Texture.Image, 
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_GENERAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        VkDeviceSize Offsets[1] = {0};
+        vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Shadows"), 0, 1, Resources.DescriptorSets->GetPtr("Shadows"), 0, nullptr);
+        vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Shadows"), 1, 1, App->Scene->Resources.DescriptorSets->GetPtr("Scene"), 0, nullptr);
 
-		vkEndCommandBuffer(Compute.CommandBuffer);        
+        vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Shadows"));
+        vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Quad.VertexBuffer.Buffer, Offsets);
+        vkCmdBindIndexBuffer(OffscreenCommandBuffer, Quad.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(OffscreenCommandBuffer, 6, 1, 0, 0, 1);
+        vkCmdEndRenderPass(OffscreenCommandBuffer);
     }
-    
+    /*vulkanTools::TransitionImageLayout(OffscreenCommandBuffer,
+    ShadowPass.Framebuffer._Attachments[0].Image, 
+    VK_IMAGE_ASPECT_COLOR_BIT,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);*/
+
+    VK_CALL(vkEndCommandBuffer(OffscreenCommandBuffer));
 }
 
 
@@ -928,8 +826,7 @@ void deferredHybridRenderer::UpdateCamera()
 void deferredHybridRenderer::Resize(uint32_t Width, uint32_t Height) 
 {
     Framebuffers.Offscreen.Destroy(VulkanDevice->Device);
-    //TODO
-    // Resize shadows image
+    ShadowPass.Framebuffer.Destroy(VulkanDevice->Device);
     BuildOffscreenBuffers();
 
     VkDescriptorSet TargetDescriptorSet = Resources.DescriptorSets->Get("Composition");
@@ -957,6 +854,7 @@ void deferredHybridRenderer::Destroy()
     }
 
     Framebuffers.Offscreen.Destroy(VulkanDevice->Device);
+    ShadowPass.Framebuffer.Destroy(VulkanDevice->Device);
     
     Quad.Destroy();
     Resources.Destroy();

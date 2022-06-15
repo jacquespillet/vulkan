@@ -1,16 +1,18 @@
 #version 460
 
+layout (local_size_x = 16, local_size_y = 16) in;
 #define PI 3.14159265359
 
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
+// #extension GL_ARB_separate_shader_objects : enable
+// #extension GL_ARB_shading_language_420pack : enable
 #extension GL_EXT_ray_tracing : enable
 #extension GL_EXT_ray_query : enable
 
 
 layout (binding = 0) uniform sampler2D samplerPositionDepth;
 layout (binding = 1) uniform sampler2D samplerNormal;
-layout (binding = 2) uniform accelerationStructureEXT topLevelAS;
+layout (binding = 2, r8) uniform  image2D shadowImage;
+layout (binding = 3) uniform accelerationStructureEXT topLevelAS;
 
 
 #include "Common/SceneUBO.glsl"
@@ -19,9 +21,9 @@ layout (set=1,binding = 0) uniform UBO
     sceneUbo Data;
 } SceneUbo;
 
-layout (location = 0) in vec2 inUV;
+// layout (location = 0) in vec2 inUV;
 
-layout (location = 0) out float outFragColor;
+// layout (location = 0) out float outFragColor;
 
 float rand(vec2 co){
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
@@ -29,8 +31,11 @@ float rand(vec2 co){
 
 void main() 
 {	  
-	vec3 FragPosition = texture(samplerPositionDepth, inUV).rgb;
-	vec3 Normal = normalize(texture(samplerNormal, inUV).rgb * 2.0 - 1.0);
+	ivec2 dim = imageSize(shadowImage);
+    vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
+
+	vec3 FragPosition = texture(samplerPositionDepth, uv).rgb;
+	vec3 Normal = normalize(texture(samplerNormal, uv).rgb * 2.0 - 1.0);
 	float Shadow=1.0f;
 
 #if 0
@@ -41,8 +46,8 @@ void main()
         vec3 light_bitangent = normalize(cross(light_tangent, light_dir));
 
         // calculate disk point
-        float point_radius = 0.5 * rand(inUV.yx);
-        float point_angle  = rand(inUV.xy) * 2.0f * PI;
+        float point_radius = 0.5 * rand(uv.yx);
+        float point_angle  = rand(uv.xy) * 2.0f * PI;
         vec2  disk_point   = vec2(point_radius * cos(point_angle), point_radius * sin(point_angle));    
         vec3 L = normalize(light_dir + disk_point.x * light_tangent + disk_point.y * light_bitangent);
 #endif
@@ -57,6 +62,6 @@ void main()
 	}
 
 
-	outFragColor = Shadow;
+    imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(Shadow));
 }
 

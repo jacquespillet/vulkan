@@ -75,7 +75,7 @@ REM --------------------
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/miss.rmiss -o resources/shaders/spv/miss.rmiss.spv --target-spv=spv1.4 -g
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rtx/missShadow.rmiss -o resources/shaders/spv/missShadow.rmiss.spv --target-spv=spv1.4 -g
 
-%VULKAN_SDK%/Bin/glslc.exe resources/shaders/rayTracedShadows.frag -o resources/shaders/spv/rayTracedShadows.frag.spv --target-spv=spv1.4  --target-env=vulkan1.2 
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/rayTracedShadows.comp -o resources/shaders/spv/rayTracedShadows.comp.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybridComposition.frag -o resources/shaders/spv/hybridComposition.frag.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 
 

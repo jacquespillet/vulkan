@@ -105,7 +105,9 @@ namespace vulkanTools
     VkPipelineDynamicStateCreateInfo BuildPipelineDynamicStateCreateInfo(const std::vector<VkDynamicState> &DynamicStates, VkPipelineDynamicStateCreateFlags Flags=0);
 
     VkGraphicsPipelineCreateInfo BuildGraphicsPipelineCreateInfo(VkPipelineLayout Layout = VK_NULL_HANDLE, VkRenderPass RenderPass = VK_NULL_HANDLE, VkPipelineCreateFlags Flags =0);
-    
+
+    VkComputePipelineCreateInfo BuildComputePipelineCreateInfo(VkPipelineLayout Layout, VkPipelineCreateFlags Flags=0);
+
     VkSpecializationMapEntry BuildSpecializationMapEntry(uint32_t ConstantID, uint32_t Offset, size_t Size);
 
     VkSpecializationInfo BuildSpecializationInfo(uint32_t MapEntryCount, const VkSpecializationMapEntry *MapEntries, size_t DataSize, const void *Data);

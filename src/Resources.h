@@ -234,6 +234,11 @@ struct descriptor
         DescriptorImageInfo = vulkanTools::BuildDescriptorImageInfo(Sampler, ImageView, ImageLayout);
         DescriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     }
+    descriptor(VkShaderStageFlags Stage, VkDescriptorImageInfo Descriptor, VkDescriptorType DescriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) :
+                Stage(Stage), DescriptorImageInfo(Descriptor), DescriptorType(DescriptorType)
+    {
+        Type = Image;
+    }
     
     descriptor(VkShaderStageFlags Stage, VkDescriptorBufferInfo DescriptorBufferInfo) : 
                 Stage(Stage), DescriptorBufferInfo(DescriptorBufferInfo)

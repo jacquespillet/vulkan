@@ -3,6 +3,7 @@
 #include "Scene.h"
 #include "../Renderer.h"
 #include "RayTracingHelper.h"
+#include "TextureLoader.h"
 
 class deferredHybridRenderer : public renderer    
 {
@@ -35,9 +36,19 @@ public:
 
     struct 
     {
-        framebuffer Framebuffer;
         VkDescriptorSetLayout DescriptorSetLayout;
+        VkPipeline Pipeline;
+        vulkanTexture Texture;
+        VkSemaphore Semaphore;
     } ShadowPass;
+
+    struct 
+    {
+        VkQueue Queue;
+        VkCommandPool CommandPool;
+        VkCommandBuffer CommandBuffer;
+        VkFence Fence;
+    } Compute;
 
     
     VkCommandBuffer OffscreenCommandBuffer = VK_NULL_HANDLE;
