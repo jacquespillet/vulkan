@@ -40,6 +40,10 @@ public:
         VkPipeline Pipeline;
         vulkanTexture Texture;
         VkSemaphore Semaphore;
+        struct {
+            uint32_t FrameCounter=0;
+        } UniformData;
+        buffer UniformBuffer;
     } ShadowPass;
 
     struct 

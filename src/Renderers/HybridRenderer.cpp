@@ -11,44 +11,54 @@ void deferredHybridRenderer::Render()
     BuildDeferredCommandBuffers();
     UpdateCamera();
 
+    ShadowPass.UniformBuffer.Map();
+    ShadowPass.UniformBuffer.CopyTo(&ShadowPass.UniformData, sizeof(ShadowPass.UniformData), 0);
+    ShadowPass.UniformBuffer.Unmap();
+    
+
     VK_CALL(App->Swapchain.AcquireNextImage(App->Semaphores.PresentComplete, &App->CurrentBuffer));
-    
     //Before color output stage, wait for present semaphore to be complete, and signal Render semaphore to be completed
-    
-    SubmitInfo = vulkanTools::BuildSubmitInfo();
-    SubmitInfo.pWaitDstStageMask = &App->SubmitPipelineStages;
-    SubmitInfo.waitSemaphoreCount = 1;
-    SubmitInfo.signalSemaphoreCount=1;
-    SubmitInfo.pWaitSemaphores = &App->Semaphores.PresentComplete;
-    SubmitInfo.pSignalSemaphores = &ShadowPass.Semaphore;
-    SubmitInfo.commandBufferCount=1;
-    SubmitInfo.pCommandBuffers = &OffscreenCommandBuffer;
-    VK_CALL(vkQueueSubmit(App->Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+    {
+        SubmitInfo = vulkanTools::BuildSubmitInfo();
+        SubmitInfo.pWaitDstStageMask = &App->SubmitPipelineStages;
+        SubmitInfo.waitSemaphoreCount = 1;
+        SubmitInfo.signalSemaphoreCount=1;
+        SubmitInfo.pWaitSemaphores = &App->Semaphores.PresentComplete;
+        SubmitInfo.pSignalSemaphores = &ShadowPass.Semaphore;
+        SubmitInfo.commandBufferCount=1;
+        SubmitInfo.pCommandBuffers = &OffscreenCommandBuffer;
+        VK_CALL(vkQueueSubmit(App->Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+    }
 
+    {
+        ShadowPass.UniformData.FrameCounter++;
+        if(App->Scene->Camera.Changed) ShadowPass.UniformData.FrameCounter=0;
 
-    vkWaitForFences(VulkanDevice->Device, 1, &Compute.Fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(VulkanDevice->Device, 1, &Compute.Fence);    
-    
-    VkPipelineStageFlags SubmitPipelineStages = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-    VkSubmitInfo ComputeSubmitInfo = vulkanTools::BuildSubmitInfo();
-    ComputeSubmitInfo.commandBufferCount = 1;
-    ComputeSubmitInfo.pCommandBuffers = &Compute.CommandBuffer;
-    ComputeSubmitInfo.waitSemaphoreCount=1;
-    ComputeSubmitInfo.pWaitSemaphores = &ShadowPass.Semaphore;
-    ComputeSubmitInfo.pWaitDstStageMask = &SubmitPipelineStages;
-    ComputeSubmitInfo.signalSemaphoreCount = 1;
-    ComputeSubmitInfo.pSignalSemaphores = &OffscreenSemaphore;
-
-    VK_CALL(vkQueueSubmit(Compute.Queue, 1, &ComputeSubmitInfo, Compute.Fence));
+        vkWaitForFences(VulkanDevice->Device, 1, &Compute.Fence, VK_TRUE, UINT64_MAX);
+        vkResetFences(VulkanDevice->Device, 1, &Compute.Fence);    
         
+        VkPipelineStageFlags SubmitPipelineStages = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        VkSubmitInfo ComputeSubmitInfo = vulkanTools::BuildSubmitInfo();
+        ComputeSubmitInfo.commandBufferCount = 1;
+        ComputeSubmitInfo.pCommandBuffers = &Compute.CommandBuffer;
+        ComputeSubmitInfo.waitSemaphoreCount=1;
+        ComputeSubmitInfo.pWaitSemaphores = &ShadowPass.Semaphore;
+        ComputeSubmitInfo.pWaitDstStageMask = &SubmitPipelineStages;
+        ComputeSubmitInfo.signalSemaphoreCount = 1;
+        ComputeSubmitInfo.pSignalSemaphores = &OffscreenSemaphore;
 
-    SubmitInfo.pWaitSemaphores = &OffscreenSemaphore;
-    SubmitInfo.pSignalSemaphores = &App->Semaphores.RenderComplete;
-    SubmitInfo.pCommandBuffers = &DrawCommandBuffers[App->CurrentBuffer];
-    VK_CALL(vkQueueSubmit(App->Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+        VK_CALL(vkQueueSubmit(Compute.Queue, 1, &ComputeSubmitInfo, Compute.Fence));
+    }
+        
+    {
+        SubmitInfo.pWaitSemaphores = &OffscreenSemaphore;
+        SubmitInfo.pSignalSemaphores = &App->Semaphores.RenderComplete;
+        SubmitInfo.pCommandBuffers = &DrawCommandBuffers[App->CurrentBuffer];
+        VK_CALL(vkQueueSubmit(App->Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
 
-    VK_CALL(App->Swapchain.QueuePresent(App->Queue, App->CurrentBuffer, App->Semaphores.RenderComplete));
-    VK_CALL(vkQueueWaitIdle(App->Queue));
+        VK_CALL(App->Swapchain.QueuePresent(App->Queue, App->CurrentBuffer, App->Semaphores.RenderComplete));
+        VK_CALL(vkQueueWaitIdle(App->Queue));
+    }
 }
 
 void deferredHybridRenderer::Setup()
@@ -64,6 +74,8 @@ void deferredHybridRenderer::Setup()
     VkPhysicalDeviceFeatures2 DeviceFeatures2 {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     DeviceFeatures2.pNext = &AccelerationStructureFeatures;
     vkGetPhysicalDeviceFeatures2(App->PhysicalDevice, &DeviceFeatures2);
+    
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &ShadowPass.UniformBuffer, sizeof(ShadowPass.UniformData), &ShadowPass.UniformData);
     
     CreateBottomLevelAccelarationStructure(App->Scene);
     FillBLASInstances();
@@ -521,6 +533,7 @@ void deferredHybridRenderer::BuildLayoutsAndDescriptors()
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ShadowPass.Texture.Descriptor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, DescriptorAccelerationStructureInfo),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ShadowPass.UniformBuffer.Descriptor)
         };
         
         std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts = 
@@ -907,6 +920,7 @@ void deferredHybridRenderer::BuildDeferredCommandBuffers()
 		vkCmdBindPipeline(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, ShadowPass.Pipeline);
 		vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 0, 1, Resources.DescriptorSets->GetPtr("Shadows"), 0, 0);
         vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 1, 1, &RendererDescriptorSet, 0, nullptr);			
+        
         vkCmdDispatch(Compute.CommandBuffer, App->Width / 16, App->Height / 16, 1);
         
         vulkanTools::TransitionImageLayout(Compute.CommandBuffer,

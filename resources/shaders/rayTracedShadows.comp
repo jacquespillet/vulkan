@@ -13,6 +13,10 @@ layout (binding = 0) uniform sampler2D samplerPositionDepth;
 layout (binding = 1) uniform sampler2D samplerNormal;
 layout (binding = 2, r8) uniform  image2D shadowImage;
 layout (binding = 3) uniform accelerationStructureEXT topLevelAS;
+layout (set=0,binding = 4) uniform passUBO 
+{
+    uint FrameCounter;
+} PassUBO;
 
 
 #include "Common/SceneUBO.glsl"
@@ -25,9 +29,7 @@ layout (set=1,binding = 0) uniform UBO
 
 // layout (location = 0) out float outFragColor;
 
-float rand(vec2 co){
-    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
-}
+#include "Common/random.glsl"
 
 void main() 
 {	  
@@ -36,7 +38,7 @@ void main()
 
 	vec3 FragPosition = texture(samplerPositionDepth, uv).rgb;
 	vec3 Normal = normalize(texture(samplerNormal, uv).rgb * 2.0 - 1.0);
-	float Shadow=1.0f;
+	uint Shadow=0;
 
 #if 0
 	vec3 L = normalize(-SceneUbo.Data.LightDirection);
@@ -46,8 +48,12 @@ void main()
         vec3 light_bitangent = normalize(cross(light_tangent, light_dir));
 
         // calculate disk point
-        float point_radius = 0.5 * rand(uv.yx);
-        float point_angle  = rand(uv.xy) * 2.0f * PI;
+        uint RandomState = uint(uint(gl_GlobalInvocationID.x) * uint(1973) + uint(gl_GlobalInvocationID.y) * uint(9277) + uint(PassUBO.FrameCounter) * uint(26699)) | uint(1); 
+        float Random1 = RandomUnilateral(RandomState);
+        float Random2 = RandomUnilateral(RandomState);
+
+        float point_radius = 0.1 * Random1;
+        float point_angle  = Random2 * 2.0f * PI;
         vec2  disk_point   = vec2(point_radius * cos(point_angle), point_radius * sin(point_angle));    
         vec3 L = normalize(light_dir + disk_point.x * light_tangent + disk_point.y * light_bitangent);
 #endif
@@ -58,10 +64,15 @@ void main()
 
 	// If the intersection has hit a triangle, the fragment is shadowed
 	if (rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionTriangleEXT ) {
-		Shadow=0.1f;
+		Shadow=1;
 	}
 
-
+    uint prevShadow = uint(imageLoad(shadowImage, ivec2(gl_GlobalInvocationID.xy)).r);
+    if(PassUBO.FrameCounter==0)
+    {
+        prevShadow=0;   
+    }
+    Shadow |= prevShadow;
     imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(Shadow));
 }
 

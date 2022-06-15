@@ -46,7 +46,7 @@ void main()
 
 	vec3 Normal = texture(samplerNormal, inUV).xyz * 2.0 - 1.0;
 	
-	float Shadow = texture(samplerShadows, inUV).x;
+	float Shadow = 1.0f - texture(samplerShadows, inUV).x;
 
 	ivec2 texDim = textureSize(samplerAlbedoMetallicRoughnessOcclusionOcclusionStrength, 0);
 	uvec4 albedo = texelFetch(samplerAlbedoMetallicRoughnessOcclusionOcclusionStrength, ivec2(inUV.st * texDim ), 0);
