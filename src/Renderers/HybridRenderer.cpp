@@ -340,15 +340,16 @@ void deferredHybridRenderer::BuildOffscreenBuffers()
                               .SetAttachmentFormat(3, VK_FORMAT_R8G8B8A8_UNORM);
         Framebuffers.Offscreen.BuildBuffers(VulkanDevice,LayoutCommand);        
     }    
-    //SSAO
+    //Shadow
     {
         uint32_t SSAOWidth = App->Width;
         uint32_t SSAOHeight = App->Height;
         ShadowPass.Framebuffer.SetSize(SSAOWidth, SSAOHeight)
                          .SetAttachmentCount(1)
                          .SetAttachmentFormat(0, VK_FORMAT_R8_UNORM)
+                         .SetLoadOp(0, VK_ATTACHMENT_LOAD_OP_LOAD)
                          .HasDepth=false;
-        ShadowPass.Framebuffer.BuildBuffers(VulkanDevice,LayoutCommand);        
+        ShadowPass.Framebuffer.BuildBuffers(VulkanDevice,LayoutCommand);     
     }
 
     vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, LayoutCommand, App->Queue, true);
@@ -780,16 +781,13 @@ void deferredHybridRenderer::BuildDeferredCommandBuffers()
     
     if(true)
     {
-        ClearValues[0].color = {{0.0f,0.0f,0.0f,0.0f}};
-        ClearValues[1].depthStencil = {1.0f, 0};
-
         RenderPassBeginInfo.framebuffer = ShadowPass.Framebuffer.Framebuffer;
         RenderPassBeginInfo.renderPass = ShadowPass.Framebuffer.RenderPass;
         RenderPassBeginInfo.renderArea.extent.width = ShadowPass.Framebuffer.Width;
         RenderPassBeginInfo.renderArea.extent.height = ShadowPass.Framebuffer.Height;
-        RenderPassBeginInfo.clearValueCount=2;
-        RenderPassBeginInfo.pClearValues = ClearValues.data();
-
+        RenderPassBeginInfo.clearValueCount=0;
+        RenderPassBeginInfo.pClearValues=nullptr;
+        
         vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         Viewport = vulkanTools::BuildViewport((float)Framebuffers.Offscreen.Width, (float)Framebuffers.Offscreen.Height, 0.0f, 1.0f, 0, 0);
@@ -797,7 +795,6 @@ void deferredHybridRenderer::BuildDeferredCommandBuffers()
 
         Scissor = vulkanTools::BuildRect2D(ShadowPass.Framebuffer.Width,ShadowPass.Framebuffer.Height,0,0);
         vkCmdSetScissor(OffscreenCommandBuffer, 0, 1, &Scissor);
-
         
         VkDeviceSize Offsets[1] = {0};
         vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Shadows"), 0, 1, Resources.DescriptorSets->GetPtr("Shadows"), 0, nullptr);

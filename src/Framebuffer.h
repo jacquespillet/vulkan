@@ -30,6 +30,7 @@ struct framebuffer
 
     std::vector<framebufferAttachment> _Attachments;
     std::vector<VkFormat> AttachmentFormats;
+    std::vector<VkAttachmentLoadOp> LoadOps;
 
     VkSampler Sampler;
 
@@ -55,11 +56,17 @@ struct framebuffer
         AttachmentFormats[AttachmentIndex] = Format;
         return *this;
     }
+    framebuffer& SetLoadOp(uint32_t AttachmentIndex, VkAttachmentLoadOp LoadOp)
+    {
+        LoadOps[AttachmentIndex] = LoadOp;
+        return *this;
+    }
 
     framebuffer& SetAttachmentCount(uint32_t AttachmentCount)
     {
         _Attachments.resize(AttachmentCount);
 		AttachmentFormats.resize(AttachmentCount);
+		LoadOps.resize(AttachmentCount, VK_ATTACHMENT_LOAD_OP_CLEAR);
         return *this;
     }
 

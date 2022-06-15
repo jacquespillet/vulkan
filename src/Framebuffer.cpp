@@ -52,19 +52,20 @@ void framebuffer::BuildBuffers(vulkanDevice *VulkanDevice, VkCommandBuffer Layou
     {
         
         AttachmentDescriptions[i].samples = VK_SAMPLE_COUNT_1_BIT;
-        AttachmentDescriptions[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         AttachmentDescriptions[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         AttachmentDescriptions[i].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         AttachmentDescriptions[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         
         if(i<ColorAttachmentCount)
         {
+            AttachmentDescriptions[i].loadOp = LoadOps[i];
             AttachmentDescriptions[i].format = _Attachments[i].Format;
             AttachmentDescriptions[i].finalLayout = FinalLayout;
             ColorReferences.push_back({i, FinalLayout});
         }
         else if(HasDepth)//Depth
         {
+            AttachmentDescriptions[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
             AttachmentDescriptions[i].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             AttachmentDescriptions[i].format = Depth.Format;
             DepthReference = {i, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
