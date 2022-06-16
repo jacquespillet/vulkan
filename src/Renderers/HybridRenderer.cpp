@@ -394,11 +394,14 @@ void deferredHybridRenderer::BuildOffscreenBuffers()
     //G buffer
     {
         Framebuffers.Offscreen.SetSize(App->Width, App->Height)
-                              .SetAttachmentCount(4)
+                              .SetAttachmentCount(7)
                               .SetAttachmentFormat(0, VK_FORMAT_R32G32B32A32_SFLOAT)
                               .SetAttachmentFormat(1, VK_FORMAT_R8G8B8A8_UNORM)
                               .SetAttachmentFormat(2, VK_FORMAT_R32G32B32A32_UINT)
-                              .SetAttachmentFormat(3, VK_FORMAT_R8G8B8A8_UNORM);
+                              .SetAttachmentFormat(3, VK_FORMAT_R8G8B8A8_UNORM)
+                              .SetAttachmentFormat(4, VK_FORMAT_R32G32B32A32_SFLOAT) //LinearZ
+                              .SetAttachmentFormat(5, VK_FORMAT_R16G16B16A16_SFLOAT) //Motion Vectors
+                              .SetAttachmentFormat(6, VK_FORMAT_R32G32B32A32_SFLOAT); //Compacted Normal and depth
         Framebuffers.Offscreen.BuildBuffers(VulkanDevice,LayoutCommand);        
     }    
     //Shadow
@@ -676,7 +679,7 @@ void deferredHybridRenderer::BuildPipelines()
         );
 
         ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/mrt.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/mrt.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/hybridGBuffer.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
         ShaderStages[1].pSpecializationInfo = &SpecializationInfo;
         ShaderModules.push_back(ShaderStages[1].module);            
         ShaderModules.push_back(ShaderStages[0].module);
@@ -685,8 +688,11 @@ void deferredHybridRenderer::BuildPipelines()
         PipelineCreateInfo.renderPass = Framebuffers.Offscreen.RenderPass;
         PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Offscreen");
 
-        std::array<VkPipelineColorBlendAttachmentState, 4> BlendAttachmentStates = 
+        std::array<VkPipelineColorBlendAttachmentState, 7> BlendAttachmentStates = 
         {
+            vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE),
+            vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE),
+            vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE),
             vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE),
             vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE),
             vulkanTools::BuildPipelineColorBlendAttachmentState(0xf, VK_FALSE),
@@ -795,12 +801,15 @@ void deferredHybridRenderer::BuildDeferredCommandBuffers()
     VK_CALL(vkBeginCommandBuffer(OffscreenCommandBuffer, &CommandBufferBeginInfo));
     
     //G-buffer pass
-    std::array<VkClearValue, 5> ClearValues = {};
+    std::array<VkClearValue, 8> ClearValues = {};
     ClearValues[0].color = {{0.0f,0.0f,0.0f,0.0f}};
     ClearValues[1].color = {{0.0f,0.0f,0.0f,0.0f}};
     ClearValues[2].color = {{0.0f,0.0f,0.0f,0.0f}};
     ClearValues[3].color = {{0.0f,0.0f,0.0f,0.0f}};
-    ClearValues[4].depthStencil = {1.0f, 0};
+    ClearValues[4].color = {{0.0f,0.0f,0.0f,0.0f}};
+    ClearValues[5].color = {{0.0f,0.0f,0.0f,0.0f}};
+    ClearValues[6].color = {{0.0f,0.0f,0.0f,0.0f}};
+    ClearValues[7].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo RenderPassBeginInfo = vulkanTools::BuildRenderPassBeginInfo();
     RenderPassBeginInfo.renderPass = Framebuffers.Offscreen.RenderPass;

@@ -65,6 +65,8 @@ public:
 
     void Lock();
     void Unlock();
+    
+    glm::mat4 PrevInvModelMatrix;
 private:    
     float fov;
     float nearPlane, farPlane;

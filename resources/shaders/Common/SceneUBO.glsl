@@ -5,7 +5,8 @@ struct sceneUbo
 	mat4 View;
 	mat4 InvView;
 	mat4 InvProjection;
-	
+	mat4 PrevView;
+      
 	vec3 CameraPosition;
 	float Exposure;
 	
@@ -14,7 +15,7 @@ struct sceneUbo
 	
 	float BackgroundIntensity;
 	float DebugChannel;
-	vec2 Padding;
+	vec2 RenderSize;
 
 	vec3 LightDirection;
 	float Padding1;

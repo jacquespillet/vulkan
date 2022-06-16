@@ -298,6 +298,7 @@ public:
         glm::mat4 View;
         glm::mat4 InvView;
         glm::mat4 InvProjection;
+        glm::mat4 PrevView;
         
         glm::vec3 CameraPosition;
         float Exposure = 1;
@@ -307,7 +308,7 @@ public:
         
         float BackgroundIntensity = 3;
         float DebugChannel=-1;
-        glm::vec2 Padding;
+        glm::vec2 RenderSize;
         
         glm::vec3 LightDirection = glm::vec3(-1,-1,-1);
         float Padding1;

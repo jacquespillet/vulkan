@@ -25,11 +25,14 @@ layout (location = 0) out vec3 FragNormal;
 layout (location = 1) out vec2 FragUV;
 layout (location = 2) out vec3 FragWorldPos;
 layout (location = 3) out mat3 TBN;
-
+layout (location = 6) out vec4 FragProjectedPos;
+layout (location = 7) out vec4 PrevPos;
 
 void main() 
 {
-	gl_Position = SceneUbo.Data.Projection * SceneUbo.Data.View * InstanceUBO.Model * vec4(inPos.xyz, 1);
+	FragProjectedPos = SceneUbo.Data.Projection * SceneUbo.Data.View * InstanceUBO.Model * vec4(inPos.xyz, 1);
+	gl_Position = FragProjectedPos;
+	FragProjectedPos/= FragProjectedPos.w;
 	
 	FragUV = vec2(inPos.w, inNormal.w);
 	
@@ -45,4 +48,5 @@ void main()
     vec3 FragBitangent = normalize(cross(FragNormal, FragTangent.xyz) * inTangent.w); 
 	TBN = mat3(FragTangent, FragBitangent, FragNormal);    
 
+	PrevPos = SceneUbo.Data.Projection * SceneUbo.Data.PrevView * InstanceUBO.Model * vec4(inPos.xyz, 1);
 }

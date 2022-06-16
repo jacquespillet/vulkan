@@ -67,12 +67,7 @@ void main()
 		Shadow=1;
 	}
 
-    uint prevShadow = uint(imageLoad(shadowImage, ivec2(gl_GlobalInvocationID.xy)).r);
-    if(PassUBO.FrameCounter==0)
-    {
-        prevShadow=0;   
-    }
-    Shadow |= prevShadow;
+    // Shadow |= prevShadow;
     imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(Shadow));
 }
 

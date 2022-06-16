@@ -217,8 +217,11 @@ void scene::UpdateUniformBufferMatrices()
     UBOSceneMatrices.View = App->Scene->Camera.GetViewMatrix();
     UBOSceneMatrices.InvProjection = glm::inverse(UBOSceneMatrices.Projection);
     UBOSceneMatrices.InvView = glm::inverse(UBOSceneMatrices.View);
+    UBOSceneMatrices.PrevView = App->Scene->Camera.PrevInvModelMatrix;
     UBOSceneMatrices.Model = glm::mat4(1);
     UBOSceneMatrices.CameraPosition = App->Scene->Camera.worldPosition;
+    UBOSceneMatrices.RenderSize.x = App->Width;
+    UBOSceneMatrices.RenderSize.y = App->Height;
 
     VK_CALL(SceneMatrices.Map());
     SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
