@@ -67,6 +67,7 @@ public:
     void Unlock();
     
     glm::mat4 PrevInvModelMatrix;
+    glm::mat4 invModelMatrix;
 private:    
     float fov;
     float nearPlane, farPlane;
@@ -86,7 +87,6 @@ private:
     glm::vec2 prevPos = glm::vec2(-1.f, -1.f);
 
     glm::mat4 modelMatrix;
-    glm::mat4 invModelMatrix;
 
     
 

@@ -39,6 +39,7 @@ layout (location = 2) in vec3 FragWorldPos;
 layout (location = 3) in mat3 TBN;
 layout (location = 6) in vec4 FragProjectedPos;
 layout (location = 7) in vec4 PrevPos;
+layout (location = 8) in float LinearZ;
 
 
 layout (location = 0) out vec4 outPositionDepth;
@@ -69,14 +70,17 @@ uint dirToOct(vec3 normal)
 	return packUnorm2x16(vec2(e.x, e.y));
 }
 
-vec2 calcMotionVector(vec4 prevClipPos, vec2 currentPixelPos, vec2 invFrameSize)
+vec2 calcMotionVector()
 {
-	vec2 prevPosNDC = (prevClipPos.xy / prevClipPos.w) * vec2(0.5, -0.5) + vec2(0.5, 0.5);
-	vec2 motionVec  = prevPosNDC - (currentPixelPos * invFrameSize);
-
+	// vec2 prevPosNDC = (prevClipPos.xy) * vec2(0.5, -0.5) + vec2(0.5, 0.5);
+	// vec2 motionVec  = prevPosNDC - (currentPixelPos * invFrameSize);
+    vec2 PrevPosNDC = (PrevPos.xy / PrevPos.w)  * 0.5 + 0.5;
+    vec2 CurrentPosNDC = (FragProjectedPos.xy / FragProjectedPos.w)  * 0.5 + 0.5;
+    
+    vec2 motionVec = PrevPosNDC.xy - CurrentPosNDC.xy;
 	// Guard against inf/nan due to projection by w <= 0.
 	const float epsilon = 1e-5f;
-	motionVec = (prevClipPos.w < epsilon) ? vec2(0, 0) : motionVec;
+	motionVec = (PrevPos.w < epsilon) ? vec2(0, 0) : motionVec;
 	return motionVec;
 }
 
@@ -179,20 +183,18 @@ void main()
     outPositionDepth = vec4(FragWorldPos, 0);
 
 
-	float linearZ    = FragProjectedPos.z * FragProjectedPos.w;
-	float maxChangeZ = max(abs(dFdx(linearZ)), abs(dFdy(linearZ)));
+	float maxChangeZ = max(abs(dFdx(LinearZ)), abs(dFdy(LinearZ)));
 	float objNorm    = float(dirToOct(normalize(outNormal.xyz)));
-	vec4 svgfLinearZOut = vec4(linearZ, maxChangeZ, PrevPos.z, objNorm);
+	vec4 svgfLinearZOut = vec4(LinearZ, maxChangeZ, PrevPos.z, objNorm);
 
 	// // The 'motion vector' buffer
-    vec2 invSize = 1.0 / SceneUbo.Data.RenderSize;
     vec2 camJitter = vec2(0,0);
-	vec2 svgfMotionVec = calcMotionVector(PrevPos, FragProjectedPos.xy, invSize) +
+	vec2 svgfMotionVec = calcMotionVector() +
 		                   vec2(camJitter.x, -camJitter.y);
 	vec2 posNormFWidth = vec2(length(fwidth(FragWorldPos)), length(fwidth(NormalInfo.n))); 
 	vec4 svgfMotionVecOut = vec4(svgfMotionVec, posNormFWidth);
 
     outLinearZ  = svgfLinearZOut;
 	outMotionVectors = svgfMotionVecOut;
-	outCompactedNormals = vec4( float(dirToOct(NormalInfo.n)), linearZ, maxChangeZ, 0.0f );
+	outCompactedNormals = vec4( float(dirToOct(NormalInfo.n)), LinearZ, maxChangeZ, 0.0f );
 }

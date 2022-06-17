@@ -27,12 +27,16 @@ layout (location = 2) out vec3 FragWorldPos;
 layout (location = 3) out mat3 TBN;
 layout (location = 6) out vec4 FragProjectedPos;
 layout (location = 7) out vec4 PrevPos;
+layout (location = 8) out float LinearZ;
 
 void main() 
 {
-	FragProjectedPos = SceneUbo.Data.Projection * SceneUbo.Data.View * InstanceUBO.Model * vec4(inPos.xyz, 1);
+	vec4 ViewPos = SceneUbo.Data.View * InstanceUBO.Model * vec4(inPos.xyz, 1);
+	FragProjectedPos = SceneUbo.Data.Projection * ViewPos;
 	gl_Position = FragProjectedPos;
-	FragProjectedPos/= FragProjectedPos.w;
+	LinearZ = FragProjectedPos.z;
+
+
 	
 	FragUV = vec2(inPos.w, inNormal.w);
 	

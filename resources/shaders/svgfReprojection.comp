@@ -1,0 +1,229 @@
+#version 460
+
+layout (local_size_x = 16, local_size_y = 16) in;
+#define PI 3.14159265359
+
+layout (binding = 0, rgba32f) uniform image2D LinearZ;
+layout (binding = 1, rgba32f) uniform image2D PrevLinearZ;
+layout (binding = 2, rgba16f) uniform image2D MotionVectors;
+layout (binding = 3, r32f) uniform image2D PreviousFilteredShadows;
+layout (binding = 4, r8) uniform image2D CurrentShadows;
+layout (binding = 5, rgba32f) uniform image2D HistoryLengthTexture_0;
+layout (binding = 6, rgba32f) uniform image2D MomentsTexture_0;
+layout (binding = 7, r32f) uniform image2D ShadowTexture_0;
+layout (binding = 8, rgba32f) uniform image2D HistoryLengthTexture_1;
+layout (binding = 9, rgba32f) uniform image2D MomentsTexture_1;
+layout (binding = 10, r32f) uniform image2D ShadowTexture_1;
+layout (binding = 11) uniform passUBO 
+{
+    int CurIndex;
+    int PrevIndex;
+} PassUBO;
+// layout (binding = 1) uniform sampler2D samplerNormal;
+// layout (binding = 2, r8) uniform  image2D shadowImage;
+// layout (binding = 3) uniform accelerationStructureEXT topLevelAS;
+
+// layout (location = 0) in vec2 inUV;
+
+// layout (location = 0) out float outFragColor;
+
+float AlphaParam = 1.0f;
+float AlphaMomentsParam = 1.0f;
+
+#include "Common/random.glsl"
+
+float LoadShadow()
+{
+    return imageLoad(CurrentShadows, ivec2(gl_GlobalInvocationID.xy)).r;
+}
+
+vec3 OctoToDir(vec2 e)
+{
+    vec3 v = vec3(e, 1.0 - abs(e.x) - abs(e.y));
+    if (v.z < 0.0)
+        v.xy = (1.0 - abs(v.yx)) * (step(0.0, v.xy) * 2.0 - vec2(1.0));
+    return normalize(v);
+}
+
+bool IsReprojValid(ivec2 Coord, float Z, float ZPrev, float FWidthZ, vec3 Normal, vec3 NormalPrevious, float FWidthNormal)
+{
+    vec2 ImageDim = vec2(imageSize(CurrentShadows));
+    if(
+        any(lessThan(Coord, ivec2(1))) ||
+        any(greaterThan(Coord, ImageDim-ivec2(1)))
+    ) return false;
+
+    if(abs(ZPrev - Z) / (FWidthZ + 1e-4) > 2.0f) return false;
+
+    if(distance(Normal, NormalPrevious) / (FWidthNormal + 1e-2) > 16.0) return false;
+
+    return true;
+}
+
+bool LoadPreviousData(out float PrevShadow, out vec3 PrevMoments, out float HistoryLength)
+{
+    ivec2 IPos = ivec2(gl_GlobalInvocationID.xy);
+    vec2 ImageDim = vec2(imageSize(CurrentShadows));
+
+    vec4 Motion = imageLoad(MotionVectors, IPos);
+
+    ivec2 IPosPrev = ivec2(vec2(IPos) + Motion.xy * ImageDim + vec2(0.5));
+
+    vec4 Depth = imageLoad(LinearZ, IPos);
+    vec2 OctoNormal = unpackUnorm2x16(uint(Depth.w));
+    vec3 Normal = OctoToDir(OctoNormal);
+
+    PrevShadow=0;
+    PrevMoments=vec3(0);
+    
+    bool v[4];
+    vec2 PosPrevious = IPos + Motion.xy * ImageDim;
+    ivec2 Offsets[4] = {ivec2(0,0),ivec2(1,0),ivec2(0,1),ivec2(1,1)};
+
+    bool Valid=false;
+    for(int i=0; i<4; i++)
+    {
+        ivec2 Location = ivec2(PosPrevious) + Offsets[i];
+        vec4 DepthPrevious = imageLoad(PrevLinearZ, Location);
+        vec2 OctoNormalPrevious = unpackUnorm2x16(uint(DepthPrevious.w));
+        vec3 NormalPrevious = OctoToDir(OctoNormalPrevious);
+        
+        v[i] = IsReprojValid(IPosPrev, Depth.z, DepthPrevious.x, Depth.y, Normal, NormalPrevious, Motion.w);
+
+        Valid = Valid || v[i];
+    }
+
+    if(Valid)
+    {
+        float SumW = 0;
+        float x = fract(PosPrevious.x);
+        float y = fract(PosPrevious.y);
+
+        float w[4] = {
+                    (1-x) * (1-y),
+                    x * (1-y),
+                    (1-x) * y,
+                    x * y
+        };
+
+        PrevShadow = 0;
+
+        for(int i=0; i<4; i++)
+        {
+            ivec2 SamplePos = ivec2(PosPrevious) + Offsets[i];
+
+            if(v[i])
+            {
+                if(PassUBO.PrevIndex==0) 
+                {
+                    PrevShadow += w[i] * imageLoad( ShadowTexture_0, SamplePos).r;
+                    PrevMoments += w[i] * imageLoad( MomentsTexture_0, SamplePos).r;
+                    SumW += w[i];
+                }
+                else             
+                {
+                    PrevShadow += w[i] * imageLoad( ShadowTexture_1, SamplePos).r;
+                    PrevMoments += w[i] * imageLoad( MomentsTexture_1, SamplePos).r;
+                    SumW += w[i];
+                }
+            }
+        }
+
+        Valid = (SumW >=0.01);
+        PrevShadow = Valid ? PrevShadow / SumW : 0;
+        PrevMoments = Valid ? PrevMoments / SumW : vec3(0);
+    }
+
+    if(!Valid)
+    {
+        float Count=0;
+
+        int Radius=1;
+        for(int yy=-Radius; yy<=Radius; yy++)
+        {
+            for(int xx=-Radius; xx<=Radius; xx++)
+            {
+                ivec2 SamplePos = IPosPrev + ivec2(xx, yy);
+                vec4 DepthFilter = imageLoad(PrevLinearZ, SamplePos);
+                
+                vec2 OctoNormal = unpackUnorm2x16(uint(DepthFilter.w));
+                vec3 NormalFilter = OctoToDir(OctoNormal);
+
+                if(IsReprojValid(IPosPrev, Depth.z, DepthFilter.x, Depth.y, Normal, NormalFilter, Motion.w))
+                {
+                    if(PassUBO.PrevIndex==0) 
+                    {
+                        PrevShadow += imageLoad( ShadowTexture_0, SamplePos).r;
+                        PrevMoments += imageLoad( MomentsTexture_0, SamplePos).r;
+                    }
+                    else             
+                    {
+                        PrevShadow += imageLoad( ShadowTexture_1, SamplePos).r;
+                        PrevMoments += imageLoad( MomentsTexture_1, SamplePos).r;
+                    }                    
+                    Count +=1.0f;
+                }
+            }
+        }
+
+        if(Count >0)
+        {
+            Valid=true;
+            PrevShadow /= Count;
+            PrevMoments /= Count;
+        }
+    }
+
+    if(Valid)
+    {
+        if(PassUBO.CurIndex==0) HistoryLength = imageLoad(HistoryLengthTexture_0, IPosPrev).r;
+        else                    HistoryLength = imageLoad(HistoryLengthTexture_1, IPosPrev).r;
+    }
+    else
+    {
+        PrevShadow = 0;
+        PrevMoments=vec3(0);
+        HistoryLength=0;
+    }
+
+    return Valid;
+}
+
+void main() 
+{	 
+    // ivec2 dim = imageSize(CurrentShadows);
+    // // vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
+    // float Shadow = LoadShadow();
+
+    // float HistoryLength;
+    // float PrevShadow; 
+    // vec3 PrevMoments;
+    // bool Success = LoadPreviousData(PrevShadow, PrevMoments, HistoryLength);
+
+    // HistoryLength = min(32.0f, Success ? HistoryLength+1.0f : 1.0f);
+
+    // float Alpha = Success ? max(AlphaParam, 1.0f / HistoryLength) : 1.0f;
+    // float AlphaMoments = Success ? max(AlphaMomentsParam, 1.0f / HistoryLength) : 1.0f;
+
+    // vec3 Moments;
+    // Moments.r = Shadow;
+    // Moments.g = Moments.r * Moments.r;
+
+    // Moments = mix(PrevMoments, Moments, AlphaMoments);
+
+    // float Variance = max(0, Moments.g - Moments.r * Moments.r);
+    // float OutShadow = mix(PrevShadow, Shadow, Alpha);
+    // if(PassUBO.CurIndex==0)
+    // {
+    //     imageStore(MomentsTexture_0, ivec2(gl_GlobalInvocationID.xy), vec4(Moments,0));
+    //     imageStore(HistoryLengthTexture_0, ivec2(gl_GlobalInvocationID.xy), vec4(HistoryLength));
+    //     imageStore(ShadowTexture_0, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(OutShadow), Variance));
+    // }
+    // else
+    // {
+    //     imageStore(MomentsTexture_1, ivec2(gl_GlobalInvocationID.xy), vec4(Moments,0));
+    //     imageStore(HistoryLengthTexture_1, ivec2(gl_GlobalInvocationID.xy), vec4(HistoryLength));
+    //     imageStore(ShadowTexture_1, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(OutShadow), Variance));
+    // }
+}
+

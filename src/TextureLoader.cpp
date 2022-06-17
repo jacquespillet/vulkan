@@ -934,6 +934,81 @@ void textureLoader::CreateTexture(void *Buffer, VkDeviceSize BufferSize, VkForma
     Texture->Descriptor.sampler = Texture->Sampler;
 }
 
+void textureLoader::CreateEmptyTexture(uint32_t Width, uint32_t Height, VkFormat Format, vulkanTexture *Texture)
+{
+    VkFormatProperties FormatProperties;
+    vkGetPhysicalDeviceFormatProperties(VulkanDevice->PhysicalDevice, Format, &FormatProperties);
+    assert(FormatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
+
+    // Prepare blit target texture
+    Texture->Width = Width;
+    Texture->Height = Height;
+
+    VkImageCreateInfo ImageCreateInfo = vulkanTools::BuildImageCreateInfo();
+    ImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    ImageCreateInfo.format = Format;
+    ImageCreateInfo.extent = { Width, Height, 1 };
+    ImageCreateInfo.mipLevels = 1;
+    ImageCreateInfo.arrayLayers = 1;
+    ImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    ImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    ImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    ImageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    ImageCreateInfo.flags = 0;
+
+    VkMemoryAllocateInfo MemoryAllocateInfo = vulkanTools::BuildMemoryAllocateInfo();
+    VkMemoryRequirements MemoryRequirements;
+
+    VK_CALL(vkCreateImage(VulkanDevice->Device, &ImageCreateInfo, nullptr, &Texture->Image));
+    vkGetImageMemoryRequirements(VulkanDevice->Device, Texture->Image, &MemoryRequirements);
+    MemoryAllocateInfo.allocationSize = MemoryRequirements.size;
+    MemoryAllocateInfo.memoryTypeIndex =  VulkanDevice->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    VK_CALL(vkAllocateMemory(VulkanDevice->Device, &MemoryAllocateInfo, nullptr, &Texture->DeviceMemory));
+    VK_CALL(vkBindImageMemory(VulkanDevice->Device, Texture->Image, Texture->DeviceMemory, 0));
+
+    VkCommandBuffer LayoutCmd = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+
+    Texture->ImageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    vulkanTools::TransitionImageLayout(
+    	LayoutCmd,
+    	Texture->Image,
+    	VK_IMAGE_ASPECT_COLOR_BIT,
+    	VK_IMAGE_LAYOUT_UNDEFINED,
+    	Texture->ImageLayout);
+
+    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, CommandPool, LayoutCmd, Queue, true);
+
+    // Create sampler
+    VkSamplerCreateInfo Sampler = vulkanTools::BuildSamplerCreateInfo();
+    Sampler.magFilter = VK_FILTER_LINEAR;
+    Sampler.minFilter = VK_FILTER_LINEAR;
+    Sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    Sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    Sampler.addressModeV = Sampler.addressModeU;
+    Sampler.addressModeW = Sampler.addressModeU;
+    Sampler.mipLodBias = 0.0f;
+    Sampler.maxAnisotropy = 1.0f;
+    Sampler.compareOp = VK_COMPARE_OP_NEVER;
+    Sampler.minLod = 0.0f;
+    Sampler.maxLod = 0.0f;
+    Sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    VK_CALL(vkCreateSampler(VulkanDevice->Device, &Sampler, nullptr, &Texture->Sampler));
+
+    // Create image view
+    VkImageViewCreateInfo view = vulkanTools::BuildImageViewCreateInfo();
+    view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view.format = Format;
+    view.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+    view.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    view.image = Texture->Image;
+    VK_CALL(vkCreateImageView(VulkanDevice->Device, &view, nullptr, &Texture->View));
+
+    // Initialize a descriptor for later use
+    Texture->Descriptor.imageLayout = Texture->ImageLayout;
+    Texture->Descriptor.imageView = Texture->View;
+    Texture->Descriptor.sampler = Texture->Sampler;    
+}
+
 
 void textureLoader::DestroyTexture(vulkanTexture Texture)
 {

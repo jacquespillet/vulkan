@@ -47,6 +47,34 @@ public:
     } ShadowPass;
 
     struct 
+    {   
+        struct projectionTextures
+        {
+            vulkanTexture ShadowTexture;
+            vulkanTexture MomentsTexture;
+            vulkanTexture HistoryLengthTexture;
+        };
+        projectionTextures ProjectionTextures[2];
+
+        struct filteredTextures
+        {
+            vulkanTexture Filtered;
+        };
+        // filteredTextures PingPongFilteredTextures[2];
+        filteredTextures FilteredPast;
+        vulkanTexture PrevLinearZ;
+
+        struct {
+            int ProjectionPingPonxInx = 0;
+            int PrevProjectionPingPongInx = 1;
+        } UniformData;
+        buffer UniformBuffer;
+
+        
+        VkPipeline Pipeline;
+    } ReprojectionPass;
+
+    struct 
     {
         VkQueue Queue;
         VkCommandPool CommandPool;
@@ -56,9 +84,7 @@ public:
 
     
     VkCommandBuffer OffscreenCommandBuffer = VK_NULL_HANDLE;
-    bool Rebuild=false;
     VkSemaphore OffscreenSemaphore;
-    bool EnableSSAO=true;
     std::vector<VkShaderModule> ShaderModules;
     VkSubmitInfo SubmitInfo;
 

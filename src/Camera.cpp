@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <iostream>
 void camera::RecalculateLookat() {
-    PrevInvModelMatrix = invModelMatrix;
     worldPosition = target + sphericalPosition * distance;
     invModelMatrix = glm::lookAt(worldPosition, target, up);
     modelMatrix = glm::inverse(invModelMatrix);

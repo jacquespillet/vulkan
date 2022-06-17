@@ -404,84 +404,31 @@ void deferredHybridRenderer::BuildOffscreenBuffers()
                               .SetAttachmentFormat(6, VK_FORMAT_R32G32B32A32_SFLOAT); //Compacted Normal and depth
         Framebuffers.Offscreen.BuildBuffers(VulkanDevice,LayoutCommand);        
     }    
+    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, LayoutCommand, App->Queue, true);
+    
     //Shadow
     {
         VkFormat Format = VK_FORMAT_R8_UNORM;
-		
-        VkFormatProperties FormatProperties;
-		vkGetPhysicalDeviceFormatProperties(VulkanDevice->PhysicalDevice, Format, &FormatProperties);
-		assert(FormatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
+        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, Format, &ShadowPass.Texture);  
+    }
+    
+    //Reprojection
+    {
+        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32_SFLOAT, &ReprojectionPass.ProjectionTextures[0].ShadowTexture);  
+        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.ProjectionTextures[0].MomentsTexture);  
+        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.ProjectionTextures[0].HistoryLengthTexture);  
+        
+        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32_SFLOAT, &ReprojectionPass.ProjectionTextures[1].ShadowTexture);  
+        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.ProjectionTextures[1].MomentsTexture);  
+        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.ProjectionTextures[1].HistoryLengthTexture);  
+    
+        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32_SFLOAT, &ReprojectionPass.FilteredPast.Filtered);  
+    
+        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.PrevLinearZ); 
 
-		// Prepare blit target texture
-		ShadowPass.Texture.Width = App->Width;
-		ShadowPass.Texture.Height = App->Height;
-
-		VkImageCreateInfo ImageCreateInfo = vulkanTools::BuildImageCreateInfo();
-		ImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-		ImageCreateInfo.format = Format;
-		ImageCreateInfo.extent = { App->Width, App->Height, 1 };
-		ImageCreateInfo.mipLevels = 1;
-		ImageCreateInfo.arrayLayers = 1;
-		ImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		ImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		ImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		ImageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-		ImageCreateInfo.flags = 0;
-
-		VkMemoryAllocateInfo MemoryAllocateInfo = vulkanTools::BuildMemoryAllocateInfo();
-		VkMemoryRequirements MemoryRequirements;
-
-		VK_CALL(vkCreateImage(VulkanDevice->Device, &ImageCreateInfo, nullptr, &ShadowPass.Texture.Image));
-		vkGetImageMemoryRequirements(VulkanDevice->Device, ShadowPass.Texture.Image, &MemoryRequirements);
-		MemoryAllocateInfo.allocationSize = MemoryRequirements.size;
-		MemoryAllocateInfo.memoryTypeIndex =  VulkanDevice->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		VK_CALL(vkAllocateMemory(VulkanDevice->Device, &MemoryAllocateInfo, nullptr, &ShadowPass.Texture.DeviceMemory));
-		VK_CALL(vkBindImageMemory(VulkanDevice->Device, ShadowPass.Texture.Image, ShadowPass.Texture.DeviceMemory, 0));
-
-		VkCommandBuffer LayoutCmd = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-
-		ShadowPass.Texture.ImageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		vulkanTools::TransitionImageLayout(
-			LayoutCmd,
-			ShadowPass.Texture.Image,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			ShadowPass.Texture.ImageLayout);
-
-		vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, LayoutCmd, App->Queue, true);
-
-		// Create sampler
-		VkSamplerCreateInfo Sampler = vulkanTools::BuildSamplerCreateInfo();
-		Sampler.magFilter = VK_FILTER_LINEAR;
-		Sampler.minFilter = VK_FILTER_LINEAR;
-		Sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		Sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-		Sampler.addressModeV = Sampler.addressModeU;
-		Sampler.addressModeW = Sampler.addressModeU;
-		Sampler.mipLodBias = 0.0f;
-		Sampler.maxAnisotropy = 1.0f;
-		Sampler.compareOp = VK_COMPARE_OP_NEVER;
-		Sampler.minLod = 0.0f;
-		Sampler.maxLod = 0.0f;
-		Sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-		VK_CALL(vkCreateSampler(VulkanDevice->Device, &Sampler, nullptr, &ShadowPass.Texture.Sampler));
-
-		// Create image view
-		VkImageViewCreateInfo view = vulkanTools::BuildImageViewCreateInfo();
-		view.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		view.format = Format;
-		view.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-		view.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-		view.image = ShadowPass.Texture.Image;
-		VK_CALL(vkCreateImageView(VulkanDevice->Device, &view, nullptr, &ShadowPass.Texture.View));
-
-		// Initialize a descriptor for later use
-		ShadowPass.Texture.Descriptor.imageLayout = ShadowPass.Texture.ImageLayout;
-		ShadowPass.Texture.Descriptor.imageView = ShadowPass.Texture.View;
-		ShadowPass.Texture.Descriptor.sampler = ShadowPass.Texture.Sampler;      
+        vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &ReprojectionPass.UniformBuffer, sizeof(ReprojectionPass.UniformData), &ReprojectionPass.UniformData); 
     }
 
-    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, LayoutCommand, App->Queue, true);
 }
 
 
@@ -504,16 +451,15 @@ void deferredHybridRenderer::BuildLayoutsAndDescriptors()
 
     //Composition
     {
-        //Refactor that :
-        //Have a vector of vector of descriptor.
-        //First dimension is descriptor set layouts,
-        //Second dimension is actual descriptor set information
         std::vector<descriptor> Descriptors = 
         {
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[2].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[3].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[4].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[5].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[6].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, ShadowPass.Texture.View, ShadowPass.Texture.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
         };
         std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts = 
@@ -544,6 +490,38 @@ void deferredHybridRenderer::BuildLayoutsAndDescriptors()
             App->Scene->Resources.DescriptorSetLayouts->Get("Scene"),
         };
         Resources.AddDescriptorSet(VulkanDevice, "Shadows", Descriptors, DescriptorPool, AdditionalDescriptorSetLayouts);
+    }
+
+    //Reprojection Pass
+    {
+        std::vector<descriptor> Descriptors = 
+        {
+            //0. Linear Z
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, Framebuffers.Offscreen._Attachments[4].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            //1. Prev Linear Z
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ReprojectionPass.PrevLinearZ.View, ReprojectionPass.PrevLinearZ.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            //2. Motion vectors
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, Framebuffers.Offscreen._Attachments[5].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            //3. Previous filtered
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ReprojectionPass.FilteredPast.Filtered.View, ReprojectionPass.FilteredPast.Filtered.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            //4. Shadow Texture
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ShadowPass.Texture.View, ShadowPass.Texture.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            
+            //5-6-7. Reproj textures 0
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ReprojectionPass.ProjectionTextures[0].HistoryLengthTexture.View, ReprojectionPass.ProjectionTextures[0].HistoryLengthTexture.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ReprojectionPass.ProjectionTextures[0].MomentsTexture.View, ReprojectionPass.ProjectionTextures[0].MomentsTexture.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ReprojectionPass.ProjectionTextures[0].ShadowTexture.View, ReprojectionPass.ProjectionTextures[0].ShadowTexture.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            //8-9-10Reproj textures 1
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ReprojectionPass.ProjectionTextures[1].HistoryLengthTexture.View, ReprojectionPass.ProjectionTextures[1].HistoryLengthTexture.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ReprojectionPass.ProjectionTextures[1].MomentsTexture.View, ReprojectionPass.ProjectionTextures[1].MomentsTexture.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ReprojectionPass.ProjectionTextures[1].ShadowTexture.View, ReprojectionPass.ProjectionTextures[1].ShadowTexture.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+
+            //11Uniforms
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ReprojectionPass.UniformBuffer.Descriptor)
+        };
+        
+        std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts;
+        Resources.AddDescriptorSet(VulkanDevice, "Reprojection", Descriptors, DescriptorPool, AdditionalDescriptorSetLayouts);
     }
 }
 
@@ -738,6 +716,13 @@ void deferredHybridRenderer::BuildPipelines()
 		ComputePipelineCreateInfo.stage = LoadShader(VulkanDevice->Device, "resources/shaders/spv/rayTracedShadows.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT);
 		VK_CALL(vkCreateComputePipelines(VulkanDevice->Device, nullptr, 1, &ComputePipelineCreateInfo, nullptr, &ShadowPass.Pipeline));
     }     
+ 
+    //Reprojection
+    {
+        VkComputePipelineCreateInfo ComputePipelineCreateInfo = vulkanTools::BuildComputePipelineCreateInfo(Resources.PipelineLayouts->Get("Reprojection"), 0);
+		ComputePipelineCreateInfo.stage = LoadShader(VulkanDevice->Device, "resources/shaders/spv/svgfReprojection.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT);
+		VK_CALL(vkCreateComputePipelines(VulkanDevice->Device, nullptr, 1, &ComputePipelineCreateInfo, nullptr, &ReprojectionPass.Pipeline));
+    }     
 }
 
 
@@ -799,58 +784,60 @@ void deferredHybridRenderer::BuildDeferredCommandBuffers()
 {
     VkCommandBufferBeginInfo CommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
     VK_CALL(vkBeginCommandBuffer(OffscreenCommandBuffer, &CommandBufferBeginInfo));
-    
     //G-buffer pass
-    std::array<VkClearValue, 8> ClearValues = {};
-    ClearValues[0].color = {{0.0f,0.0f,0.0f,0.0f}};
-    ClearValues[1].color = {{0.0f,0.0f,0.0f,0.0f}};
-    ClearValues[2].color = {{0.0f,0.0f,0.0f,0.0f}};
-    ClearValues[3].color = {{0.0f,0.0f,0.0f,0.0f}};
-    ClearValues[4].color = {{0.0f,0.0f,0.0f,0.0f}};
-    ClearValues[5].color = {{0.0f,0.0f,0.0f,0.0f}};
-    ClearValues[6].color = {{0.0f,0.0f,0.0f,0.0f}};
-    ClearValues[7].depthStencil = {1.0f, 0};
-
-    VkRenderPassBeginInfo RenderPassBeginInfo = vulkanTools::BuildRenderPassBeginInfo();
-    RenderPassBeginInfo.renderPass = Framebuffers.Offscreen.RenderPass;
-    RenderPassBeginInfo.framebuffer = Framebuffers.Offscreen.Framebuffer;
-    RenderPassBeginInfo.renderArea.extent.width = Framebuffers.Offscreen.Width;
-    RenderPassBeginInfo.renderArea.extent.height = Framebuffers.Offscreen.Height;
-    RenderPassBeginInfo.clearValueCount=(uint32_t)ClearValues.size();
-    RenderPassBeginInfo.pClearValues=ClearValues.data();
     
-    vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    {
+        std::array<VkClearValue, 8> ClearValues = {};
+        ClearValues[0].color = {{0.0f,0.0f,0.0f,0.0f}};
+        ClearValues[1].color = {{0.0f,0.0f,0.0f,0.0f}};
+        ClearValues[2].color = {{0.0f,0.0f,0.0f,0.0f}};
+        ClearValues[3].color = {{0.0f,0.0f,0.0f,0.0f}};
+        ClearValues[4].color = {{0.0f,0.0f,0.0f,0.0f}};
+        ClearValues[5].color = {{0.0f,0.0f,0.0f,0.0f}};
+        ClearValues[6].color = {{0.0f,0.0f,0.0f,0.0f}};
+        ClearValues[7].depthStencil = {1.0f, 0};
 
+        VkRenderPassBeginInfo RenderPassBeginInfo = vulkanTools::BuildRenderPassBeginInfo();
+        RenderPassBeginInfo.renderPass = Framebuffers.Offscreen.RenderPass;
+        RenderPassBeginInfo.framebuffer = Framebuffers.Offscreen.Framebuffer;
+        RenderPassBeginInfo.renderArea.extent.width = Framebuffers.Offscreen.Width;
+        RenderPassBeginInfo.renderArea.extent.height = Framebuffers.Offscreen.Height;
+        RenderPassBeginInfo.clearValueCount=(uint32_t)ClearValues.size();
+        RenderPassBeginInfo.pClearValues=ClearValues.data();
         
-    VkViewport Viewport = vulkanTools::BuildViewport((float)App->Width - App->Scene->ViewportStart, (float)App->Height, 0.0f, 1.0f, App->Scene->ViewportStart, 0);
-    vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
+        vkCmdBeginRenderPass(OffscreenCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+            
+        VkViewport Viewport = vulkanTools::BuildViewport((float)App->Width - App->Scene->ViewportStart, (float)App->Height, 0.0f, 1.0f, App->Scene->ViewportStart, 0);
+        vkCmdSetViewport(OffscreenCommandBuffer, 0, 1, &Viewport);
 
 
-    VkRect2D Scissor = vulkanTools::BuildRect2D(Framebuffers.Offscreen.Width,Framebuffers.Offscreen.Height,0,0);
-    vkCmdSetScissor(OffscreenCommandBuffer, 0, 1, &Scissor);
+        VkRect2D Scissor = vulkanTools::BuildRect2D(Framebuffers.Offscreen.Width,Framebuffers.Offscreen.Height,0,0);
+        vkCmdSetScissor(OffscreenCommandBuffer, 0, 1, &Scissor);
 
-    VkDeviceSize Offset[1] = {0};
+        VkDeviceSize Offset[1] = {0};
 
-    VkPipelineLayout RendererPipelineLayout =  Resources.PipelineLayouts->Get("Offscreen");
-    VkDescriptorSet RendererDescriptorSet = App->Scene->Resources.DescriptorSets->Get("Scene");
+        VkPipelineLayout RendererPipelineLayout =  Resources.PipelineLayouts->Get("Offscreen");
+        VkDescriptorSet RendererDescriptorSet = App->Scene->Resources.DescriptorSets->Get("Scene");
 
 
-	for (auto &InstanceGroup : App->Scene->Instances)
-	{
-		int Flag = InstanceGroup.first;
-		vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get(Flag));
-		vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
-		
-		for (auto Instance : InstanceGroup.second)
-		{
-			vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
-			vkCmdBindIndexBuffer(OffscreenCommandBuffer, Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+        for (auto &InstanceGroup : App->Scene->Instances)
+        {
+            int Flag = InstanceGroup.first;
+            vkCmdBindPipeline(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get(Flag));
+            vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
+            
+            for (auto Instance : InstanceGroup.second)
+            {
+                vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
+                vkCmdBindIndexBuffer(OffscreenCommandBuffer, Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
-			vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
-			vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
-			vkCmdDrawIndexed(OffscreenCommandBuffer, Instance.Mesh->IndexCount, 1, 0, 0, 0);
-		}
-	}
+                vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
+                vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
+                vkCmdDrawIndexed(OffscreenCommandBuffer, Instance.Mesh->IndexCount, 1, 0, 0, 0);
+            }
+        }
+    }
 
 	//{ //Cubemap
 	//	vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Cubemap"));
@@ -909,36 +896,67 @@ void deferredHybridRenderer::BuildDeferredCommandBuffers()
     VK_IMAGE_ASPECT_COLOR_BIT,
     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    vulkanTools::TransitionImageLayout(OffscreenCommandBuffer,
+    Framebuffers.Offscreen._Attachments[4].Image, 
+    VK_IMAGE_ASPECT_COLOR_BIT,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    vulkanTools::TransitionImageLayout(OffscreenCommandBuffer,
+    Framebuffers.Offscreen._Attachments[5].Image, 
+    VK_IMAGE_ASPECT_COLOR_BIT,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    vulkanTools::TransitionImageLayout(OffscreenCommandBuffer,
+    Framebuffers.Offscreen._Attachments[6].Image, 
+    VK_IMAGE_ASPECT_COLOR_BIT,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     
     
     
     VK_CALL(vkEndCommandBuffer(OffscreenCommandBuffer));
-
-
-    if(true)
+    
+    //SVGF
     {
-		VkCommandBufferBeginInfo ComputeCommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
-		VK_CALL(vkBeginCommandBuffer(Compute.CommandBuffer, &ComputeCommandBufferBeginInfo));
+        VkCommandBufferBeginInfo ComputeCommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
+        VK_CALL(vkBeginCommandBuffer(Compute.CommandBuffer, &ComputeCommandBufferBeginInfo));
 
-        vulkanTools::TransitionImageLayout(Compute.CommandBuffer,
-        ShadowPass.Texture.Image, 
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_IMAGE_LAYOUT_GENERAL);
+        //Ray traced shadows
+        {
+            VkDescriptorSet RendererDescriptorSet = App->Scene->Resources.DescriptorSets->Get("Scene");
 
-		vkCmdBindPipeline(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, ShadowPass.Pipeline);
-		vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 0, 1, Resources.DescriptorSets->GetPtr("Shadows"), 0, 0);
-        vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 1, 1, &RendererDescriptorSet, 0, nullptr);			
-        
-        vkCmdDispatch(Compute.CommandBuffer, App->Width / 16, App->Height / 16, 1);
-        
-        vulkanTools::TransitionImageLayout(Compute.CommandBuffer,
-        ShadowPass.Texture.Image, 
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_GENERAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            vulkanTools::TransitionImageLayout(Compute.CommandBuffer,
+            ShadowPass.Texture.Image, 
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_GENERAL);
 
-		vkEndCommandBuffer(Compute.CommandBuffer);        
+            vkCmdBindPipeline(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, ShadowPass.Pipeline);
+            vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 0, 1, Resources.DescriptorSets->GetPtr("Shadows"), 0, 0);
+            vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 1, 1, &RendererDescriptorSet, 0, nullptr);			
+            
+            vkCmdDispatch(Compute.CommandBuffer, App->Width / 16, App->Height / 16, 1);
+            
+            vulkanTools::TransitionImageLayout(Compute.CommandBuffer,
+            ShadowPass.Texture.Image, 
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+
+        //Reprojection
+        {
+            vkCmdBindPipeline(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, ReprojectionPass.Pipeline);
+            vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Reprojection"), 0, 1, Resources.DescriptorSets->GetPtr("Reprojection"), 0, 0);
+            vkCmdDispatch(Compute.CommandBuffer, App->Width / 16, App->Height / 16, 1);
+        }
+        vkEndCommandBuffer(Compute.CommandBuffer);
+
+        ReprojectionPass.UniformData.PrevProjectionPingPongInx = ReprojectionPass.UniformData.ProjectionPingPonxInx;
+        ReprojectionPass.UniformData.ProjectionPingPonxInx = 1 - ReprojectionPass.UniformData.ProjectionPingPonxInx; 
+
+        //Blit LinearZ into prevLinearZ
+                
     }
     
 }
@@ -946,6 +964,9 @@ void deferredHybridRenderer::BuildDeferredCommandBuffers()
 
 void deferredHybridRenderer::UpdateCamera()
 {
+    ReprojectionPass.UniformBuffer.Map();
+    ReprojectionPass.UniformBuffer.CopyTo(&ReprojectionPass.UniformData, sizeof(ReprojectionPass.UniformData));
+    ReprojectionPass.UniformBuffer.Unmap();
 }
 
 void deferredHybridRenderer::Resize(uint32_t Width, uint32_t Height) 

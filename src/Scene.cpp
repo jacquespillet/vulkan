@@ -220,8 +220,8 @@ void scene::UpdateUniformBufferMatrices()
     UBOSceneMatrices.PrevView = App->Scene->Camera.PrevInvModelMatrix;
     UBOSceneMatrices.Model = glm::mat4(1);
     UBOSceneMatrices.CameraPosition = App->Scene->Camera.worldPosition;
-    UBOSceneMatrices.RenderSize.x = App->Width;
-    UBOSceneMatrices.RenderSize.y = App->Height;
+    UBOSceneMatrices.RenderSize.x = (float)App->Width;
+    UBOSceneMatrices.RenderSize.y = (float)App->Height;
 
     VK_CALL(SceneMatrices.Map());
     SceneMatrices.CopyTo(&UBOSceneMatrices, sizeof(UBOSceneMatrices));
@@ -338,8 +338,10 @@ void sceneMesh::Destroy()
 
 void scene::Update()
 {
+    
     UpdateUniformBufferMatrices();
     Cubemap.UpdateUniforms();
+    Camera.PrevInvModelMatrix = Camera.invModelMatrix;
 }
 
 void scene::Destroy()

@@ -9,7 +9,10 @@ layout (set=0, binding = 0) uniform sampler2D samplerPositionDepth;
 layout (set=0, binding = 1) uniform sampler2D samplerNormal;
 layout (set=0, binding = 2) uniform usampler2D samplerAlbedoMetallicRoughnessOcclusionOcclusionStrength;
 layout (set=0, binding = 3) uniform sampler2D samplerEmission;
-layout (set=0, binding = 4) uniform sampler2D samplerShadows;
+layout (set=0, binding = 4) uniform sampler2D samplerLinearZ;
+layout (set=0, binding = 5) uniform sampler2D samplerMotionVectors;
+layout (set=0, binding = 6) uniform sampler2D samplerNormalDepth;
+layout (set=0, binding = 7) uniform sampler2D samplerShadows;
 
 
 
@@ -32,6 +35,14 @@ layout (constant_id = 1) const float AMBIENT_FACTOR = 0.0;
 layout (location = 0) in vec2 inUV;
 
 layout (location = 0) out vec4 outFragcolor;
+
+vec3 OctoToDir(vec2 e)
+{
+    vec3 v = vec3(e, 1.0 - abs(e.x) - abs(e.y));
+    if (v.z < 0.0)
+        v.xy = (1.0 - abs(v.yx)) * (step(0.0, v.xy) * 2.0 - vec2(1.0));
+    return normalize(v);
+}
 
 #include "Common/Functions.glsl"
 #include "Common/MaterialDeferred.glsl"
@@ -136,5 +147,10 @@ void main()
 	{
     	outFragcolor = vec4(toneMap(Color, SceneUbo.Data.Exposure), BaseColor.a);	
 	}
+
+
+	// outFragcolor = texture(samplerLinearZ, inUV);
+	// outFragcolor = vec4(texture(samplerMotionVectors, inUV).zw, 0,1);
+	outFragcolor = texture(samplerNormalDepth, inUV);
 
 }
