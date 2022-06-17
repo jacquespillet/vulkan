@@ -13,6 +13,7 @@ layout (set=0, binding = 4) uniform sampler2D samplerLinearZ;
 layout (set=0, binding = 5) uniform sampler2D samplerMotionVectors;
 layout (set=0, binding = 6) uniform sampler2D samplerNormalDepth;
 layout (set=0, binding = 7) uniform sampler2D samplerShadows;
+layout (set=0, binding = 8) uniform sampler2D ReprojectionShadows;
 
 
 
@@ -57,8 +58,9 @@ void main()
 
 	vec3 Normal = texture(samplerNormal, inUV).xyz * 2.0 - 1.0;
 	
-	float Shadow = 1.0f - texture(samplerShadows, inUV).x;
-
+	// float Shadow = 1.0f - texture(samplerShadows, inUV).x;
+	float Shadow = 1.0f - texture(ReprojectionShadows, inUV).x;
+	
 	ivec2 texDim = textureSize(samplerAlbedoMetallicRoughnessOcclusionOcclusionStrength, 0);
 	uvec4 albedo = texelFetch(samplerAlbedoMetallicRoughnessOcclusionOcclusionStrength, ivec2(inUV.st * texDim ), 0);
 	vec4 BaseColor;
@@ -151,6 +153,6 @@ void main()
 
 	// outFragcolor = texture(samplerLinearZ, inUV);
 	// outFragcolor = vec4(texture(samplerMotionVectors, inUV).zw, 0,1);
-	outFragcolor = texture(samplerNormalDepth, inUV);
+	
 
 }

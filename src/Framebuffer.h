@@ -30,6 +30,7 @@ struct framebuffer
 
     std::vector<framebufferAttachment> _Attachments;
     std::vector<VkFormat> AttachmentFormats;
+    std::vector<VkImageLayout> AttachmentLayouts;
     std::vector<VkAttachmentLoadOp> LoadOps;
 
     VkSampler Sampler;
@@ -37,14 +38,6 @@ struct framebuffer
     bool HasDepth=true;
 
     VkImageUsageFlags ImageUsage=VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    VkImageLayout Layout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-    framebuffer& SetLayout(VkImageLayout ImageLayout)
-    {
-        this->Layout = ImageLayout;
-        return *this;
-    }
-
     framebuffer& SetSize(uint32_t NewWidth, uint32_t NewHeight)
     {
         this->Width = NewWidth;
@@ -54,6 +47,11 @@ struct framebuffer
     framebuffer& SetAttachmentFormat(uint32_t AttachmentIndex, VkFormat Format)
     {
         AttachmentFormats[AttachmentIndex] = Format;
+        return *this;
+    }
+    framebuffer& SetAttachmentImageLayout(uint32_t AttachmentIndex, VkImageLayout Layout)
+    {
+        AttachmentLayouts[AttachmentIndex] = Layout;
         return *this;
     }
     framebuffer& SetLoadOp(uint32_t AttachmentIndex, VkAttachmentLoadOp LoadOp)
@@ -66,6 +64,7 @@ struct framebuffer
     {
         _Attachments.resize(AttachmentCount);
 		AttachmentFormats.resize(AttachmentCount);
+		AttachmentLayouts.resize(AttachmentCount, VK_IMAGE_LAYOUT_GENERAL);
 		LoadOps.resize(AttachmentCount, VK_ATTACHMENT_LOAD_OP_CLEAR);
         return *this;
     }

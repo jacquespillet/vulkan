@@ -3,11 +3,12 @@
 layout (local_size_x = 16, local_size_y = 16) in;
 #define PI 3.14159265359
 
-layout (binding = 0, rgba32f) uniform image2D LinearZ;
-layout (binding = 1, rgba32f) uniform image2D PrevLinearZ;
-layout (binding = 2, rgba16f) uniform image2D MotionVectors;
-layout (binding = 3, r32f) uniform image2D PreviousFilteredShadows;
-layout (binding = 4, r8) uniform image2D CurrentShadows;
+layout (binding = 0) uniform sampler2D LinearZ;
+layout (binding = 1) uniform sampler2D PrevLinearZ;
+layout (binding = 2) uniform sampler2D MotionVectors;
+layout (binding = 3) uniform sampler2D PreviousFilteredShadows;
+layout (binding = 4) uniform sampler2D CurrentShadows;
+
 layout (binding = 5, rgba32f) uniform image2D HistoryLengthTexture_0;
 layout (binding = 6, rgba32f) uniform image2D MomentsTexture_0;
 layout (binding = 7, r32f) uniform image2D ShadowTexture_0;
@@ -27,14 +28,14 @@ layout (binding = 11) uniform passUBO
 
 // layout (location = 0) out float outFragColor;
 
-float AlphaParam = 1.0f;
-float AlphaMomentsParam = 1.0f;
+float AlphaParam = 0.05;
+float AlphaMomentsParam = 0.2;
 
 #include "Common/random.glsl"
 
 float LoadShadow()
 {
-    return imageLoad(CurrentShadows, ivec2(gl_GlobalInvocationID.xy)).r;
+    return texelFetch(CurrentShadows, ivec2(gl_GlobalInvocationID.xy),0).r;
 }
 
 vec3 OctoToDir(vec2 e)
@@ -47,14 +48,17 @@ vec3 OctoToDir(vec2 e)
 
 bool IsReprojValid(ivec2 Coord, float Z, float ZPrev, float FWidthZ, vec3 Normal, vec3 NormalPrevious, float FWidthNormal)
 {
-    vec2 ImageDim = vec2(imageSize(CurrentShadows));
+    vec2 ImageDim = vec2(imageSize(ShadowTexture_0));
+    //If the sampling position is in the bounds
     if(
         any(lessThan(Coord, ivec2(1))) ||
         any(greaterThan(Coord, ImageDim-ivec2(1)))
     ) return false;
 
+    //If the depth isn't too different
     if(abs(ZPrev - Z) / (FWidthZ + 1e-4) > 2.0f) return false;
 
+    //If the normal aren't too different
     if(distance(Normal, NormalPrevious) / (FWidthNormal + 1e-2) > 16.0) return false;
 
     return true;
@@ -63,42 +67,48 @@ bool IsReprojValid(ivec2 Coord, float Z, float ZPrev, float FWidthZ, vec3 Normal
 bool LoadPreviousData(out float PrevShadow, out vec3 PrevMoments, out float HistoryLength)
 {
     ivec2 IPos = ivec2(gl_GlobalInvocationID.xy);
-    vec2 ImageDim = vec2(imageSize(CurrentShadows));
-
-    vec4 Motion = imageLoad(MotionVectors, IPos);
-
-    ivec2 IPosPrev = ivec2(vec2(IPos) + Motion.xy * ImageDim + vec2(0.5));
-
-    vec4 Depth = imageLoad(LinearZ, IPos);
+    vec2 ImageDim = vec2(imageSize(ShadowTexture_0));
+    
+    //Current pixel properties
+    vec4 Depth = texelFetch(LinearZ, IPos,0);
     vec2 OctoNormal = unpackUnorm2x16(uint(Depth.w));
     vec3 Normal = OctoToDir(OctoNormal);
-
+    
+    //Find previous position of current shaded pixel
+    vec4 Motion = texelFetch(MotionVectors, IPos,0);
+    ivec2 IPosPrev = ivec2(vec2(IPos) + Motion.xy * ImageDim + vec2(0.5));
+    vec2 PosPrevious = IPos + Motion.xy * ImageDim;
+    
     PrevShadow=0;
     PrevMoments=vec3(0);
     
     bool v[4];
-    vec2 PosPrevious = IPos + Motion.xy * ImageDim;
     ivec2 Offsets[4] = {ivec2(0,0),ivec2(1,0),ivec2(0,1),ivec2(1,1)};
-
     bool Valid=false;
+
+    //Check if we can validate the previous pixel position
+    //retrieve data of the 4 neighbouring pixels in the previous frame, and make sure they're all the same surface as the current one
     for(int i=0; i<4; i++)
     {
         ivec2 Location = ivec2(PosPrevious) + Offsets[i];
-        vec4 DepthPrevious = imageLoad(PrevLinearZ, Location);
+        vec4 DepthPrevious = texelFetch(PrevLinearZ, Location,0);
         vec2 OctoNormalPrevious = unpackUnorm2x16(uint(DepthPrevious.w));
         vec3 NormalPrevious = OctoToDir(OctoNormalPrevious);
         
+        //Check if we can validate this value
         v[i] = IsReprojValid(IPosPrev, Depth.z, DepthPrevious.x, Depth.y, Normal, NormalPrevious, Motion.w);
 
         Valid = Valid || v[i];
     }
-
+    
+    //We do have some information from the previous frame
     if(Valid)
     {
         float SumW = 0;
         float x = fract(PosPrevious.x);
         float y = fract(PosPrevious.y);
 
+        //Filter weights
         float w[4] = {
                     (1-x) * (1-y),
                     x * (1-y),
@@ -106,12 +116,14 @@ bool LoadPreviousData(out float PrevShadow, out vec3 PrevMoments, out float Hist
                     x * y
         };
 
-        PrevShadow = 0;
 
+        //Apply the filter
+        PrevShadow = 0;
         for(int i=0; i<4; i++)
         {
             ivec2 SamplePos = ivec2(PosPrevious) + Offsets[i];
 
+            //Find the previous values from ShadowTexture and MomentsTexture
             if(v[i])
             {
                 if(PassUBO.PrevIndex==0) 
@@ -128,12 +140,12 @@ bool LoadPreviousData(out float PrevShadow, out vec3 PrevMoments, out float Hist
                 }
             }
         }
-
         Valid = (SumW >=0.01);
         PrevShadow = Valid ? PrevShadow / SumW : 0;
         PrevMoments = Valid ? PrevMoments / SumW : vec3(0);
     }
 
+    //We don't have info about previous data, we try to still find some in a bigger radius
     if(!Valid)
     {
         float Count=0;
@@ -144,7 +156,7 @@ bool LoadPreviousData(out float PrevShadow, out vec3 PrevMoments, out float Hist
             for(int xx=-Radius; xx<=Radius; xx++)
             {
                 ivec2 SamplePos = IPosPrev + ivec2(xx, yy);
-                vec4 DepthFilter = imageLoad(PrevLinearZ, SamplePos);
+                vec4 DepthFilter = texelFetch(PrevLinearZ, SamplePos,0);
                 
                 vec2 OctoNormal = unpackUnorm2x16(uint(DepthFilter.w));
                 vec3 NormalFilter = OctoToDir(OctoNormal);
@@ -174,8 +186,10 @@ bool LoadPreviousData(out float PrevShadow, out vec3 PrevMoments, out float Hist
         }
     }
 
+    //We found the previous information
     if(Valid)
     {
+        //We add to the history length buffer
         if(PassUBO.CurIndex==0) HistoryLength = imageLoad(HistoryLengthTexture_0, IPosPrev).r;
         else                    HistoryLength = imageLoad(HistoryLengthTexture_1, IPosPrev).r;
     }
@@ -191,39 +205,46 @@ bool LoadPreviousData(out float PrevShadow, out vec3 PrevMoments, out float Hist
 
 void main() 
 {	 
-    // ivec2 dim = imageSize(CurrentShadows);
-    // // vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
-    // float Shadow = LoadShadow();
+    ivec2 dim = imageSize(ShadowTexture_0);
+    float Shadow = LoadShadow();
 
-    // float HistoryLength;
-    // float PrevShadow; 
-    // vec3 PrevMoments;
-    // bool Success = LoadPreviousData(PrevShadow, PrevMoments, HistoryLength);
+    //Load previous data
+    float HistoryLength;
+    float PrevShadow; 
+    vec3 PrevMoments;
+    bool Success = LoadPreviousData(PrevShadow, PrevMoments, HistoryLength);
 
-    // HistoryLength = min(32.0f, Success ? HistoryLength+1.0f : 1.0f);
+    //Add to history length
+    HistoryLength = min(32.0f, Success ? HistoryLength+1.0f : 1.0f);
 
-    // float Alpha = Success ? max(AlphaParam, 1.0f / HistoryLength) : 1.0f;
-    // float AlphaMoments = Success ? max(AlphaMomentsParam, 1.0f / HistoryLength) : 1.0f;
+    //if we found info in the last frame
+    //  Use the alpha param value
+    float Alpha = Success ? max(AlphaParam, 1.0f / HistoryLength) : 1.0f;
+    float AlphaMoments = Success ? max(AlphaMomentsParam, 1.0f / HistoryLength) : 1.0f;
 
-    // vec3 Moments;
-    // Moments.r = Shadow;
-    // Moments.g = Moments.r * Moments.r;
+    vec3 Moments;
+    Moments.r = Shadow;
+    Moments.g = Moments.r * Moments.r;
 
-    // Moments = mix(PrevMoments, Moments, AlphaMoments);
-
-    // float Variance = max(0, Moments.g - Moments.r * Moments.r);
-    // float OutShadow = mix(PrevShadow, Shadow, Alpha);
-    // if(PassUBO.CurIndex==0)
-    // {
-    //     imageStore(MomentsTexture_0, ivec2(gl_GlobalInvocationID.xy), vec4(Moments,0));
-    //     imageStore(HistoryLengthTexture_0, ivec2(gl_GlobalInvocationID.xy), vec4(HistoryLength));
-    //     imageStore(ShadowTexture_0, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(OutShadow), Variance));
-    // }
-    // else
-    // {
-    //     imageStore(MomentsTexture_1, ivec2(gl_GlobalInvocationID.xy), vec4(Moments,0));
-    //     imageStore(HistoryLengthTexture_1, ivec2(gl_GlobalInvocationID.xy), vec4(HistoryLength));
-    //     imageStore(ShadowTexture_1, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(OutShadow), Variance));
-    // }
+    //Lerp between the previous moment and the current moment using alpha. 
+    //We use the moments to calculate variance.
+    Moments = mix(PrevMoments, Moments, AlphaMoments);
+    float Variance = max(0, Moments.g - Moments.r * Moments.r);
+    
+    //Lerp between previous shadow value and current shadow value
+    float OutShadow = mix(PrevShadow, Shadow, Alpha);
+    
+    if(PassUBO.CurIndex==0)
+    {
+        imageStore(MomentsTexture_0, ivec2(gl_GlobalInvocationID.xy), vec4(Moments,0));
+        imageStore(HistoryLengthTexture_0, ivec2(gl_GlobalInvocationID.xy), vec4(HistoryLength));
+        imageStore(ShadowTexture_0, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(OutShadow), Variance));
+    }
+    else
+    {
+        imageStore(MomentsTexture_1, ivec2(gl_GlobalInvocationID.xy), vec4(Moments,0));
+        imageStore(HistoryLengthTexture_1, ivec2(gl_GlobalInvocationID.xy), vec4(HistoryLength));
+        imageStore(ShadowTexture_1, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(OutShadow), Variance));
+    }
 }
 

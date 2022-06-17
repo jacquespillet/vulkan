@@ -54,7 +54,7 @@ public:
 
     void CreateTexture(void *Buffer, VkDeviceSize BufferSize, VkFormat Format, uint32_t Width, uint32_t Height, vulkanTexture *Texture, bool DoGenerateMipmaps=false, VkFilter Filter = VK_FILTER_LINEAR, VkImageUsageFlags ImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 
-    void CreateEmptyTexture(uint32_t Width, uint32_t Height, VkFormat Format, vulkanTexture *Texture);
+    void CreateEmptyTexture(uint32_t Width, uint32_t Height, VkFormat Format, vulkanTexture *Texture, VkImageUsageFlags ImageUsage = 0);
 
     void DestroyTexture(vulkanTexture Texture);
 

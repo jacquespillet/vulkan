@@ -19,17 +19,8 @@ void framebuffer::BuildBuffers(vulkanDevice *VulkanDevice, VkCommandBuffer Layou
         
     }
     
-    VkImageLayout FinalLayout = Layout;
     
-    if(ImageUsage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
-    {
-        FinalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    }
-    if(ImageUsage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-    {
-        FinalLayout=VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    }
-
+    
     if(HasDepth)
     {
         VkFormat AttDepthFormat;
@@ -58,6 +49,17 @@ void framebuffer::BuildBuffers(vulkanDevice *VulkanDevice, VkCommandBuffer Layou
         
         if(i<ColorAttachmentCount)
         {
+            VkImageLayout FinalLayout = AttachmentLayouts[i];
+            if(ImageUsage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+            {
+                FinalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            }
+            if(ImageUsage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+            {
+                FinalLayout=VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            }
+
+
             AttachmentDescriptions[i].loadOp = LoadOps[i];
             AttachmentDescriptions[i].format = _Attachments[i].Format;
             AttachmentDescriptions[i].finalLayout = FinalLayout;

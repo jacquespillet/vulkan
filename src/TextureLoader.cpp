@@ -934,7 +934,7 @@ void textureLoader::CreateTexture(void *Buffer, VkDeviceSize BufferSize, VkForma
     Texture->Descriptor.sampler = Texture->Sampler;
 }
 
-void textureLoader::CreateEmptyTexture(uint32_t Width, uint32_t Height, VkFormat Format, vulkanTexture *Texture)
+void textureLoader::CreateEmptyTexture(uint32_t Width, uint32_t Height, VkFormat Format, vulkanTexture *Texture, VkImageUsageFlags ImageUsage)
 {
     VkFormatProperties FormatProperties;
     vkGetPhysicalDeviceFormatProperties(VulkanDevice->PhysicalDevice, Format, &FormatProperties);
@@ -953,7 +953,7 @@ void textureLoader::CreateEmptyTexture(uint32_t Width, uint32_t Height, VkFormat
     ImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     ImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     ImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    ImageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    ImageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | ImageUsage;
     ImageCreateInfo.flags = 0;
 
     VkMemoryAllocateInfo MemoryAllocateInfo = vulkanTools::BuildMemoryAllocateInfo();
