@@ -17,18 +17,18 @@ void deferredHybridRenderer::Render()
     ShadowPass.UniformBuffer.Unmap();
     
 
-    VK_CALL(App->Swapchain.AcquireNextImage(App->Semaphores.PresentComplete, &App->CurrentBuffer));
+    VK_CALL(App->VulkanObjects.Swapchain.AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
     //GBuffer Pass
     {
         SubmitInfo = vulkanTools::BuildSubmitInfo();
-        SubmitInfo.pWaitDstStageMask = &App->SubmitPipelineStages;
+        SubmitInfo.pWaitDstStageMask = &App->VulkanObjects.SubmitPipelineStages;
         SubmitInfo.waitSemaphoreCount = 1;
         SubmitInfo.signalSemaphoreCount=1;
-        SubmitInfo.pWaitSemaphores = &App->Semaphores.PresentComplete;
+        SubmitInfo.pWaitSemaphores = &App->VulkanObjects.Semaphores.PresentComplete;
         SubmitInfo.pSignalSemaphores = &ShadowPass.Semaphore;
         SubmitInfo.commandBufferCount=1;
         SubmitInfo.pCommandBuffers = &OffscreenCommandBuffer;
-        VK_CALL(vkQueueSubmit(App->Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+        VK_CALL(vkQueueSubmit(App->VulkanObjects.Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
     }
 
     //Shadows
@@ -55,12 +55,12 @@ void deferredHybridRenderer::Render()
     //Composition
     {
         SubmitInfo.pWaitSemaphores = &OffscreenSemaphore;
-        SubmitInfo.pSignalSemaphores = &App->Semaphores.RenderComplete;
-        SubmitInfo.pCommandBuffers = &DrawCommandBuffers[App->CurrentBuffer];
-        VK_CALL(vkQueueSubmit(App->Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+        SubmitInfo.pSignalSemaphores = &App->VulkanObjects.Semaphores.RenderComplete;
+        SubmitInfo.pCommandBuffers = &DrawCommandBuffers[App->VulkanObjects.CurrentBuffer];
+        VK_CALL(vkQueueSubmit(App->VulkanObjects.Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
 
-        VK_CALL(App->Swapchain.QueuePresent(App->Queue, App->CurrentBuffer, App->Semaphores.RenderComplete));
-        VK_CALL(vkQueueWaitIdle(App->Queue));
+        VK_CALL(App->VulkanObjects.Swapchain.QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete));
+        VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
     }
 }
 
@@ -70,13 +70,13 @@ void deferredHybridRenderer::Setup()
 
     VkPhysicalDeviceProperties2 DeviceProperties2 {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
     DeviceProperties2.pNext = &RayTracingPipelineProperties;
-    vkGetPhysicalDeviceProperties2(App->PhysicalDevice, &DeviceProperties2);
+    vkGetPhysicalDeviceProperties2(App->VulkanObjects.PhysicalDevice, &DeviceProperties2);
     
     AccelerationStructureFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
 
     VkPhysicalDeviceFeatures2 DeviceFeatures2 {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     DeviceFeatures2.pNext = &AccelerationStructureFeatures;
-    vkGetPhysicalDeviceFeatures2(App->PhysicalDevice, &DeviceFeatures2);
+    vkGetPhysicalDeviceFeatures2(App->VulkanObjects.PhysicalDevice, &DeviceFeatures2);
     
     vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &ShadowPass.UniformBuffer, sizeof(ShadowPass.UniformData), &ShadowPass.UniformData);
     
@@ -86,7 +86,7 @@ void deferredHybridRenderer::Setup()
 
     CreateCommandBuffers();
     SetupDescriptorPool();
-    Resources.Init(VulkanDevice, DescriptorPool, App->TextureLoader);
+    Resources.Init(VulkanDevice, DescriptorPool, App->VulkanObjects.TextureLoader);
     BuildQuads();
     BuildOffscreenBuffers();
     BuildLayoutsAndDescriptors();
@@ -176,13 +176,13 @@ void deferredHybridRenderer::CreateTopLevelAccelerationStructure()
     }
     else
     {
-        VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+        VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
         VulkanDevice->_vkCmdBuildAccelerationStructuresKHR(
             CommandBuffer,
             1,
             &AccelerationBuildGeometryInfo,
             AccelerationStructureBuildRangeInfos.data());
-        vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, CommandBuffer, App->Queue, true);
+        vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, CommandBuffer, App->VulkanObjects.Queue, true);
     }
 
     ScratchBuffer.Destroy();
@@ -200,7 +200,7 @@ void deferredHybridRenderer::CreateBottomLevelAccelarationStructure(scene *Scene
         };
         buffer TransformMatrixBuffer;
         VK_CALL(vulkanTools::CreateBuffer(
-            App->VulkanDevice,
+            App->VulkanObjects.VulkanDevice,
             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             &TransformMatrixBuffer,
@@ -215,12 +215,12 @@ void deferredHybridRenderer::CreateBottomLevelAccelarationStructure(scene *Scene
         AccelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         AccelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
         AccelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
-        AccelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanDevice, App->Scene->Meshes[i].VertexBuffer.Buffer);
+        AccelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanObjects.VulkanDevice, App->Scene->Meshes[i].VulkanObjects.VertexBuffer.Buffer);
         AccelerationStructureGeometry.geometry.triangles.maxVertex = (uint32_t)App->Scene->Meshes[i].Vertices.size();
         AccelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(vertex);
         AccelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
-        AccelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanDevice, App->Scene->Meshes[i].IndexBuffer.Buffer);
-        AccelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanDevice, TransformMatrixBuffer.Buffer);
+        AccelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanObjects.VulkanDevice, App->Scene->Meshes[i].VulkanObjects.IndexBuffer.Buffer);
+        AccelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanObjects.VulkanDevice, TransformMatrixBuffer.Buffer);
         AccelerationStructureGeometry.geometry.triangles.transformData.hostAddress=nullptr;
 
         VkAccelerationStructureBuildGeometryInfoKHR AccelerationStructureBuildGeometryInfo = vulkanTools::BuildAccelerationStructureBuildGeometryInfo();
@@ -271,13 +271,13 @@ void deferredHybridRenderer::CreateBottomLevelAccelarationStructure(scene *Scene
         }
         else
         {
-            VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+            VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
             VulkanDevice->_vkCmdBuildAccelerationStructuresKHR(
                 CommandBuffer,
                 1,
                 &AccelerationBuildGeometryInfo,
                 AccelerationBuildStructureRangeInfos.data());
-            vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, CommandBuffer, App->Queue, true);
+            vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, CommandBuffer, App->VulkanObjects.Queue, true);
         }
 
         BottomLevelAccelerationStructures.push_back(std::move(BLAS));
@@ -335,11 +335,11 @@ void deferredHybridRenderer::FillBLASInstances()
 
 void deferredHybridRenderer::CreateCommandBuffers()
 {
-    DrawCommandBuffers.resize(App->Swapchain.ImageCount);
-    VkCommandBufferAllocateInfo CommandBufferAllocateInfo = vulkanTools::BuildCommandBufferAllocateInfo(App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(DrawCommandBuffers.size()));
+    DrawCommandBuffers.resize(App->VulkanObjects.Swapchain.ImageCount);
+    VkCommandBufferAllocateInfo CommandBufferAllocateInfo = vulkanTools::BuildCommandBufferAllocateInfo(App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(DrawCommandBuffers.size()));
     VK_CALL(vkAllocateCommandBuffers(Device, &CommandBufferAllocateInfo, DrawCommandBuffers.data()));
 
-    OffscreenCommandBuffer = vulkanTools::CreateCommandBuffer(Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
+    OffscreenCommandBuffer = vulkanTools::CreateCommandBuffer(Device, App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
 
     VkCommandPoolCreateInfo ComputeCommandPoolCreateInfo = {};
     ComputeCommandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -393,7 +393,7 @@ void deferredHybridRenderer::BuildQuads()
 
 void deferredHybridRenderer::BuildOffscreenBuffers()
 {
-    VkCommandBuffer LayoutCommand = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);                   
+    VkCommandBuffer LayoutCommand = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);                   
     //G buffer
     {
         Framebuffers.Offscreen.SetSize(App->Width, App->Height)
@@ -407,35 +407,35 @@ void deferredHybridRenderer::BuildOffscreenBuffers()
                               .SetAttachmentFormat(6, VK_FORMAT_R32G32B32A32_SFLOAT);//Compacted Normal and depth
         Framebuffers.Offscreen.BuildBuffers(VulkanDevice,LayoutCommand);        
     }    
-    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, LayoutCommand, App->Queue, true);
+    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, LayoutCommand, App->VulkanObjects.Queue, true);
     
     //Shadow
     {
         VkFormat Format = VK_FORMAT_R8_UNORM;
-        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, Format, &ShadowPass.Texture);  
+        App->VulkanObjects.TextureLoader->CreateEmptyTexture(App->Width, App->Height, Format, &ShadowPass.Texture);  
     }
     
     //Reprojection
     {
-        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32_SFLOAT, &ReprojectionPass.ProjectionTextures[0].ShadowTexture);  
-        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.ProjectionTextures[0].MomentsTexture);  
-        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.ProjectionTextures[0].HistoryLengthTexture);  
+        App->VulkanObjects.TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32_SFLOAT, &ReprojectionPass.ProjectionTextures[0].ShadowTexture);  
+        App->VulkanObjects.TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.ProjectionTextures[0].MomentsTexture);  
+        App->VulkanObjects.TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.ProjectionTextures[0].HistoryLengthTexture);  
         
-        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32_SFLOAT, &ReprojectionPass.ProjectionTextures[1].ShadowTexture);  
-        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.ProjectionTextures[1].MomentsTexture);  
-        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.ProjectionTextures[1].HistoryLengthTexture);  
+        App->VulkanObjects.TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32_SFLOAT, &ReprojectionPass.ProjectionTextures[1].ShadowTexture);  
+        App->VulkanObjects.TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.ProjectionTextures[1].MomentsTexture);  
+        App->VulkanObjects.TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.ProjectionTextures[1].HistoryLengthTexture);  
     
-        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32_SFLOAT, &ReprojectionPass.FilteredPast.Filtered);  
+        App->VulkanObjects.TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32_SFLOAT, &ReprojectionPass.FilteredPast.Filtered);  
     
-        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.PrevLinearZ, VK_IMAGE_USAGE_TRANSFER_DST_BIT); 
+        App->VulkanObjects.TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &ReprojectionPass.PrevLinearZ, VK_IMAGE_USAGE_TRANSFER_DST_BIT); 
 
         vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &ReprojectionPass.UniformBuffer, sizeof(ReprojectionPass.UniformData), &ReprojectionPass.UniformData); 
     }
     
     //Variance pass
     {
-        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &VariancePass.PingPong_0);  
-        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &VariancePass.PingPong_1);  
+        App->VulkanObjects.TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &VariancePass.PingPong_0);  
+        App->VulkanObjects.TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &VariancePass.PingPong_1);  
     }
 }
 
@@ -473,7 +473,7 @@ void deferredHybridRenderer::BuildLayoutsAndDescriptors()
         };
         std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts = 
         {
-            App->Scene->Cubemap.DescriptorSetLayout,
+            App->Scene->Cubemap.VulkanObjects.DescriptorSetLayout,
             App->Scene->Resources.DescriptorSetLayouts->Get("Scene"),
         };
         Resources.AddDescriptorSet(VulkanDevice, "Composition", Descriptors, DescriptorPool, AdditionalDescriptorSetLayouts);
@@ -600,7 +600,7 @@ void deferredHybridRenderer::BuildPipelines()
     //Shader Stages
     std::array<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
     VkGraphicsPipelineCreateInfo PipelineCreateInfo = vulkanTools::BuildGraphicsPipelineCreateInfo();
-    PipelineCreateInfo.pVertexInputState = &App->VerticesDescription.InputState;
+    PipelineCreateInfo.pVertexInputState = &App->VulkanObjects.VerticesDescription.InputState;
     PipelineCreateInfo.pInputAssemblyState = &InputAssemblyState;
     PipelineCreateInfo.pRasterizationState = &RasterizationState;
     PipelineCreateInfo.pColorBlendState = &ColorBlendState;
@@ -615,7 +615,7 @@ void deferredHybridRenderer::BuildPipelines()
     //Final composition pipeline
     {
         PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Composition");
-        PipelineCreateInfo.renderPass = App->RenderPass;
+        PipelineCreateInfo.renderPass = App->VulkanObjects.RenderPass;
 
         ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/Composition.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
         ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/hybridComposition.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -638,10 +638,10 @@ void deferredHybridRenderer::BuildPipelines()
         VkSpecializationInfo SpecializationInfo = vulkanTools::BuildSpecializationInfo((uint32_t)SpecializationMapEntries.size(), SpecializationMapEntries.data(), sizeof(SpecializationData), &SpecializationData );
         ShaderStages[1].pSpecializationInfo = &SpecializationInfo;
 
-        Resources.Pipelines->Add("Composition.SSAO.Enabled", PipelineCreateInfo, App->PipelineCache);
+        Resources.Pipelines->Add("Composition.SSAO.Enabled", PipelineCreateInfo, App->VulkanObjects.PipelineCache);
 
         SpecializationData.EnableSSAO = 0;
-        Resources.Pipelines->Add("Composition.SSAO.Disabled", PipelineCreateInfo, App->PipelineCache);
+        Resources.Pipelines->Add("Composition.SSAO.Disabled", PipelineCreateInfo, App->VulkanObjects.PipelineCache);
     }
 
     // Fill G buffer
@@ -723,7 +723,7 @@ void deferredHybridRenderer::BuildPipelines()
                 if(MatFlags & materialFlags::HasClearCoat)SpecializationData.HasClearCoat=1;
                 if(MatFlags & materialFlags::HasSheen)SpecializationData.HasSheen=1;
                 
-                Resources.Pipelines->Add(MatFlags, PipelineCreateInfo, App->PipelineCache);
+                Resources.Pipelines->Add(MatFlags, PipelineCreateInfo, App->VulkanObjects.PipelineCache);
             }
         }        
 
@@ -763,7 +763,7 @@ void deferredHybridRenderer::BuildCommandBuffers()
     ClearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo RenderPassBeginInfo = vulkanTools::BuildRenderPassBeginInfo();
-    RenderPassBeginInfo.renderPass = App->RenderPass;
+    RenderPassBeginInfo.renderPass = App->VulkanObjects.RenderPass;
     RenderPassBeginInfo.renderArea.offset.x=0;
     RenderPassBeginInfo.renderArea.offset.y=0;
     RenderPassBeginInfo.renderArea.extent.width = App->Width;
@@ -774,7 +774,7 @@ void deferredHybridRenderer::BuildCommandBuffers()
 
     for(uint32_t i=0; i<DrawCommandBuffers.size(); i++)
     {
-        RenderPassBeginInfo.framebuffer = App->AppFramebuffers[i];
+        RenderPassBeginInfo.framebuffer = App->VulkanObjects.AppFramebuffers[i];
         VK_CALL(vkBeginCommandBuffer(DrawCommandBuffers[i], &CommandBufferInfo));
 		
 		App->ImGuiHelper->UpdateBuffers();
@@ -790,12 +790,12 @@ void deferredHybridRenderer::BuildCommandBuffers()
 
         VkDeviceSize Offsets[1] = {0};
         vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 0, 1, Resources.DescriptorSets->GetPtr("Composition"), 0, nullptr);
-        vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 1, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
+        vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 1, 1, &App->Scene->Cubemap.VulkanObjects.DescriptorSet, 0, nullptr);
         vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 2, 1, App->Scene->Resources.DescriptorSets->GetPtr("Scene"), 0, nullptr);
 
         vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Composition.SSAO.Enabled"));
-        vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Quad.VertexBuffer.Buffer, Offsets);
-        vkCmdBindIndexBuffer(DrawCommandBuffers[i], Quad.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Quad.VulkanObjects.VertexBuffer.Buffer, Offsets);
+        vkCmdBindIndexBuffer(DrawCommandBuffers[i], Quad.VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(DrawCommandBuffers[i], 6, 1, 0, 0, 1);
 
 
@@ -949,11 +949,11 @@ void deferredHybridRenderer::BuildDeferredCommandBuffers()
             
             for (auto Instance : InstanceGroup.second)
             {
-                vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
-                vkCmdBindIndexBuffer(OffscreenCommandBuffer, Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VulkanObjects.VertexBuffer.Buffer, Offset);
+                vkCmdBindIndexBuffer(OffscreenCommandBuffer, Instance.Mesh->VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
-                vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
-                vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
+                vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->VulkanObjects.DescriptorSet, 0, nullptr);
+                vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.VulkanObjects.DescriptorSet, 0, nullptr);
                 vkCmdDrawIndexed(OffscreenCommandBuffer, Instance.Mesh->IndexCount, 1, 0, 0, 0);
             }
         }
@@ -1083,6 +1083,6 @@ void deferredHybridRenderer::Destroy()
     vkDestroyDescriptorPool(VulkanDevice->Device, DescriptorPool, nullptr);
     
     
-    vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, (uint32_t)DrawCommandBuffers.size(), DrawCommandBuffers.data());
-    vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, 1, &OffscreenCommandBuffer);
+    vkFreeCommandBuffers(VulkanDevice->Device, App->VulkanObjects.CommandPool, (uint32_t)DrawCommandBuffers.size(), DrawCommandBuffers.data());
+    vkFreeCommandBuffers(VulkanDevice->Device, App->VulkanObjects.CommandPool, 1, &OffscreenCommandBuffer);
 }

@@ -74,37 +74,43 @@ public:
     } Mouse;
 
     //High level objects
-    VkInstance Instance;
-    VkPhysicalDevice PhysicalDevice;
-    vulkanDevice *VulkanDevice;
-    VkDevice Device;
-    VkPhysicalDeviceFeatures EnabledFeatures = {};
-    VkQueue Queue;
-    VkFormat DepthFormat;
-    swapchain Swapchain;
     struct {
-        VkSemaphore PresentComplete;
-        VkSemaphore RenderComplete;
-    } Semaphores;
-    VkPipelineStageFlags SubmitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    VkCommandPool CommandPool;
-    std::vector<VkFramebuffer> AppFramebuffers;
-    struct {
-        VkImage Image;
-        VkDeviceMemory Memory;
-        VkImageView View;
-    } DepthStencil;
-    VkRenderPass RenderPass;
-    VkPipelineCache PipelineCache;
-    textureLoader *TextureLoader;
-    uint32_t CurrentBuffer=0;
+        VkInstance Instance;
+        VkPhysicalDevice PhysicalDevice;
+        vulkanDevice *VulkanDevice;
+        VkDevice Device;
+        VkPhysicalDeviceFeatures EnabledFeatures = {};
+        VkQueue Queue;
+        VkFormat DepthFormat;
+        swapchain Swapchain;
+        
+        struct {
+            VkSemaphore PresentComplete;
+            VkSemaphore RenderComplete;
+        } Semaphores;
 
-    struct 
-    {
-        VkPipelineVertexInputStateCreateInfo InputState;
-        std::vector<VkVertexInputBindingDescription> BindingDescription;
-        std::vector<VkVertexInputAttributeDescription> AttributeDescription;
-    } VerticesDescription;
+        VkPipelineStageFlags SubmitPipelineStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        VkCommandPool CommandPool;
+        std::vector<VkFramebuffer> AppFramebuffers;
+        struct {
+            VkImage Image;
+            VkDeviceMemory Memory;
+            VkImageView View;
+        } DepthStencil;
+        VkRenderPass RenderPass;
+        VkPipelineCache PipelineCache;
+        uint32_t CurrentBuffer=0;
+        
+        struct 
+        {
+            VkPipelineVertexInputStateCreateInfo InputState;
+            std::vector<VkVertexInputBindingDescription> BindingDescription;
+            std::vector<VkVertexInputAttributeDescription> AttributeDescription;
+        } VerticesDescription;
+        textureLoader *TextureLoader;
+    } VulkanObjects;
+
+
     scene *Scene;
     uint32_t Width, Height;
 

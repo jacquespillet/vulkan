@@ -4,7 +4,7 @@
 #include "OpenImageDenoise/oidn.hpp"
 
 pathTraceRTXRenderer::pathTraceRTXRenderer(vulkanApp *App) : renderer(App) {
-    App->VulkanDevice->LoadRayTracingFuncs();
+    App->VulkanObjects.VulkanDevice->LoadRayTracingFuncs();
 }
 
 void pathTraceRTXRenderer::UpdateMaterial(size_t Index)
@@ -21,7 +21,7 @@ void pathTraceRTXRenderer::UpdateMaterial(size_t Index)
     VkCommandBufferBeginInfo CommandBufferInfo = vulkanTools::BuildCommandBufferBeginInfo();
     VK_CALL(vkBeginCommandBuffer(UpdateMaterialCommandBuffer, &CommandBufferInfo));
     vkCmdCopyBuffer(UpdateMaterialCommandBuffer, UpdateMaterialStagingBuffer.Buffer, MaterialBuffer.Buffer, 1, &BufferCopy);
-    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, UpdateMaterialCommandBuffer, App->Queue, false);
+    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, UpdateMaterialCommandBuffer, App->VulkanObjects.Queue, false);
 }
 
 void pathTraceRTXRenderer::Render()
@@ -45,23 +45,23 @@ void pathTraceRTXRenderer::Render()
         UniformData.CurrentSampleCount += UniformData.SamplersPerFrame;
     }
 
-    VkResult Result = App->Swapchain.AcquireNextImage(App->Semaphores.PresentComplete, &App->CurrentBuffer);
+    VkResult Result = App->VulkanObjects.Swapchain.AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer);
     VK_CALL(Result);
 
 
     SubmitInfo = vulkanTools::BuildSubmitInfo();
-    SubmitInfo.pWaitDstStageMask = &App->SubmitPipelineStages;
+    SubmitInfo.pWaitDstStageMask = &App->VulkanObjects.SubmitPipelineStages;
     SubmitInfo.waitSemaphoreCount = 1;
     SubmitInfo.signalSemaphoreCount=1;
-    SubmitInfo.pWaitSemaphores = &App->Semaphores.PresentComplete;
-    SubmitInfo.pSignalSemaphores = &App->Semaphores.RenderComplete;
+    SubmitInfo.pWaitSemaphores = &App->VulkanObjects.Semaphores.PresentComplete;
+    SubmitInfo.pSignalSemaphores = &App->VulkanObjects.Semaphores.RenderComplete;
     SubmitInfo.commandBufferCount=1;
-    SubmitInfo.pCommandBuffers = &DrawCommandBuffers[App->CurrentBuffer];
+    SubmitInfo.pCommandBuffers = &DrawCommandBuffers[App->VulkanObjects.CurrentBuffer];
     
 
-    VK_CALL(vkQueueSubmit(App->Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
-    Result = App->Swapchain.QueuePresent(App->Queue, App->CurrentBuffer, App->Semaphores.RenderComplete);
-    VK_CALL(vkQueueWaitIdle(App->Queue));
+    VK_CALL(vkQueueSubmit(App->VulkanObjects.Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+    Result = App->VulkanObjects.Swapchain.QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete);
+    VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 
     if(ShouldDenoise)
     {
@@ -102,7 +102,7 @@ void pathTraceRTXRenderer::Render()
         
 
         //Copy buffer back into storage buffer
-        VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+        VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
         
         VkImageSubresourceLayers ImageSubresource = {};
         ImageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -127,9 +127,9 @@ void pathTraceRTXRenderer::Render()
         vkCmdCopyBufferToImage(CommandBuffer, DenoiseBuffer.Buffer, StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &BufferImageCopy);
         vulkanTools::TransitionImageLayout(CommandBuffer, StorageImage.Image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
         
-        vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, CommandBuffer, App->Queue, true);
+        vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, CommandBuffer, App->VulkanObjects.Queue, true);
 
-        VK_CALL(vkQueueWaitIdle(App->Queue));
+        VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 
         ShouldDenoise=false;
         UniformData.ShouldAccumulate=0;
@@ -149,7 +149,7 @@ void pathTraceRTXRenderer::CreateBottomLevelAccelarationStructure(scene *Scene)
         };
         buffer TransformMatrixBuffer;
         VK_CALL(vulkanTools::CreateBuffer(
-            App->VulkanDevice,
+            App->VulkanObjects.VulkanDevice,
             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             &TransformMatrixBuffer,
@@ -164,12 +164,12 @@ void pathTraceRTXRenderer::CreateBottomLevelAccelarationStructure(scene *Scene)
         AccelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         AccelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
         AccelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
-        AccelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanDevice, App->Scene->Meshes[i].VertexBuffer.Buffer);
+        AccelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanObjects.VulkanDevice, App->Scene->Meshes[i].VulkanObjects.VertexBuffer.Buffer);
         AccelerationStructureGeometry.geometry.triangles.maxVertex = (uint32_t)App->Scene->Meshes[i].Vertices.size();
         AccelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(vertex);
         AccelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
-        AccelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanDevice, App->Scene->Meshes[i].IndexBuffer.Buffer);
-        AccelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanDevice, TransformMatrixBuffer.Buffer);
+        AccelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanObjects.VulkanDevice, App->Scene->Meshes[i].VulkanObjects.IndexBuffer.Buffer);
+        AccelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanObjects.VulkanDevice, TransformMatrixBuffer.Buffer);
         AccelerationStructureGeometry.geometry.triangles.transformData.hostAddress=nullptr;
 
         VkAccelerationStructureBuildGeometryInfoKHR AccelerationStructureBuildGeometryInfo = vulkanTools::BuildAccelerationStructureBuildGeometryInfo();
@@ -220,13 +220,13 @@ void pathTraceRTXRenderer::CreateBottomLevelAccelarationStructure(scene *Scene)
         }
         else
         {
-            VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+            VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
             VulkanDevice->_vkCmdBuildAccelerationStructuresKHR(
                 CommandBuffer,
                 1,
                 &AccelerationBuildGeometryInfo,
                 AccelerationBuildStructureRangeInfos.data());
-            vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, CommandBuffer, App->Queue, true);
+            vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, CommandBuffer, App->VulkanObjects.Queue, true);
         }
 
         BottomLevelAccelerationStructures.push_back(std::move(BLAS));
@@ -398,13 +398,13 @@ void pathTraceRTXRenderer::CreateTopLevelAccelerationStructure()
     }
     else
     {
-        VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+        VkCommandBuffer CommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
         VulkanDevice->_vkCmdBuildAccelerationStructuresKHR(
             CommandBuffer,
             1,
             &AccelerationBuildGeometryInfo,
             AccelerationStructureBuildRangeInfos.data());
-        vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, CommandBuffer, App->Queue, true);
+        vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, CommandBuffer, App->VulkanObjects.Queue, true);
     }
 
     ScratchBuffer.Destroy();
@@ -413,10 +413,10 @@ void pathTraceRTXRenderer::CreateTopLevelAccelerationStructure()
 void pathTraceRTXRenderer::CreateImages()
 {
     //Contains the final image
-    StorageImage.Create(VulkanDevice, App->CommandPool, App->Queue, App->Swapchain.ColorFormat, {App->Width, App->Height, 1});
+    StorageImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, App->VulkanObjects.Swapchain.ColorFormat, {App->Width, App->Height, 1});
     
     //Contains the accumulated colors, not divided by the sample count
-    AccumulationImage.Create(VulkanDevice, App->CommandPool, App->Queue, VK_FORMAT_R32G32B32A32_SFLOAT, {App->Width, App->Height, 1});
+    AccumulationImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, VK_FORMAT_R32G32B32A32_SFLOAT, {App->Width, App->Height, 1});
 
     VK_CALL(vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &DenoiseBuffer, App->Width * App->Height * 4, nullptr));
     DenoiserInput.resize(App->Width * App->Height);
@@ -602,10 +602,10 @@ void pathTraceRTXRenderer::CreateDescriptorSets()
     );
 
     WriteDescriptorSets.push_back(
-        vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, &App->Scene->Cubemap.IrradianceMap.Descriptor, 1)
+        vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6, &App->Scene->Cubemap.VulkanObjects.IrradianceMap.Descriptor, 1)
     );
     WriteDescriptorSets.push_back(
-        vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 7, &App->Scene->Cubemap.Texture.Descriptor, 1)
+        vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 7, &App->Scene->Cubemap.VulkanObjects.Texture.Descriptor, 1)
     );
     WriteDescriptorSets.push_back(
         vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 8, &App->Scene->SceneMatrices.Descriptor)
@@ -668,7 +668,7 @@ void pathTraceRTXRenderer::CreateMaterialBuffer()
         BufferSize
     ));
 
-    vulkanTools::CopyBuffer(VulkanDevice, App->CommandPool, App->Queue, &Staging, &MaterialBuffer);
+    vulkanTools::CopyBuffer(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, &Staging, &MaterialBuffer);
 
     //Used for updating a material at run time
     VK_CALL(vulkanTools::CreateBuffer(
@@ -679,7 +679,7 @@ void pathTraceRTXRenderer::CreateMaterialBuffer()
         sizeof(materialData),
         nullptr
     ));
-    UpdateMaterialCommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
+    UpdateMaterialCommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
     
 
     Staging.Destroy();
@@ -691,13 +691,13 @@ void pathTraceRTXRenderer::Setup()
 
     VkPhysicalDeviceProperties2 DeviceProperties2 {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
     DeviceProperties2.pNext = &RayTracingPipelineProperties;
-    vkGetPhysicalDeviceProperties2(App->PhysicalDevice, &DeviceProperties2);
+    vkGetPhysicalDeviceProperties2(App->VulkanObjects.PhysicalDevice, &DeviceProperties2);
     
     AccelerationStructureFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
 
     VkPhysicalDeviceFeatures2 DeviceFeatures2 {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     DeviceFeatures2.pNext = &AccelerationStructureFeatures;
-    vkGetPhysicalDeviceFeatures2(App->PhysicalDevice, &DeviceFeatures2);
+    vkGetPhysicalDeviceFeatures2(App->VulkanObjects.PhysicalDevice, &DeviceFeatures2);
 
     CreateBottomLevelAccelarationStructure(App->Scene);
 
@@ -709,8 +709,8 @@ void pathTraceRTXRenderer::Setup()
     for(size_t i=0; i<App->Scene->Meshes.size(); i++)
     {
         sceneModelInfo Info {};
-        Info.Vertices = vulkanTools::GetBufferDeviceAddress(VulkanDevice, App->Scene->Meshes[i].VertexBuffer.Buffer);
-        Info.Indices = vulkanTools::GetBufferDeviceAddress(VulkanDevice, App->Scene->Meshes[i].IndexBuffer.Buffer);
+        Info.Vertices = vulkanTools::GetBufferDeviceAddress(VulkanDevice, App->Scene->Meshes[i].VulkanObjects.VertexBuffer.Buffer);
+        Info.Indices = vulkanTools::GetBufferDeviceAddress(VulkanDevice, App->Scene->Meshes[i].VulkanObjects.IndexBuffer.Buffer);
         Info.Materials = vulkanTools::GetBufferDeviceAddress(VulkanDevice, MaterialBuffer.Buffer);
         // MatIndexOffset++;
         SceneModelInfos.emplace_back(Info);
@@ -741,8 +741,8 @@ void pathTraceRTXRenderer::Setup()
 
 void pathTraceRTXRenderer::CreateCommandBuffers()
 {
-    DrawCommandBuffers.resize(App->Swapchain.ImageCount);
-    VkCommandBufferAllocateInfo CommandBufferAllocateInfo = vulkanTools::BuildCommandBufferAllocateInfo(App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(DrawCommandBuffers.size()));
+    DrawCommandBuffers.resize(App->VulkanObjects.Swapchain.ImageCount);
+    VkCommandBufferAllocateInfo CommandBufferAllocateInfo = vulkanTools::BuildCommandBufferAllocateInfo(App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(DrawCommandBuffers.size()));
     VK_CALL(vkAllocateCommandBuffers(Device, &CommandBufferAllocateInfo, DrawCommandBuffers.data()));
 }
 
@@ -750,7 +750,7 @@ void pathTraceRTXRenderer::CreateCommandBuffers()
 void pathTraceRTXRenderer::Denoise()
 {
     ShouldDenoise=true;
-    // vulkanTools::CopyImageToBuffer(VulkanDevice, App->CommandPool, App->Queue, StorageImage.Image, &DenoiseBuffer, App->Width, App->Height);
+    // vulkanTools::CopyImageToBuffer(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, StorageImage.Image, &DenoiseBuffer, App->Width, App->Height);
 }
 
 void pathTraceRTXRenderer::RenderGUI()
@@ -795,8 +795,8 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
         ClearValues[1].depthStencil = { 1.0f, 0 };
         
 		VkRenderPassBeginInfo RenderPassBeginInfo = vulkanTools::BuildRenderPassBeginInfo();
-		RenderPassBeginInfo.renderPass = App->RenderPass;
-		RenderPassBeginInfo.framebuffer = App->AppFramebuffers[i];
+		RenderPassBeginInfo.renderPass = App->VulkanObjects.RenderPass;
+		RenderPassBeginInfo.framebuffer = App->VulkanObjects.AppFramebuffers[i];
 		RenderPassBeginInfo.renderArea.extent.width = App->Width;
 		RenderPassBeginInfo.renderArea.extent.height = App->Height;
 		RenderPassBeginInfo.clearValueCount = 2;
@@ -817,7 +817,7 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
             App->Width - (int)App->Scene->ViewportStart, App->Height, 1
         );
 
-        vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->Swapchain.Images[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
+        vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->VulkanObjects.Swapchain.Images[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
         vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, SubresourceRange);
         
         //Copy accumulation texture to swapchain image
@@ -827,7 +827,7 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
         CopyRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
         CopyRegion.dstOffset = {(int)App->Scene->ViewportStart,0,0};
         CopyRegion.extent = {App->Width - (int)App->Scene->ViewportStart, App->Height, 1};
-        vkCmdCopyImage(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, App->Swapchain.Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &CopyRegion);
+        vkCmdCopyImage(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, App->VulkanObjects.Swapchain.Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &CopyRegion);
 
         if(ShouldDenoise)
         {
@@ -852,7 +852,7 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
             vkCmdCopyImageToBuffer(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, DenoiseBuffer.Buffer,1,  &BufferImageCopy);
         }
 
-        vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->Swapchain.Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, SubresourceRange);
+        vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->VulkanObjects.Swapchain.Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, SubresourceRange);
         vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, SubresourceRange);
         
         //Imgui
@@ -866,7 +866,7 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
 
 void pathTraceRTXRenderer::Resize(uint32_t Width, uint32_t Height)
 {
-    vkQueueWaitIdle(App->Queue);
+    vkQueueWaitIdle(App->VulkanObjects.Queue);
     vkDeviceWaitIdle(VulkanDevice->Device);
 
     // StorageImage.Destroy();
@@ -896,7 +896,7 @@ void pathTraceRTXRenderer::Destroy()
     InstancesBuffer.Destroy();
 
     MaterialBuffer.Destroy();
-    vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, 1, &UpdateMaterialCommandBuffer);
+    vkFreeCommandBuffers(VulkanDevice->Device, App->VulkanObjects.CommandPool, 1, &UpdateMaterialCommandBuffer);
     UpdateMaterialStagingBuffer.Destroy();
     SceneDescriptionBuffer.Destroy();
     TransformMatricesBuffer.Destroy();
@@ -922,7 +922,7 @@ void pathTraceRTXRenderer::Destroy()
 
     for(size_t i=0; i<DrawCommandBuffers.size(); i++)
     {
-        vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, 1, &DrawCommandBuffers[i]);
+        vkFreeCommandBuffers(VulkanDevice->Device, App->VulkanObjects.CommandPool, 1, &DrawCommandBuffers[i]);
     }
     // for(size_t i=0; i<ShaderModules.size(); i++)
     // {
@@ -930,5 +930,5 @@ void pathTraceRTXRenderer::Destroy()
     // }
     // //Resources.Destroy();
     // vkDestroyDescriptorPool(Device, DescriptorPool, nullptr);
-    // vkFreeCommandBuffers(Device, App->CommandPool, (uint32_t)DrawCommandBuffers.size(), DrawCommandBuffers.data());
+    // vkFreeCommandBuffers(Device, App->VulkanObjects.CommandPool, (uint32_t)DrawCommandBuffers.size(), DrawCommandBuffers.data());
 }

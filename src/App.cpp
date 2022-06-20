@@ -7,45 +7,45 @@
 #include "ImGuizmo.h"
 void vulkanApp::InitVulkan()
 {
-    Instance = vulkanTools::CreateInstance(EnableValidation);
+    VulkanObjects.Instance = vulkanTools::CreateInstance(EnableValidation);
 
     //Set debug report callback        
     if(EnableValidation)
     {
         VkDebugReportFlagsEXT DebugReportFlags = VK_DEBUG_REPORT_ERROR_BIT_EXT;
-        vulkanDebug::SetupDebugReportCallback(Instance, DebugReportFlags);
+        vulkanDebug::SetupDebugReportCallback(VulkanObjects.Instance, DebugReportFlags);
     }
 
     //Pick physical device
     uint32_t GpuCount=0;
-    VK_CALL(vkEnumeratePhysicalDevices(Instance, &GpuCount, nullptr));
+    VK_CALL(vkEnumeratePhysicalDevices(VulkanObjects.Instance, &GpuCount, nullptr));
     assert(GpuCount >0);
     std::vector<VkPhysicalDevice> PhysicalDevices(GpuCount);
-    VkResult Error = vkEnumeratePhysicalDevices(Instance, &GpuCount, PhysicalDevices.data());
+    VkResult Error = vkEnumeratePhysicalDevices(VulkanObjects.Instance, &GpuCount, PhysicalDevices.data());
     if(Error)
     {
         assert(0);
     }
-    PhysicalDevice = PhysicalDevices[0];
+    VulkanObjects.PhysicalDevice = PhysicalDevices[0];
 
     //Build logical device
-    VulkanDevice = new vulkanDevice(PhysicalDevice, Instance);
-    VK_CALL(VulkanDevice->CreateDevice(EnabledFeatures, RayTracing));
-    Device = VulkanDevice->Device;
+    VulkanObjects.VulkanDevice = new vulkanDevice(VulkanObjects.PhysicalDevice, VulkanObjects.Instance);
+    VK_CALL(VulkanObjects.VulkanDevice->CreateDevice(VulkanObjects.EnabledFeatures, RayTracing));
+    VulkanObjects.Device = VulkanObjects.VulkanDevice->Device;
 
     //Get queue
-    vkGetDeviceQueue(Device, VulkanDevice->QueueFamilyIndices.Graphics, 0, &Queue);
+    vkGetDeviceQueue(VulkanObjects.Device, VulkanObjects.VulkanDevice->QueueFamilyIndices.Graphics, 0, &VulkanObjects.Queue);
     
     //Get depth format
-    VkBool32 ValidDepthFormat = vulkanTools::GetSupportedDepthFormat(PhysicalDevice, &DepthFormat);
+    VkBool32 ValidDepthFormat = vulkanTools::GetSupportedDepthFormat(VulkanObjects.PhysicalDevice, &VulkanObjects.DepthFormat);
     assert(ValidDepthFormat);
 
     //Build main semaphores
     VkSemaphoreCreateInfo SemaphoreCreateInfo = vulkanTools::BuildSemaphoreCreateInfo();
-    VK_CALL(vkCreateSemaphore(Device, &SemaphoreCreateInfo, nullptr, &Semaphores.PresentComplete));
-    VK_CALL(vkCreateSemaphore(Device, &SemaphoreCreateInfo, nullptr, &Semaphores.RenderComplete));
+    VK_CALL(vkCreateSemaphore(VulkanObjects.Device, &SemaphoreCreateInfo, nullptr, &VulkanObjects.Semaphores.PresentComplete));
+    VK_CALL(vkCreateSemaphore(VulkanObjects.Device, &SemaphoreCreateInfo, nullptr, &VulkanObjects.Semaphores.RenderComplete));
       
-    Swapchain.Initialize(Instance, PhysicalDevice, Device);
+    VulkanObjects.Swapchain.Initialize(VulkanObjects.Instance, VulkanObjects.PhysicalDevice, VulkanObjects.Device);
 }
 
 void vulkanApp::SetupDepthStencil()
@@ -54,7 +54,7 @@ void vulkanApp::SetupDepthStencil()
     VkImageCreateInfo Image {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     Image.pNext=nullptr;
     Image.imageType = VK_IMAGE_TYPE_2D;
-    Image.format = DepthFormat;
+    Image.format = VulkanObjects.DepthFormat;
     Image.extent = {Width, Height, 1};
     Image.mipLevels=1;
     Image.arrayLayers=1;
@@ -73,7 +73,7 @@ void vulkanApp::SetupDepthStencil()
     VkImageViewCreateInfo DepthStencilView{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     DepthStencilView.pNext=nullptr;
     DepthStencilView.viewType=VK_IMAGE_VIEW_TYPE_2D;
-    DepthStencilView.format=DepthFormat;
+    DepthStencilView.format=VulkanObjects.DepthFormat;
     DepthStencilView.flags=0;
     DepthStencilView.subresourceRange={};
     DepthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -83,21 +83,21 @@ void vulkanApp::SetupDepthStencil()
     DepthStencilView.subresourceRange.layerCount=1;
 
     //Create image
-    VK_CALL(vkCreateImage(Device, &Image, nullptr, &DepthStencil.Image));
+    VK_CALL(vkCreateImage(VulkanObjects.Device, &Image, nullptr, &VulkanObjects.DepthStencil.Image));
     
     //Get mem requirements for this image
     VkMemoryRequirements MemoryRequirements;
-    vkGetImageMemoryRequirements(Device, DepthStencil.Image, &MemoryRequirements);
+    vkGetImageMemoryRequirements(VulkanObjects.Device, VulkanObjects.DepthStencil.Image, &MemoryRequirements);
     
     //Allocate memory
     MemoryAllocateInfo.allocationSize = MemoryRequirements.size;
-    MemoryAllocateInfo.memoryTypeIndex = VulkanDevice->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    VK_CALL(vkAllocateMemory(Device, &MemoryAllocateInfo, nullptr, &DepthStencil.Memory));
-    VK_CALL(vkBindImageMemory(Device, DepthStencil.Image, DepthStencil.Memory, 0));
+    MemoryAllocateInfo.memoryTypeIndex = VulkanObjects.VulkanDevice->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    VK_CALL(vkAllocateMemory(VulkanObjects.Device, &MemoryAllocateInfo, nullptr, &VulkanObjects.DepthStencil.Memory));
+    VK_CALL(vkBindImageMemory(VulkanObjects.Device, VulkanObjects.DepthStencil.Image, VulkanObjects.DepthStencil.Memory, 0));
 
     //Create view
-    DepthStencilView.image = DepthStencil.Image;
-    VK_CALL(vkCreateImageView(Device, &DepthStencilView, nullptr, &DepthStencil.View));
+    DepthStencilView.image = VulkanObjects.DepthStencil.Image;
+    VK_CALL(vkCreateImageView(VulkanObjects.Device, &DepthStencilView, nullptr, &VulkanObjects.DepthStencil.View));
 }
 
 
@@ -105,7 +105,7 @@ void vulkanApp::SetupRenderPass()
 {
     std::array<VkAttachmentDescription, 2> Attachments = {};
 
-    Attachments[0].format = Swapchain.ColorFormat;
+    Attachments[0].format = VulkanObjects.Swapchain.ColorFormat;
     Attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
     Attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     Attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -114,7 +114,7 @@ void vulkanApp::SetupRenderPass()
     Attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     Attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-    Attachments[1].format = DepthFormat;
+    Attachments[1].format = VulkanObjects.DepthFormat;
     Attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
     Attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     Attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -168,41 +168,41 @@ void vulkanApp::SetupRenderPass()
     RenderPassCreateInfo.dependencyCount=static_cast<uint32_t>(Dependencies.size());
     RenderPassCreateInfo.pDependencies = Dependencies.data();
 
-    VK_CALL(vkCreateRenderPass(Device, &RenderPassCreateInfo, nullptr, &RenderPass));
+    VK_CALL(vkCreateRenderPass(VulkanObjects.Device, &RenderPassCreateInfo, nullptr, &VulkanObjects.RenderPass));
 }
 
 void vulkanApp::CreatePipelineCache()
 {
     VkPipelineCacheCreateInfo PipelineCacheCreateInfo {VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO};
-    VK_CALL(vkCreatePipelineCache(Device, &PipelineCacheCreateInfo, nullptr, &PipelineCache));
+    VK_CALL(vkCreatePipelineCache(VulkanObjects.Device, &PipelineCacheCreateInfo, nullptr, &VulkanObjects.PipelineCache));
 }
 
 void vulkanApp::SetupFramebuffer()
 {
     VkImageView Attachments[2];
 
-    Attachments[1] = DepthStencil.View;
+    Attachments[1] = VulkanObjects.DepthStencil.View;
 
     VkFramebufferCreateInfo FramebufferCreateInfo {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
     FramebufferCreateInfo.pNext=nullptr;
-    FramebufferCreateInfo.renderPass = RenderPass;
+    FramebufferCreateInfo.renderPass = VulkanObjects.RenderPass;
     FramebufferCreateInfo.attachmentCount=2;
     FramebufferCreateInfo.pAttachments=Attachments;
     FramebufferCreateInfo.width=Width;
     FramebufferCreateInfo.height=Height;
     FramebufferCreateInfo.layers=1;
 
-    AppFramebuffers.resize(Swapchain.ImageCount);
-    for(uint32_t i=0; i<AppFramebuffers.size(); i++)
+    VulkanObjects.AppFramebuffers.resize(VulkanObjects.Swapchain.ImageCount);
+    for(uint32_t i=0; i<VulkanObjects.AppFramebuffers.size(); i++)
     {
-        Attachments[0] = Swapchain.Buffers[i].View;
-        VK_CALL(vkCreateFramebuffer(Device, &FramebufferCreateInfo, nullptr, &AppFramebuffers[i]));
+        Attachments[0] = VulkanObjects.Swapchain.Buffers[i].View;
+        VK_CALL(vkCreateFramebuffer(VulkanObjects.Device, &FramebufferCreateInfo, nullptr, &VulkanObjects.AppFramebuffers[i]));
     }
 }
 
 void vulkanApp::BuildScene()
 {
-    VkCommandBuffer CopyCommand = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
+    VkCommandBuffer CopyCommand = vulkanTools::CreateCommandBuffer(VulkanObjects.VulkanDevice->Device, VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
     Scene = new scene(this);
     //  Scene->Load("resources/models/sponza/sponza.dae", CopyCommand);
     // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
@@ -213,35 +213,35 @@ void vulkanApp::BuildScene()
     // Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
 
-    vkFreeCommandBuffers(VulkanDevice->Device, CommandPool, 1, &CopyCommand);
+    vkFreeCommandBuffers(VulkanObjects.VulkanDevice->Device, VulkanObjects.CommandPool, 1, &CopyCommand);
 
     Scene->CreateDescriptorSets();
 }
 
 void vulkanApp::BuildVertexDescriptions()
 {
-    VerticesDescription.BindingDescription = {
+    VulkanObjects.VerticesDescription.BindingDescription = {
         vulkanTools::BuildVertexInputBindingDescription(VERTEX_BUFFER_BIND_ID, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX)
     };
 
-    VerticesDescription.AttributeDescription = {
+    VulkanObjects.VerticesDescription.AttributeDescription = {
         vulkanTools::BuildVertexInputAttributeDescription(VERTEX_BUFFER_BIND_ID, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(vertex, Position)),
         vulkanTools::BuildVertexInputAttributeDescription(VERTEX_BUFFER_BIND_ID, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(vertex, Normal)),
         vulkanTools::BuildVertexInputAttributeDescription(VERTEX_BUFFER_BIND_ID, 2, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(vertex, Tangent)),
         vulkanTools::BuildVertexInputAttributeDescription(VERTEX_BUFFER_BIND_ID, 3, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(vertex, MatInx))
     };  
 
-    VerticesDescription.InputState = vulkanTools::BuildPipelineVertexInputStateCreateInfo();
-    VerticesDescription.InputState.vertexBindingDescriptionCount = (uint32_t)VerticesDescription.BindingDescription.size();
-    VerticesDescription.InputState.pVertexBindingDescriptions = VerticesDescription.BindingDescription.data();
-    VerticesDescription.InputState.vertexAttributeDescriptionCount = (uint32_t)VerticesDescription.AttributeDescription.size();
-    VerticesDescription.InputState.pVertexAttributeDescriptions = VerticesDescription.AttributeDescription.data();
+    VulkanObjects.VerticesDescription.InputState = vulkanTools::BuildPipelineVertexInputStateCreateInfo();
+    VulkanObjects.VerticesDescription.InputState.vertexBindingDescriptionCount = (uint32_t)VulkanObjects.VerticesDescription.BindingDescription.size();
+    VulkanObjects.VerticesDescription.InputState.pVertexBindingDescriptions = VulkanObjects.VerticesDescription.BindingDescription.data();
+    VulkanObjects.VerticesDescription.InputState.vertexAttributeDescriptionCount = (uint32_t)VulkanObjects.VerticesDescription.AttributeDescription.size();
+    VulkanObjects.VerticesDescription.InputState.pVertexAttributeDescriptions = VulkanObjects.VerticesDescription.AttributeDescription.data();
 }
 
 void vulkanApp::CreateGeneralResources()
 {
-    CommandPool = vulkanTools::CreateCommandPool(Device, Swapchain.QueueNodeIndex); //Shared
-    Swapchain.Create(&Width, &Height, EnableVSync); //Shared
+    VulkanObjects.CommandPool = vulkanTools::CreateCommandPool(VulkanObjects.Device, VulkanObjects.Swapchain.QueueNodeIndex); //Shared
+    VulkanObjects.Swapchain.Create(&Width, &Height, EnableVSync); //Shared
     
     SetupDepthStencil(); //Shared
     
@@ -249,7 +249,7 @@ void vulkanApp::CreateGeneralResources()
     CreatePipelineCache(); //Shared
     SetupFramebuffer(); //Shared
 
-    TextureLoader = new textureLoader(VulkanDevice, Queue, CommandPool); //Shared
+    VulkanObjects.TextureLoader = new textureLoader(VulkanObjects.VulkanDevice, VulkanObjects.Queue, VulkanObjects.CommandPool); //Shared
     
     BuildScene(); //Shared
     BuildVertexDescriptions(); //Shared
@@ -257,7 +257,7 @@ void vulkanApp::CreateGeneralResources()
 
 	ImGuiHelper = new ImGUI(this);
 	ImGuiHelper->Init((float)Width, (float)Height);
-	ImGuiHelper->InitResources(RenderPass, Queue);
+	ImGuiHelper->InitResources(VulkanObjects.RenderPass, VulkanObjects.Queue);
     ImGuiHelper->InitStyle();
 
     Renderers.push_back(new forwardRenderer(this));
@@ -265,7 +265,7 @@ void vulkanApp::CreateGeneralResources()
     if(RayTracing) 
     {
         Renderers.push_back(new pathTraceRTXRenderer(this));
-        Renderers.push_back(new deferredHybridRenderer(this));
+        // Renderers.push_back(new deferredHybridRenderer(this));
     }
     for(int i=0; i<Renderers.size(); i++)
     {
@@ -279,10 +279,10 @@ void vulkanApp::Initialize(HWND Window)
     Width = 1920;
     Height = 1080;
     InitVulkan();
-    Swapchain.InitSurface(Window);
+    VulkanObjects.Swapchain.InitSurface(Window);
     CreateGeneralResources();
     
-    ObjectPicker.Initialize(VulkanDevice, this);
+    ObjectPicker.Initialize(VulkanObjects.VulkanDevice, this);
 }
 
 void vulkanApp::SetSelectedItem(uint32_t Index, bool UnselectIfAlreadySelected)
@@ -765,15 +765,15 @@ void vulkanApp::Resize(uint32_t NewWidth, uint32_t NewHeight)
     Width = NewWidth;
     Height = NewHeight;
 
-    Swapchain.Create(&Width, &Height, true);
-    vkDestroyImageView(Device, DepthStencil.View, nullptr);
-    vkDestroyImage(Device, DepthStencil.Image, nullptr);
-    vkFreeMemory(Device, DepthStencil.Memory, nullptr);
+    VulkanObjects.Swapchain.Create(&Width, &Height, true);
+    vkDestroyImageView(VulkanObjects.Device, VulkanObjects.DepthStencil.View, nullptr);
+    vkDestroyImage(VulkanObjects.Device, VulkanObjects.DepthStencil.Image, nullptr);
+    vkFreeMemory(VulkanObjects.Device, VulkanObjects.DepthStencil.Memory, nullptr);
     SetupDepthStencil();
 
-    for(size_t i=0; i<AppFramebuffers.size(); i++)
+    for(size_t i=0; i<VulkanObjects.AppFramebuffers.size(); i++)
     {
-        vkDestroyFramebuffer(Device, AppFramebuffers[i], nullptr);
+        vkDestroyFramebuffer(VulkanObjects.Device, VulkanObjects.AppFramebuffers[i], nullptr);
     }
     SetupFramebuffer();
 
@@ -783,8 +783,8 @@ void vulkanApp::Resize(uint32_t NewWidth, uint32_t NewHeight)
         Renderers[i]->Resize(NewWidth, NewHeight);
     }
 
-    vkQueueWaitIdle(Queue);
-    vkDeviceWaitIdle(Device);
+    vkQueueWaitIdle(VulkanObjects.Queue);
+    vkDeviceWaitIdle(VulkanObjects.Device);
 
     Scene->Camera.SetAspectRatio((float)Width / (float)Height);
 
@@ -804,22 +804,22 @@ void vulkanApp::DestroyGeneralResources()
     
     delete ImGuiHelper;
 
-    TextureLoader->Destroy();
+    VulkanObjects.TextureLoader->Destroy();
     
-    for(int i=0; i<AppFramebuffers.size(); i++)
+    for(int i=0; i<VulkanObjects.AppFramebuffers.size(); i++)
     {
-        vkDestroyFramebuffer(Device, AppFramebuffers[i], nullptr);
+        vkDestroyFramebuffer(VulkanObjects.Device, VulkanObjects.AppFramebuffers[i], nullptr);
     }
-    vkDestroyPipelineCache(Device, PipelineCache, nullptr);
-    vkDestroyRenderPass(Device, RenderPass, nullptr);
+    vkDestroyPipelineCache(VulkanObjects.Device, VulkanObjects.PipelineCache, nullptr);
+    vkDestroyRenderPass(VulkanObjects.Device, VulkanObjects.RenderPass, nullptr);
     
-    vkDestroyImageView(Device, DepthStencil.View, nullptr);
-    vkDestroyImage(Device, DepthStencil.Image, nullptr);
-    vkFreeMemory(Device, DepthStencil.Memory, nullptr);
+    vkDestroyImageView(VulkanObjects.Device, VulkanObjects.DepthStencil.View, nullptr);
+    vkDestroyImage(VulkanObjects.Device, VulkanObjects.DepthStencil.Image, nullptr);
+    vkFreeMemory(VulkanObjects.Device, VulkanObjects.DepthStencil.Memory, nullptr);
     
-    Swapchain.Destroy();
+    VulkanObjects.Swapchain.Destroy();
     
-    vkDestroyCommandPool(Device, CommandPool, nullptr);
+    vkDestroyCommandPool(VulkanObjects.Device, VulkanObjects.CommandPool, nullptr);
     
 
    
@@ -830,18 +830,18 @@ void vulkanApp::Destroy()
     DestroyGeneralResources();
     
 
-    vkDestroySemaphore(Device, Semaphores.PresentComplete, nullptr);
-    vkDestroySemaphore(Device, Semaphores.RenderComplete, nullptr);
-    vkDestroyDevice(Device, nullptr);
+    vkDestroySemaphore(VulkanObjects.Device, VulkanObjects.Semaphores.PresentComplete, nullptr);
+    vkDestroySemaphore(VulkanObjects.Device, VulkanObjects.Semaphores.RenderComplete, nullptr);
+    vkDestroyDevice(VulkanObjects.Device, nullptr);
 //    vulkanDebug::DestroyDebugReportCallback(Instance, vulkanDebug::DebugReportCallback, nullptr);
-    vkDestroyInstance(Instance, nullptr);
+    vkDestroyInstance(VulkanObjects.Instance, nullptr);
 
     for(size_t i=0; i<Renderers.size(); i++)
     {
         delete Renderers[i];
     }
 
-    delete TextureLoader;
+    delete VulkanObjects.TextureLoader;
     delete Scene;
     system("pause");
 }

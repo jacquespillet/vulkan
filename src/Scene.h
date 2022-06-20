@@ -139,9 +139,12 @@ struct sceneMaterial
     bool HasSpecular=false;
 
     materialData MaterialData;
-    buffer UniformBuffer;
 
-    VkDescriptorSet DescriptorSet;
+    struct
+    {
+        VkDescriptorSet DescriptorSet;
+        buffer UniformBuffer;
+    } VulkanObjects;
 
     uint32_t Index;
 
@@ -166,9 +169,9 @@ struct sceneMaterial
 
     void Upload()
     {
-        UniformBuffer.Map();
-        UniformBuffer.CopyTo(&MaterialData, sizeof(materialData));
-        UniformBuffer.Unmap();
+        VulkanObjects.UniformBuffer.Map();
+        VulkanObjects.UniformBuffer.CopyTo(&MaterialData, sizeof(materialData));
+        VulkanObjects.UniformBuffer.Unmap();
     }
 };
 
@@ -179,8 +182,12 @@ struct sceneMesh
 
     // VkBuffer IndexBuffer;
     // VkDeviceMemory IndexMemory;
-    buffer VertexBuffer;
-    buffer IndexBuffer;
+    struct
+    {
+        buffer VertexBuffer;
+        buffer IndexBuffer;
+    } VulkanObjects;
+
     std::vector<vertex> Vertices;
     std::vector<uint32_t> Indices;
 
@@ -208,16 +215,19 @@ struct instance
         glm::vec2 padding;
     } InstanceData;
     
-    buffer UniformBuffer;
-    VkDescriptorSet DescriptorSet;
+    struct
+    {
+        buffer UniformBuffer;
+        VkDescriptorSet DescriptorSet;
+    } VulkanObjects;
     
 
     void UploadUniform()
     {
         InstanceData.Normal = glm::inverseTranspose(InstanceData.Transform);
-        UniformBuffer.Map();
-        UniformBuffer.CopyTo(&InstanceData, sizeof(InstanceData));
-        UniformBuffer.Unmap();     
+        VulkanObjects.UniformBuffer.Map();
+        VulkanObjects.UniformBuffer.CopyTo(&InstanceData, sizeof(InstanceData));
+        VulkanObjects.UniformBuffer.Unmap();     
     }
     
 
@@ -226,17 +236,23 @@ struct instance
 
 struct cubemap
 {
-    vulkanTexture Texture;
-    vulkanTexture IrradianceMap;
-    vulkanTexture PrefilteredMap;
-    vulkanTexture BRDFLUT;
+    struct
+    {
+        vulkanTexture Texture;
+        vulkanTexture IrradianceMap;
+        vulkanTexture PrefilteredMap;
+        vulkanTexture BRDFLUT;
+        
+        VkDescriptorSet DescriptorSet;
+        VkDescriptorSetLayout DescriptorSetLayout;
+        VkDescriptorPool DescriptorPool;
+
+        VkPipeline Pipeline;
+        
+        buffer UniformBuffer;
+    } VulkanObjects;
     sceneMesh Mesh;
 
-    VkDescriptorSet DescriptorSet;
-    VkDescriptorSetLayout DescriptorSetLayout;
-    VkDescriptorPool DescriptorPool;
-
-    VkPipeline Pipeline;
 
     struct uniformData 
     {
@@ -245,7 +261,6 @@ struct cubemap
         glm::vec3 Padding;
     } UniformData;
 
-    buffer UniformBuffer;
     scene *Scene;
     cubemap(scene *Scene);
 

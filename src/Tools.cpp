@@ -1198,7 +1198,7 @@ namespace vulkanTools
         vulkanTools::CreateBuffer(VulkanDevice, 
                                  VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-                                 &Quad.VertexBuffer,
+                                 &Quad.VulkanObjects.VertexBuffer,
                                  VertexBuffer.size() * sizeof(vertex),
                                  VertexBuffer.data());
 
@@ -1209,7 +1209,7 @@ namespace vulkanTools
         vulkanTools::CreateBuffer(VulkanDevice, 
                                  VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-                                 &Quad.IndexBuffer,
+                                 &Quad.VulkanObjects.IndexBuffer,
                                  IndexBuffer.size() * sizeof(uint32_t),
                                  IndexBuffer.data());          
 

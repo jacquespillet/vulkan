@@ -846,7 +846,7 @@ namespace GLTFImporter
             VulkanDevice,
             Mesh.Vertices.data(),
             VertexDataSize,
-            &Mesh.VertexBuffer,
+            &Mesh.VulkanObjects.VertexBuffer,
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             CommandBuffer,
             Queue
@@ -856,7 +856,7 @@ namespace GLTFImporter
             VulkanDevice,
             Mesh.Indices.data(),
             IndexDataSize,
-            &Mesh.IndexBuffer,
+            &Mesh.VulkanObjects.IndexBuffer,
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
             CommandBuffer,
             Queue

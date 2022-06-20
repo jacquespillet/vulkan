@@ -11,14 +11,14 @@ public:
     void RenderGUI() override;
     void Resize(uint32_t Width, uint32_t Height) override;
 
-    std::vector<VkCommandBuffer> DrawCommandBuffers;
-
-    VkDescriptorPool DescriptorPool;
-    resources Resources;
-
-        
-    std::vector<VkShaderModule> ShaderModules;
-    VkSubmitInfo SubmitInfo;
+    struct
+    {
+        std::vector<VkCommandBuffer> DrawCommandBuffers;
+        VkDescriptorPool DescriptorPool;
+        resources Resources;
+        std::vector<VkShaderModule> ShaderModules;
+        VkSubmitInfo SubmitInfo;
+    } VulkanObjects;
 
 
     void UpdateCamera();

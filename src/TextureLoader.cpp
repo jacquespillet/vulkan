@@ -450,8 +450,8 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
         vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipelines[i]); 
         vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, PipelineLayout, 0, 1, &DescriptorSet, 0, nullptr);
 
-        vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &Cube.VertexBuffer.Buffer, Offset);
-        vkCmdBindIndexBuffer(CommandBuffer, Cube.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &Cube.VulkanObjects.VertexBuffer.Buffer, Offset);
+        vkCmdBindIndexBuffer(CommandBuffer, Cube.VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdDrawIndexed(CommandBuffer, Cube.IndexCount, 1, 0, 0, 0);
     
@@ -580,8 +580,8 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
     ViewMatricesBuffer.Destroy();
     vkDestroyShaderModule(VulkanDevice->Device, ShaderStages[0].module, nullptr);
     vkDestroyShaderModule(VulkanDevice->Device, ShaderStages[1].module, nullptr);
-    Cube.IndexBuffer.Destroy();
-    Cube.VertexBuffer.Destroy();
+    Cube.VulkanObjects.IndexBuffer.Destroy();
+    Cube.VulkanObjects.VertexBuffer.Destroy();
     vkDestroyDescriptorPool(VulkanDevice->Device, DescriptorPool, nullptr);
     
     for(int i=0; i<6; i++)

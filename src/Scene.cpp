@@ -21,7 +21,7 @@ void cubemap::CreateDescriptorSet(vulkanDevice *VulkanDevice)
         PoolSizes.data(),
         1
     );
-    VK_CALL(vkCreateDescriptorPool(VulkanDevice->Device, &DescriptorPoolInfo, nullptr, &DescriptorPool));
+    VK_CALL(vkCreateDescriptorPool(VulkanDevice->Device, &DescriptorPoolInfo, nullptr, &VulkanObjects.DescriptorPool));
 
 
     //Create descriptor set layout
@@ -34,19 +34,19 @@ void cubemap::CreateDescriptorSet(vulkanDevice *VulkanDevice)
         vulkanTools::BuildDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4 )
     };
     VkDescriptorSetLayoutCreateInfo DescriptorLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), (uint32_t)SetLayoutBindings.size());
-    VK_CALL(vkCreateDescriptorSetLayout(VulkanDevice->Device, &DescriptorLayoutCreateInfo, nullptr, &DescriptorSetLayout));
+    VK_CALL(vkCreateDescriptorSetLayout(VulkanDevice->Device, &DescriptorLayoutCreateInfo, nullptr, &VulkanObjects.DescriptorSetLayout));
 
 
-    VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &DescriptorSetLayout, 1);
-    VK_CALL(vkAllocateDescriptorSets(VulkanDevice->Device, &AllocInfo, &DescriptorSet));
+    VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(VulkanObjects.DescriptorPool, &VulkanObjects.DescriptorSetLayout, 1);
+    VK_CALL(vkAllocateDescriptorSets(VulkanDevice->Device, &AllocInfo, &VulkanObjects.DescriptorSet));
 
     std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
     {
-        vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &UniformBuffer.Descriptor),
-        vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &Texture.Descriptor),
-        vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &IrradianceMap.Descriptor),
-        vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &PrefilteredMap.Descriptor),
-        vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &BRDFLUT.Descriptor)
+        vulkanTools::BuildWriteDescriptorSet( VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &VulkanObjects.UniformBuffer.Descriptor),
+        vulkanTools::BuildWriteDescriptorSet( VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &VulkanObjects.Texture.Descriptor),
+        vulkanTools::BuildWriteDescriptorSet( VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &VulkanObjects.IrradianceMap.Descriptor),
+        vulkanTools::BuildWriteDescriptorSet( VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &VulkanObjects.PrefilteredMap.Descriptor),
+        vulkanTools::BuildWriteDescriptorSet( VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &VulkanObjects.BRDFLUT.Descriptor)
     };
     vkUpdateDescriptorSets(VulkanDevice->Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
 
@@ -54,42 +54,42 @@ void cubemap::CreateDescriptorSet(vulkanDevice *VulkanDevice)
 
 void cubemap::Load(std::string FileName, textureLoader *TextureLoader, vulkanDevice *VulkanDevice, VkCommandBuffer CommandBuffer, VkQueue Queue)
 {
-    TextureLoader->LoadCubemap(FileName, &Texture);
+    TextureLoader->LoadCubemap(FileName, &VulkanObjects.Texture);
     GLTFImporter::LoadMesh("resources/models/Cube/Cube.gltf", Mesh, VulkanDevice, CommandBuffer, Queue);
 
     vulkanTools::CreateBuffer(VulkanDevice, 
                                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                &UniformBuffer,
+                                &VulkanObjects.UniformBuffer,
                                 sizeof(cubemap::uniformData)
     );        
     UniformData.modelMatrix = glm::scale(glm::mat4(1), glm::vec3(100));
-    UniformBuffer.Map();
-    UniformBuffer.CopyTo(&UniformData, sizeof(cubemap::uniformData));
-    UniformBuffer.Unmap();
+    VulkanObjects.UniformBuffer.Map();
+    VulkanObjects.UniformBuffer.CopyTo(&UniformData, sizeof(cubemap::uniformData));
+    VulkanObjects.UniformBuffer.Unmap();
 
-    IBLHelper::CalculateIrradianceMap(VulkanDevice, CommandBuffer, Queue, &Texture, &IrradianceMap);        
-    IBLHelper::CalculatePrefilteredMap(VulkanDevice, CommandBuffer, Queue, &Texture, &PrefilteredMap);        
-    IBLHelper::CalculateBRDFLUT(VulkanDevice, CommandBuffer, Queue, &BRDFLUT);        
+    IBLHelper::CalculateIrradianceMap(VulkanDevice, CommandBuffer, Queue, &VulkanObjects.Texture, &VulkanObjects.IrradianceMap);        
+    IBLHelper::CalculatePrefilteredMap(VulkanDevice, CommandBuffer, Queue, &VulkanObjects.Texture, &VulkanObjects.PrefilteredMap);        
+    IBLHelper::CalculateBRDFLUT(VulkanDevice, CommandBuffer, Queue, &VulkanObjects.BRDFLUT);        
 }
 
 void cubemap::UpdateUniforms()
 {
-    UniformBuffer.Map();
-    UniformBuffer.CopyTo(&UniformData, sizeof(cubemap::uniformData));
-    UniformBuffer.Unmap();
+    VulkanObjects.UniformBuffer.Map();
+    VulkanObjects.UniformBuffer.CopyTo(&UniformData, sizeof(cubemap::uniformData));
+    VulkanObjects.UniformBuffer.Unmap();
 }
 
 scene::scene(vulkanApp *App) :
-            App(App), Device(App->Device), 
-            Queue(App->Queue), TextureLoader(App->TextureLoader), Cubemap(this)
+            App(App), Device(App->VulkanObjects.Device), 
+            Queue(App->VulkanObjects.Queue), TextureLoader(App->VulkanObjects.TextureLoader), Cubemap(this)
 {}
 
 
 void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
 {
-    Resources.Init(App->VulkanDevice, VK_NULL_HANDLE, TextureLoader);       
-    Cubemap.Load("resources/belfast_farmhouse_4k.hdr", TextureLoader, App->VulkanDevice, CopyCommand, Queue);
+    Resources.Init(App->VulkanObjects.VulkanDevice, VK_NULL_HANDLE, TextureLoader);       
+    Cubemap.Load("resources/belfast_farmhouse_4k.hdr", TextureLoader, App->VulkanObjects.VulkanDevice, CopyCommand, Queue);
     
     { //Scene
 
@@ -106,10 +106,10 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
 
         for (size_t i = 0; i < Materials.size(); i++)
         {
-            vulkanTools::CreateBuffer(App->VulkanDevice,
+            vulkanTools::CreateBuffer(App->VulkanObjects.VulkanDevice,
                                      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                     &Materials[i].UniformBuffer,
+                                     &Materials[i].VulkanObjects.UniformBuffer,
                                      sizeof(Materials[i].MaterialData),
                                      &Materials[i].MaterialData);             
         }
@@ -123,10 +123,10 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
                 InstanceGroup.second[i].InstanceData.InstanceID = (float)InstanceInx;
                 InstanceGroup.second[i].InstanceData.Normal = glm::inverseTranspose(InstanceGroup.second[i].InstanceData.Transform);
      
-                vulkanTools::CreateBuffer(App->VulkanDevice,
+                vulkanTools::CreateBuffer(App->VulkanObjects.VulkanDevice,
                                         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                        &InstanceGroup.second[i].UniformBuffer,
+                                        &InstanceGroup.second[i].VulkanObjects.UniformBuffer,
                                         sizeof(InstanceGroup.second[i].InstanceData),
                                         &InstanceGroup.second[i].InstanceData);
                 InstancesPointers.push_back(&InstanceGroup.second[i]);
@@ -142,10 +142,10 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
             VkBufferUsageFlags Flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
             if(App->RayTracing) Flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
             vulkanTools::CreateAndFillBuffer(
-                App->VulkanDevice,
+                App->VulkanObjects.VulkanDevice,
                 Meshes[i].Vertices.data(),
                 VertexDataSize,
-                &Meshes[i].VertexBuffer,
+                &Meshes[i].VulkanObjects.VertexBuffer,
                 Flags,
                 CopyCommand,
                 Queue
@@ -155,10 +155,10 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
             Flags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
             if(App->RayTracing) Flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
             vulkanTools::CreateAndFillBuffer(
-                App->VulkanDevice,
+                App->VulkanObjects.VulkanDevice,
                 Meshes[i].Indices.data(),
                 IndexDataSize,
-                &Meshes[i].IndexBuffer,
+                &Meshes[i].VulkanObjects.IndexBuffer,
                 Flags,
                 CopyCommand,
                 Queue
@@ -170,7 +170,7 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
         VkBufferUsageFlags Flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
         if(App->RayTracing) Flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
         vulkanTools::CreateAndFillBuffer(
-            App->VulkanDevice,
+            App->VulkanObjects.VulkanDevice,
             GVertices.data(),
             VertexDataSize,
             &VertexBuffer,
@@ -183,7 +183,7 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
         Flags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
         if(App->RayTracing) Flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
         vulkanTools::CreateAndFillBuffer(
-            App->VulkanDevice,
+            App->VulkanObjects.VulkanDevice,
             GIndices.data(),
             IndexDataSize,
             &IndexBuffer,
@@ -234,7 +234,7 @@ void scene::CreateDescriptorSets()
     //Create Camera descriptors
     {
         //Matrices uniform buffer
-        vulkanTools::CreateBuffer(App->VulkanDevice, 
+        vulkanTools::CreateBuffer(App->VulkanObjects.VulkanDevice, 
                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                                     &SceneMatrices,
@@ -272,16 +272,16 @@ void scene::CreateDescriptorSets()
         for(uint32_t i=0; i<Materials.size(); i++)
         {
             VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, Resources.DescriptorSetLayouts->GetPtr("Material"), 1);
-            VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &Materials[i].DescriptorSet));
+            VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &Materials[i].VulkanObjects.DescriptorSet));
 
             std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
             {
-                vulkanTools::BuildWriteDescriptorSet( Materials[i].DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &Materials[i].UniformBuffer.Descriptor),
-                vulkanTools::BuildWriteDescriptorSet( Materials[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &Materials[i].Diffuse.Descriptor),
-                vulkanTools::BuildWriteDescriptorSet( Materials[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &Materials[i].Specular.Descriptor),
-                vulkanTools::BuildWriteDescriptorSet( Materials[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &Materials[i].Normal.Descriptor),
-                vulkanTools::BuildWriteDescriptorSet( Materials[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &Materials[i].Occlusion.Descriptor),
-                vulkanTools::BuildWriteDescriptorSet( Materials[i].DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &Materials[i].Emission.Descriptor)
+                vulkanTools::BuildWriteDescriptorSet( Materials[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &Materials[i].VulkanObjects.UniformBuffer.Descriptor),
+                vulkanTools::BuildWriteDescriptorSet( Materials[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &Materials[i].Diffuse.Descriptor),
+                vulkanTools::BuildWriteDescriptorSet( Materials[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &Materials[i].Specular.Descriptor),
+                vulkanTools::BuildWriteDescriptorSet( Materials[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &Materials[i].Normal.Descriptor),
+                vulkanTools::BuildWriteDescriptorSet( Materials[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &Materials[i].Occlusion.Descriptor),
+                vulkanTools::BuildWriteDescriptorSet( Materials[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &Materials[i].Emission.Descriptor)
             };
             vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
         }
@@ -299,41 +299,41 @@ void scene::CreateDescriptorSets()
             for(uint32_t i=0; i<InstanceGroup.second.size(); i++)
             {
                 VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, Resources.DescriptorSetLayouts->GetPtr("Instances"), 1);
-                VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &InstanceGroup.second[i].DescriptorSet));
+                VK_CALL(vkAllocateDescriptorSets(Device, &AllocInfo, &InstanceGroup.second[i].VulkanObjects.DescriptorSet));
 
                 std::vector<VkWriteDescriptorSet> WriteDescriptorSets;
                 WriteDescriptorSets.push_back(
-                    vulkanTools::BuildWriteDescriptorSet( InstanceGroup.second[i].DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &InstanceGroup.second[i].UniformBuffer.Descriptor)
+                    vulkanTools::BuildWriteDescriptorSet( InstanceGroup.second[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &InstanceGroup.second[i].VulkanObjects.UniformBuffer.Descriptor)
                 );
                 vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
             }
         }
     }    
 
-    Cubemap.CreateDescriptorSet(App->VulkanDevice);
+    Cubemap.CreateDescriptorSet(App->VulkanObjects.VulkanDevice);
 }
 
 void cubemap::Destroy(vulkanDevice *VulkanDevice)
 {
-    Texture.Destroy(VulkanDevice);
-    IrradianceMap.Destroy(VulkanDevice);
-    PrefilteredMap.Destroy(VulkanDevice);
-    BRDFLUT.Destroy(VulkanDevice);
+    VulkanObjects.Texture.Destroy(VulkanDevice);
+    VulkanObjects.IrradianceMap.Destroy(VulkanDevice);
+    VulkanObjects.PrefilteredMap.Destroy(VulkanDevice);
+    VulkanObjects.BRDFLUT.Destroy(VulkanDevice);
     Mesh.Destroy();
 
 
-    UniformBuffer.Destroy();
+    VulkanObjects.UniformBuffer.Destroy();
 
-    vkDestroyDescriptorSetLayout(VulkanDevice->Device, DescriptorSetLayout, nullptr);
-    vkFreeDescriptorSets(VulkanDevice->Device, DescriptorPool, 1, &DescriptorSet);
-    vkDestroyDescriptorPool(VulkanDevice->Device, DescriptorPool, nullptr);
-    vkDestroyPipeline(VulkanDevice->Device, Pipeline, nullptr);
+    vkDestroyDescriptorSetLayout(VulkanDevice->Device, VulkanObjects.DescriptorSetLayout, nullptr);
+    vkFreeDescriptorSets(VulkanDevice->Device, VulkanObjects.DescriptorPool, 1, &VulkanObjects.DescriptorSet);
+    vkDestroyDescriptorPool(VulkanDevice->Device, VulkanObjects.DescriptorPool, nullptr);
+    vkDestroyPipeline(VulkanDevice->Device, VulkanObjects.Pipeline, nullptr);
 }
 
 void sceneMesh::Destroy()
 {
-    IndexBuffer.Destroy();
-    VertexBuffer.Destroy();
+    VulkanObjects.IndexBuffer.Destroy();
+    VulkanObjects.VertexBuffer.Destroy();
 }
 
 void scene::Update()
@@ -348,7 +348,7 @@ void scene::Destroy()
 {
     SceneMatrices.Destroy();
     Resources.Destroy();
-    Cubemap.Destroy(App->VulkanDevice);
+    Cubemap.Destroy(App->VulkanObjects.VulkanDevice);
 
     VertexBuffer.Destroy();
     IndexBuffer.Destroy();
@@ -359,15 +359,15 @@ void scene::Destroy()
     }
     for(size_t i=0; i<Materials.size(); i++)
     {
-        Materials[i].UniformBuffer.Destroy();
-        vkFreeDescriptorSets(Device, DescriptorPool, 1, &Materials[i].DescriptorSet);
+        Materials[i].VulkanObjects.UniformBuffer.Destroy();
+        vkFreeDescriptorSets(Device, DescriptorPool, 1, &Materials[i].VulkanObjects.DescriptorSet);
     }
     for(auto &InstanceGroup : Instances)
     {
         for(size_t i=0; i<InstanceGroup.second.size(); i++)
         {
-            InstanceGroup.second[i].UniformBuffer.Destroy();
-            vkFreeDescriptorSets(Device, DescriptorPool, 1, &InstanceGroup.second[i].DescriptorSet);
+            InstanceGroup.second[i].VulkanObjects.UniformBuffer.Destroy();
+            vkFreeDescriptorSets(Device, DescriptorPool, 1, &InstanceGroup.second[i].VulkanObjects.DescriptorSet);
         }
     }
 

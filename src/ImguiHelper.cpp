@@ -7,7 +7,7 @@
 
 ImGUI::ImGUI(vulkanApp *App) : App(App)
 {
-    Device = App->VulkanDevice;
+    Device = App->VulkanObjects.VulkanDevice;
     ImGui::CreateContext();
 };
 
@@ -105,7 +105,7 @@ void ImGUI::InitResources(VkRenderPass RenderPass, VkQueue CopyQueue)
     stagingBuffer.Unmap();
 
     // Copy buffer data to font image
-    VkCommandBuffer copyCmd = vulkanTools::CreateCommandBuffer(Device->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+    VkCommandBuffer copyCmd = vulkanTools::CreateCommandBuffer(Device->Device, App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
 
     // Prepare for transfer
     vulkanTools::TransitionImageLayout(
@@ -144,7 +144,7 @@ void ImGUI::InitResources(VkRenderPass RenderPass, VkQueue CopyQueue)
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
-    vulkanTools::FlushCommandBuffer(Device->Device, App->CommandPool, copyCmd, CopyQueue, true);
+    vulkanTools::FlushCommandBuffer(Device->Device, App->VulkanObjects.CommandPool, copyCmd, CopyQueue, true);
     stagingBuffer.Destroy();
 
     // Font texture Sampler

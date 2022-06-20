@@ -13,16 +13,19 @@ public:
     void RenderGUI() override{};
     void Resize(uint32_t Width, uint32_t Height) override;
 
-
-    std::vector<VkCommandBuffer> DrawCommandBuffers;
-
-    VkDescriptorPool DescriptorPool;
-    resources Resources;
-    struct
+    struct 
     {
-        buffer SSAOKernel;
-        buffer SSAOParams;
-    } UniformBuffers;
+        std::vector<VkCommandBuffer> DrawCommandBuffers;
+        VkDescriptorPool DescriptorPool;
+        resources Resources;
+
+        std::vector<VkShaderModule> ShaderModules;
+        VkSubmitInfo SubmitInfo;
+        VkCommandBuffer OffscreenCommandBuffer = VK_NULL_HANDLE;
+        VkSemaphore OffscreenSemaphore;
+    } VulkanObjects;
+
+
     
     struct
     {
@@ -32,12 +35,19 @@ public:
         uint32_t SSAOBlur=true;
     } UBOSSAOParams;
         
+
+    sceneMesh Quad;
+    
+    struct
+    {
+        buffer SSAOKernel;
+        buffer SSAOParams;
+    } UniformBuffers;
+    
     struct 
     {
         vulkanTexture SSAONoise;
     } Textures;
-
-    sceneMesh Quad;
     
     struct 
     {
@@ -48,12 +58,8 @@ public:
     } Framebuffers;
 
     
-    VkCommandBuffer OffscreenCommandBuffer = VK_NULL_HANDLE;
     bool Rebuild=false;
-    VkSemaphore OffscreenSemaphore;
     bool EnableSSAO=true;
-    std::vector<VkShaderModule> ShaderModules;
-    VkSubmitInfo SubmitInfo;
 
 
     void UpdateUniformBufferScreen();

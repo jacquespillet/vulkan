@@ -17,7 +17,7 @@ void objectPicker::Initialize(vulkanDevice *_VulkanDevice, vulkanApp *_App)
     Quad = vulkanTools::BuildQuad(VulkanDevice);
 
     //Create framebuffer attachment
-    OffscreenCommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+    OffscreenCommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
     {
         Framebuffer.SetSize(App->Width, App->Height)
                               .SetAttachmentCount(1)
@@ -26,7 +26,7 @@ void objectPicker::Initialize(vulkanDevice *_VulkanDevice, vulkanApp *_App)
                               .SetAttachmentFormat(0, VK_FORMAT_R32_UINT);
         Framebuffer.BuildBuffers(VulkanDevice,OffscreenCommandBuffer);
     }    
-    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, OffscreenCommandBuffer, App->Queue, false);    
+    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, OffscreenCommandBuffer, App->VulkanObjects.Queue, false);    
 
     //Create descriptor sets and pipeline layout
     {        
@@ -92,7 +92,7 @@ void objectPicker::Initialize(vulkanDevice *_VulkanDevice, vulkanApp *_App)
     //Shader Stages
     std::array<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
     VkGraphicsPipelineCreateInfo PipelineCreateInfo = vulkanTools::BuildGraphicsPipelineCreateInfo();
-    PipelineCreateInfo.pVertexInputState = &App->VerticesDescription.InputState;
+    PipelineCreateInfo.pVertexInputState = &App->VulkanObjects.VerticesDescription.InputState;
     PipelineCreateInfo.pInputAssemblyState = &InputAssemblyState;
     PipelineCreateInfo.pRasterizationState = &RasterizationState;
     PipelineCreateInfo.pColorBlendState = &ColorBlendState;
@@ -123,7 +123,7 @@ void objectPicker::Resize(uint32_t NewWidth, uint32_t NewHeight)
 {
     Framebuffer.Destroy(VulkanDevice->Device);
     
-    OffscreenCommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+    OffscreenCommandBuffer = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
     {
         Framebuffer.SetSize(App->Width, App->Height)
                               .SetAttachmentImageLayout(0, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
@@ -132,7 +132,7 @@ void objectPicker::Resize(uint32_t NewWidth, uint32_t NewHeight)
                               .SetAttachmentFormat(0, VK_FORMAT_R32_UINT);
         Framebuffer.BuildBuffers(VulkanDevice,OffscreenCommandBuffer);
     }    
-    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->CommandPool, OffscreenCommandBuffer, App->Queue, false); 
+    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, OffscreenCommandBuffer, App->VulkanObjects.Queue, false); 
 }
 
 void objectPicker::FillCommandBuffer()
@@ -177,10 +177,10 @@ void objectPicker::FillCommandBuffer()
         
         for(auto Instance : InstanceGroup.second)
         {
-            vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, PipelineLayout, 1, 1, &Instance.DescriptorSet, 0, nullptr);
+            vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, PipelineLayout, 1, 1, &Instance.VulkanObjects.DescriptorSet, 0, nullptr);
                 
-            vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
-            vkCmdBindIndexBuffer(OffscreenCommandBuffer, Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VulkanObjects.VertexBuffer.Buffer, Offset);
+            vkCmdBindIndexBuffer(OffscreenCommandBuffer, Instance.Mesh->VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(OffscreenCommandBuffer, Instance.Mesh->IndexCount, 1, 0, 0, 0);
         }
     }
@@ -195,16 +195,16 @@ void objectPicker::Render()
     FillCommandBuffer();
 
     VkSubmitInfo SubmitInfo = vulkanTools::BuildSubmitInfo();
-    SubmitInfo.pWaitDstStageMask = &App->SubmitPipelineStages;
+    SubmitInfo.pWaitDstStageMask = &App->VulkanObjects.SubmitPipelineStages;
     SubmitInfo.waitSemaphoreCount = 0;
     SubmitInfo.signalSemaphoreCount=0;
     SubmitInfo.pWaitSemaphores = nullptr;
     SubmitInfo.pSignalSemaphores = nullptr;
     SubmitInfo.commandBufferCount=1;
     SubmitInfo.pCommandBuffers = &OffscreenCommandBuffer;
-    VK_CALL(vkQueueSubmit(App->Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+    VK_CALL(vkQueueSubmit(App->VulkanObjects.Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
 
-    VK_CALL(vkQueueWaitIdle(App->Queue));    
+    VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));    
 }
 
 void objectPicker::Pick(int MouseX, int MouseY)
@@ -252,16 +252,16 @@ void objectPicker::Pick(int MouseX, int MouseY)
     VK_CALL(vkEndCommandBuffer(OffscreenCommandBuffer));
 
     VkSubmitInfo SubmitInfo = vulkanTools::BuildSubmitInfo();
-    SubmitInfo.pWaitDstStageMask = &App->SubmitPipelineStages;
+    SubmitInfo.pWaitDstStageMask = &App->VulkanObjects.SubmitPipelineStages;
     SubmitInfo.waitSemaphoreCount = 0;
     SubmitInfo.signalSemaphoreCount=0;
     SubmitInfo.pWaitSemaphores = nullptr;
     SubmitInfo.pSignalSemaphores = nullptr;
     SubmitInfo.commandBufferCount=1;
     SubmitInfo.pCommandBuffers = &OffscreenCommandBuffer;
-    VK_CALL(vkQueueSubmit(App->Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+    VK_CALL(vkQueueSubmit(App->VulkanObjects.Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
 
-    VK_CALL(vkQueueWaitIdle(App->Queue));
+    VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 
     //Find the object
     ImageBuffer.Map();
@@ -284,6 +284,6 @@ void objectPicker::Destroy()
     vkDestroyPipelineLayout(VulkanDevice->Device, PipelineLayout, nullptr);
     Framebuffer.Destroy(VulkanDevice->Device);
     Quad.Destroy();
-    vkFreeCommandBuffers(VulkanDevice->Device, App->CommandPool, 1, &OffscreenCommandBuffer);
+    vkFreeCommandBuffers(VulkanDevice->Device, App->VulkanObjects.CommandPool, 1, &OffscreenCommandBuffer);
     vkDestroySemaphore(VulkanDevice->Device, OffscreenSemaphore, nullptr);
 }

@@ -8,27 +8,27 @@ void forwardRenderer::Render()
 {
     BuildCommandBuffers();
     
-    VK_CALL(App->Swapchain.AcquireNextImage(App->Semaphores.PresentComplete, &App->CurrentBuffer));
+    VK_CALL(App->VulkanObjects.Swapchain.AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
     
-    SubmitInfo = vulkanTools::BuildSubmitInfo();
-    SubmitInfo.pWaitDstStageMask = &App->SubmitPipelineStages;
-    SubmitInfo.waitSemaphoreCount = 1;
-    SubmitInfo.signalSemaphoreCount=1;
-    SubmitInfo.pWaitSemaphores = &App->Semaphores.PresentComplete;
-    SubmitInfo.pSignalSemaphores = &App->Semaphores.RenderComplete;
-    SubmitInfo.commandBufferCount=1;
-    SubmitInfo.pCommandBuffers = &DrawCommandBuffers[App->CurrentBuffer];
-    VK_CALL(vkQueueSubmit(App->Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
+    VulkanObjects.SubmitInfo = vulkanTools::BuildSubmitInfo();
+    VulkanObjects.SubmitInfo.pWaitDstStageMask = &App->VulkanObjects.SubmitPipelineStages;
+    VulkanObjects.SubmitInfo.waitSemaphoreCount = 1;
+    VulkanObjects.SubmitInfo.signalSemaphoreCount=1;
+    VulkanObjects.SubmitInfo.pWaitSemaphores = &App->VulkanObjects.Semaphores.PresentComplete;
+    VulkanObjects.SubmitInfo.pSignalSemaphores = &App->VulkanObjects.Semaphores.RenderComplete;
+    VulkanObjects.SubmitInfo.commandBufferCount=1;
+    VulkanObjects.SubmitInfo.pCommandBuffers = &VulkanObjects.DrawCommandBuffers[App->VulkanObjects.CurrentBuffer];
+    VK_CALL(vkQueueSubmit(App->VulkanObjects.Queue, 1, &VulkanObjects.SubmitInfo, VK_NULL_HANDLE));
 
-    VK_CALL(App->Swapchain.QueuePresent(App->Queue, App->CurrentBuffer, App->Semaphores.RenderComplete));
-    VK_CALL(vkQueueWaitIdle(App->Queue));
+    VK_CALL(App->VulkanObjects.Swapchain.QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete));
+    VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 }
 
 void forwardRenderer::Setup()
 {
     CreateCommandBuffers();
     SetupDescriptorPool();
-    Resources.Init(VulkanDevice, DescriptorPool, App->TextureLoader);
+    VulkanObjects.Resources.Init(VulkanDevice, VulkanObjects.DescriptorPool, App->VulkanObjects.TextureLoader);
     BuildLayoutsAndDescriptors();
     BuildPipelines();
     BuildCommandBuffers();
@@ -39,9 +39,9 @@ void forwardRenderer::Setup()
 
 void forwardRenderer::CreateCommandBuffers()
 {
-    DrawCommandBuffers.resize(App->Swapchain.ImageCount);
-    VkCommandBufferAllocateInfo CommandBufferAllocateInfo = vulkanTools::BuildCommandBufferAllocateInfo(App->CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(DrawCommandBuffers.size()));
-    VK_CALL(vkAllocateCommandBuffers(Device, &CommandBufferAllocateInfo, DrawCommandBuffers.data()));
+    VulkanObjects.DrawCommandBuffers.resize(App->VulkanObjects.Swapchain.ImageCount);
+    VkCommandBufferAllocateInfo CommandBufferAllocateInfo = vulkanTools::BuildCommandBufferAllocateInfo(App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(VulkanObjects.DrawCommandBuffers.size()));
+    VK_CALL(vkAllocateCommandBuffers(Device, &CommandBufferAllocateInfo, VulkanObjects.DrawCommandBuffers.data()));
 }
 
 void forwardRenderer::SetupDescriptorPool()
@@ -54,7 +54,7 @@ void forwardRenderer::SetupDescriptorPool()
 
     VkDescriptorPoolCreateInfo DescriptorPoolCreateInfo = vulkanTools::BuildDescriptorPoolCreateInfo((uint32_t)PoolSizes.size(), PoolSizes.data(), 32);
 
-    VK_CALL(vkCreateDescriptorPool(Device, &DescriptorPoolCreateInfo, nullptr, &DescriptorPool));    
+    VK_CALL(vkCreateDescriptorPool(Device, &DescriptorPoolCreateInfo, nullptr, &VulkanObjects.DescriptorPool));    
 }
 
 
@@ -79,10 +79,10 @@ void forwardRenderer::BuildLayoutsAndDescriptors()
             App->Scene->Resources.DescriptorSetLayouts->Get("Scene"),
             App->Scene->Resources.DescriptorSetLayouts->Get("Material"),
             App->Scene->Resources.DescriptorSetLayouts->Get("Instances"),
-            App->Scene->Cubemap.DescriptorSetLayout
+            App->Scene->Cubemap.VulkanObjects.DescriptorSetLayout
         };
         VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(RendererSetLayouts.data(), (uint32_t)RendererSetLayouts.size());
-        Resources.PipelineLayouts->Add("Scene", pPipelineLayoutCreateInfo);
+        VulkanObjects.Resources.PipelineLayouts->Add("Scene", pPipelineLayoutCreateInfo);
     }
 
     //Cubemap rendering
@@ -91,10 +91,10 @@ void forwardRenderer::BuildLayoutsAndDescriptors()
         std::vector<VkDescriptorSetLayout> RendererSetLayouts = 
         {
             App->Scene->Resources.DescriptorSetLayouts->Get("Scene"),
-            App->Scene->Cubemap.DescriptorSetLayout
+            App->Scene->Cubemap.VulkanObjects.DescriptorSetLayout
         };
         VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vulkanTools::BuildPipelineLayoutCreateInfo(RendererSetLayouts.data(), (uint32_t)RendererSetLayouts.size());
-        Resources.PipelineLayouts->Add("Cubemap", pPipelineLayoutCreateInfo);
+        VulkanObjects.Resources.PipelineLayouts->Add("Cubemap", pPipelineLayoutCreateInfo);
     }
 }
 
@@ -153,7 +153,7 @@ void forwardRenderer::BuildPipelines()
     //Shader Stages
     std::array<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
     VkGraphicsPipelineCreateInfo PipelineCreateInfo = vulkanTools::BuildGraphicsPipelineCreateInfo();
-    PipelineCreateInfo.pVertexInputState = &App->VerticesDescription.InputState;
+    PipelineCreateInfo.pVertexInputState = &App->VulkanObjects.VerticesDescription.InputState;
     PipelineCreateInfo.pInputAssemblyState = &InputAssemblyState;
     PipelineCreateInfo.pRasterizationState = &RasterizationState;
     PipelineCreateInfo.pColorBlendState = &ColorBlendState;
@@ -209,11 +209,11 @@ void forwardRenderer::BuildPipelines()
         ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/forward.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
         ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/forward.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
         ShaderStages[1].pSpecializationInfo = &SpecializationInfo;
-        ShaderModules.push_back(ShaderStages[1].module);            
-        ShaderModules.push_back(ShaderStages[0].module);
+        VulkanObjects.ShaderModules.push_back(ShaderStages[0].module);
+        VulkanObjects.ShaderModules.push_back(ShaderStages[1].module);            
 
-        PipelineCreateInfo.renderPass = App->RenderPass;
-        PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Scene");
+        PipelineCreateInfo.renderPass = App->VulkanObjects.RenderPass;
+        PipelineCreateInfo.layout = VulkanObjects.Resources.PipelineLayouts->Get("Scene");
 
         std::array<VkPipelineColorBlendAttachmentState, 1> BlendAttachmentStates = 
         {
@@ -225,7 +225,7 @@ void forwardRenderer::BuildPipelines()
         for(int i=0; i<App->Scene->Materials.size(); i++)
         {
             int MatFlags = App->Scene->Materials[i].Flags;
-            if(!Resources.Pipelines->Present(MatFlags))
+            if(!VulkanObjects.Resources.Pipelines->Present(MatFlags))
             {
                 if(MatFlags & materialFlags::Opaque) 
                 {
@@ -246,7 +246,7 @@ void forwardRenderer::BuildPipelines()
                 if(MatFlags & materialFlags::HasClearCoat)SpecializationData.HasClearCoat=1;
                 if(MatFlags & materialFlags::HasSheen)SpecializationData.HasSheen=1;
                 
-                Resources.Pipelines->Add(MatFlags, PipelineCreateInfo, App->PipelineCache);
+                VulkanObjects.Resources.Pipelines->Add(MatFlags, PipelineCreateInfo, App->VulkanObjects.PipelineCache);
             }
         }
 
@@ -256,11 +256,11 @@ void forwardRenderer::BuildPipelines()
     {
         ShaderStages[0] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/cubemap.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
         ShaderStages[1] = LoadShader(VulkanDevice->Device,"resources/shaders/spv/cubemap.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-        ShaderModules.push_back(ShaderStages[1].module);            
-        ShaderModules.push_back(ShaderStages[0].module);
+        VulkanObjects.ShaderModules.push_back(ShaderStages[1].module);            
+        VulkanObjects.ShaderModules.push_back(ShaderStages[0].module);
 
-        PipelineCreateInfo.renderPass = App->RenderPass;
-        PipelineCreateInfo.layout = Resources.PipelineLayouts->Get("Cubemap");
+        PipelineCreateInfo.renderPass = App->VulkanObjects.RenderPass;
+        PipelineCreateInfo.layout = VulkanObjects.Resources.PipelineLayouts->Get("Cubemap");
 
         std::array<VkPipelineColorBlendAttachmentState, 1> BlendAttachmentStates = 
         {
@@ -268,7 +268,7 @@ void forwardRenderer::BuildPipelines()
         };
         ColorBlendState.attachmentCount=(uint32_t)BlendAttachmentStates.size();
         ColorBlendState.pAttachments=BlendAttachmentStates.data();
-        Resources.Pipelines->Add("Cubemap", PipelineCreateInfo, App->PipelineCache);
+        VulkanObjects.Resources.Pipelines->Add("Cubemap", PipelineCreateInfo, App->VulkanObjects.PipelineCache);
     }   
 }
 
@@ -290,7 +290,7 @@ void forwardRenderer::BuildCommandBuffers()
     ClearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo RenderPassBeginInfo = vulkanTools::BuildRenderPassBeginInfo();
-    RenderPassBeginInfo.renderPass = App->RenderPass;
+    RenderPassBeginInfo.renderPass = App->VulkanObjects.RenderPass;
     RenderPassBeginInfo.renderArea.extent.width = App->Width;
     RenderPassBeginInfo.renderArea.extent.height = App->Height;
     RenderPassBeginInfo.clearValueCount=(uint32_t)ClearValues.size();
@@ -306,54 +306,54 @@ void forwardRenderer::BuildCommandBuffers()
     //          BindPipeline(Mesh.MatType) - Mattype being pbr, non - pbr....
     //          Bind vert/ind buffer, bind descriptor sets
     //          Draw    
-    for(uint32_t i=0; i<DrawCommandBuffers.size(); i++)
+    for(uint32_t i=0; i<VulkanObjects.DrawCommandBuffers.size(); i++)
     {
-        RenderPassBeginInfo.framebuffer = App->AppFramebuffers[i];
-        VK_CALL(vkBeginCommandBuffer(DrawCommandBuffers[i], &CommandBufferInfo));
+        RenderPassBeginInfo.framebuffer = App->VulkanObjects.AppFramebuffers[i];
+        VK_CALL(vkBeginCommandBuffer(VulkanObjects.DrawCommandBuffers[i], &CommandBufferInfo));
 
-        vkCmdBeginRenderPass(DrawCommandBuffers[i], &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRenderPass(VulkanObjects.DrawCommandBuffers[i], &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 
         VkViewport Viewport = vulkanTools::BuildViewport((float)App->Width - App->Scene->ViewportStart, (float)App->Height, 0.0f, 1.0f, App->Scene->ViewportStart, 0);
-        vkCmdSetViewport(DrawCommandBuffers[i], 0, 1, &Viewport);
+        vkCmdSetViewport(VulkanObjects.DrawCommandBuffers[i], 0, 1, &Viewport);
 
         VkRect2D Scissor = vulkanTools::BuildRect2D(App->Width,App->Height,0,0);
-        vkCmdSetScissor(DrawCommandBuffers[i], 0, 1, &Scissor);
+        vkCmdSetScissor(VulkanObjects.DrawCommandBuffers[i], 0, 1, &Scissor);
 
         VkDeviceSize Offset[1] = {0};
 
-        VkPipelineLayout RendererPipelineLayout =  Resources.PipelineLayouts->Get("Scene");
+        VkPipelineLayout RendererPipelineLayout =  VulkanObjects.Resources.PipelineLayouts->Get("Scene");
         VkDescriptorSet RendererDescriptorSet = App->Scene->Resources.DescriptorSets->Get("Scene");
         for(auto &InstanceGroup : App->Scene->Instances)
         {
             int Flag = InstanceGroup.first;
-            vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get(Flag)); 
-            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
-            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 3, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
+            vkCmdBindPipeline(VulkanObjects.DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, VulkanObjects.Resources.Pipelines->Get(Flag)); 
+            vkCmdBindDescriptorSets(VulkanObjects.DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 0, 1, &RendererDescriptorSet, 0, nullptr);
+            vkCmdBindDescriptorSets(VulkanObjects.DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 3, 1, &App->Scene->Cubemap.VulkanObjects.DescriptorSet, 0, nullptr);
 
             for(auto Instance : InstanceGroup.second)
             {
-                  vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VertexBuffer.Buffer, Offset);
-                vkCmdBindIndexBuffer(DrawCommandBuffers[i], Instance.Mesh->IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+                  vkCmdBindVertexBuffers(VulkanObjects.DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VulkanObjects.VertexBuffer.Buffer, Offset);
+                vkCmdBindIndexBuffer(VulkanObjects.DrawCommandBuffers[i], Instance.Mesh->VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
-                vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->DescriptorSet, 0, nullptr);
-                vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.DescriptorSet, 0, nullptr);
-                vkCmdDrawIndexed(DrawCommandBuffers[i], Instance.Mesh->IndexCount, 1, 0, 0, 0);
+                vkCmdBindDescriptorSets(VulkanObjects.DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->VulkanObjects.DescriptorSet, 0, nullptr);
+                vkCmdBindDescriptorSets(VulkanObjects.DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.VulkanObjects.DescriptorSet, 0, nullptr);
+                vkCmdDrawIndexed(VulkanObjects.DrawCommandBuffers[i], Instance.Mesh->IndexCount, 1, 0, 0, 0);
             }
         }
 
         { //Cubemap
-            vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Cubemap"));
-            vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &App->Scene->Cubemap.Mesh.VertexBuffer.Buffer, Offset);
-            vkCmdBindIndexBuffer(DrawCommandBuffers[i], App->Scene->Cubemap.Mesh.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
-            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Cubemap"), 0, 1, &RendererDescriptorSet, 0, nullptr);
-            vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Cubemap"), 1, 1, &App->Scene->Cubemap.DescriptorSet, 0, nullptr);
-            vkCmdDrawIndexed(DrawCommandBuffers[i], App->Scene->Cubemap.Mesh.IndexCount, 1, 0, 0, 0);
+            vkCmdBindPipeline(VulkanObjects.DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, VulkanObjects.Resources.Pipelines->Get("Cubemap"));
+            vkCmdBindVertexBuffers(VulkanObjects.DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &App->Scene->Cubemap.Mesh.VulkanObjects.VertexBuffer.Buffer, Offset);
+            vkCmdBindIndexBuffer(VulkanObjects.DrawCommandBuffers[i], App->Scene->Cubemap.Mesh.VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindDescriptorSets(VulkanObjects.DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, VulkanObjects.Resources.PipelineLayouts->Get("Cubemap"), 0, 1, &RendererDescriptorSet, 0, nullptr);
+            vkCmdBindDescriptorSets(VulkanObjects.DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, VulkanObjects.Resources.PipelineLayouts->Get("Cubemap"), 1, 1, &App->Scene->Cubemap.VulkanObjects.DescriptorSet, 0, nullptr);
+            vkCmdDrawIndexed(VulkanObjects.DrawCommandBuffers[i], App->Scene->Cubemap.Mesh.IndexCount, 1, 0, 0, 0);
         }
 
-        App->ImGuiHelper->DrawFrame(DrawCommandBuffers[i]);
-        vkCmdEndRenderPass(DrawCommandBuffers[i]);
-        VK_CALL(vkEndCommandBuffer(DrawCommandBuffers[i]));
+        App->ImGuiHelper->DrawFrame(VulkanObjects.DrawCommandBuffers[i]);
+        vkCmdEndRenderPass(VulkanObjects.DrawCommandBuffers[i]);
+        VK_CALL(vkEndCommandBuffer(VulkanObjects.DrawCommandBuffers[i]));
     }
 }
 
@@ -363,11 +363,11 @@ void forwardRenderer::Resize(uint32_t Width, uint32_t Height)
 
 void forwardRenderer::Destroy()
 {
-    for(size_t i=0; i<ShaderModules.size(); i++)
+    for(size_t i=0; i<VulkanObjects.ShaderModules.size(); i++)
     {
-        vkDestroyShaderModule(Device, ShaderModules[i], nullptr);
+        vkDestroyShaderModule(Device, VulkanObjects.ShaderModules[i], nullptr);
     }
-    Resources.Destroy();
-    vkDestroyDescriptorPool(Device, DescriptorPool, nullptr);
-    vkFreeCommandBuffers(Device, App->CommandPool, (uint32_t)DrawCommandBuffers.size(), DrawCommandBuffers.data());
+    VulkanObjects.Resources.Destroy();
+    vkDestroyDescriptorPool(Device, VulkanObjects.DescriptorPool, nullptr);
+    vkFreeCommandBuffers(Device, App->VulkanObjects.CommandPool, (uint32_t)VulkanObjects.DrawCommandBuffers.size(), VulkanObjects.DrawCommandBuffers.data());
 }
