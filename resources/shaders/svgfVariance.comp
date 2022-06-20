@@ -1,0 +1,138 @@
+#version 460
+
+layout (local_size_x = 16, local_size_y = 16) in;
+#define PI 3.14159265359
+
+#include "Common/random.glsl"
+
+layout (binding = 0) uniform sampler2D LinearZ;
+layout (binding = 1) uniform sampler2D PrevLinearZ;
+layout (binding = 2) uniform sampler2D MotionVectors;
+layout (binding = 3) uniform sampler2D PreviousFilteredShadows;
+layout (binding = 4) uniform sampler2D CurrentShadows;
+layout (binding = 5, rgba32f) uniform image2D HistoryLengthTexture_0;
+layout (binding = 6, rgba32f) uniform image2D MomentsTexture_0;
+layout (binding = 7, r32f) uniform image2D ShadowTexture_0;
+layout (binding = 8, rgba32f) uniform image2D HistoryLengthTexture_1;
+layout (binding = 9, rgba32f) uniform image2D MomentsTexture_1;
+layout (binding = 10, r32f) uniform image2D ShadowTexture_1;
+layout (binding = 11) uniform passUBO 
+{
+    int CurIndex;
+    int PrevIndex;
+} PassUBO;
+layout (binding = 12, r32f) uniform image2D VarianceTextureOut;
+
+const float PhiNormal = 128.0f;
+
+vec3 OctoToDir(vec2 e)
+{
+    vec3 v = vec3(e, 1.0 - abs(e.x) - abs(e.y));
+    if (v.z < 0.0)
+        v.xy = (1.0 - abs(v.yx)) * (step(0.0, v.xy) * 2.0 - vec2(1.0));
+    return normalize(v);
+}
+
+float ComputeWeight(float DepthCenter, float DepthP, float PhiDepth,
+                    vec3 NormalCenter, vec3 NormalP, float NormalPower,
+                    float ShadowCenter, float ShadowP, float PhiShadow)
+{
+    float wNormal = 1.0f;
+    float wDepth = (PhiDepth==0) ? 0.0f : abs(DepthCenter - DepthP) / PhiDepth;
+    float wLShadow = abs(ShadowCenter - ShadowP) / PhiShadow;
+    float wDirect = exp(0.0f - max(wLShadow,0.0f) - max(wDepth, 0.0f)) * wNormal;
+    return wDirect;
+}
+
+void main() 
+{	 
+    ivec2 IPos = ivec2(gl_GlobalInvocationID.xy);
+    float h =0;
+    if(PassUBO.CurIndex==0) h = imageLoad(HistoryLengthTexture_0, IPos).x;   
+    else                    h = imageLoad(HistoryLengthTexture_1, IPos).x;
+
+    ivec2 ScreenSize = ivec2(imageSize(HistoryLengthTexture_0));
+
+    vec4 ShadowCenter = vec4(0);
+    if(PassUBO.CurIndex==0) ShadowCenter = imageLoad(ShadowTexture_0, IPos);
+    else                    ShadowCenter = imageLoad(ShadowTexture_1, IPos);
+    
+    
+    if(h < 4.0)
+    {
+        float SumWeight = 0;
+        float SumShadow = 0;
+        vec2 SumMoments=vec2(0);
+
+
+        vec4 Depth = texelFetch(LinearZ, IPos,0);
+        vec2 OctoNormal = unpackUnorm2x16(uint(Depth.w));
+        vec3 NormalCenter = OctoToDir(OctoNormal);
+        vec2 DepthCenter = Depth.yz;
+        
+        if(DepthCenter.x < 0)
+        {
+            imageStore(VarianceTextureOut, IPos, vec4(ShadowCenter));
+            return;
+        }
+
+        float PhiLShadow = 10.0f;
+        float PhiDepth = max(DepthCenter.y, 1e-8) * 3.0f;
+
+        int Radius = 3;
+        for(int yy=-Radius; yy<=Radius; yy++)
+        {
+            for(int xx=-Radius; xx<=Radius; xx++)
+            {
+                ivec2 SamplePos = IPos + ivec2(xx, yy);
+                bool Inside = all(greaterThanEqual(SamplePos, ivec2(0,0))) && all(lessThan(SamplePos, ScreenSize));
+                bool SamePixel = (xx==0) && (yy==0);
+                float Kernel=1.0f;
+
+                if(Inside)
+                {
+                    float ShadowP = 0;
+                    if(PassUBO.CurIndex==0) ShadowP = imageLoad(ShadowTexture_0, SamplePos).x;
+                    else                    ShadowP = imageLoad(ShadowTexture_1, SamplePos).x;
+
+                    vec2 MomentP =vec2(0);
+                    if(PassUBO.CurIndex==0) MomentP = imageLoad(MomentsTexture_0, SamplePos).rg;
+                    else                    MomentP = imageLoad(MomentsTexture_1, SamplePos).rg;
+
+                    
+                    vec4 Depth = texelFetch(LinearZ, SamplePos,0);
+                    vec2 OctoNormal = unpackUnorm2x16(uint(Depth.w));
+                    vec3 NormalP = OctoToDir(OctoNormal);
+                    vec2 DepthP = Depth.yz;
+
+                    // float DepthCenter, float DepthP, float PhiDepth,
+                    // vec3 NormalCenter, vec3 NormalP, float NormalPower,
+                    // float ShadowCenter, float ShadowP, float PhiShadow
+
+                    float Weight = ComputeWeight(DepthCenter.x, DepthP.x, PhiDepth * length(vec2(xx*yy)),
+                                                 NormalCenter, NormalP, PhiNormal,
+                                                 ShadowCenter.x, ShadowP, PhiLShadow);
+
+                    SumWeight += Weight;
+                    SumShadow += ShadowP * Weight;
+                    SumMoments += MomentP * Weight;                    
+                }
+            }
+        }
+
+        SumWeight = max(SumWeight, 1e-6f);
+        SumShadow /= SumWeight;
+        SumMoments /= SumWeight;
+
+        float Variance = SumMoments.g - SumMoments.r * SumMoments.r;
+        Variance *= 4.0 / h;
+
+        
+        imageStore(VarianceTextureOut, IPos, vec4(SumShadow, Variance, 0, 0));
+    }
+    else
+    {
+        imageStore(VarianceTextureOut, IPos, vec4(ShadowCenter));
+    }
+}
+

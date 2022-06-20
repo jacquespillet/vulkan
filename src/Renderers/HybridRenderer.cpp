@@ -9,6 +9,7 @@ void deferredHybridRenderer::Render()
 
     BuildCommandBuffers();
     BuildDeferredCommandBuffers();
+    BuildSVGFCommandBuffers();
     UpdateCamera();
 
     ShadowPass.UniformBuffer.Map();
@@ -430,7 +431,12 @@ void deferredHybridRenderer::BuildOffscreenBuffers()
 
         vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &ReprojectionPass.UniformBuffer, sizeof(ReprojectionPass.UniformData), &ReprojectionPass.UniformData); 
     }
-
+    
+    //Variance pass
+    {
+        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &VariancePass.PingPong_0);  
+        App->TextureLoader->CreateEmptyTexture(App->Width, App->Height, VK_FORMAT_R32G32B32A32_SFLOAT, &VariancePass.PingPong_1);  
+    }
 }
 
 
@@ -525,6 +531,17 @@ void deferredHybridRenderer::BuildLayoutsAndDescriptors()
         
         std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts;
         Resources.AddDescriptorSet(VulkanDevice, "Reprojection", Descriptors, DescriptorPool, AdditionalDescriptorSetLayouts);
+    }
+
+    //Variance Pass
+    {
+        std::vector<descriptor> Descriptors = 
+        {
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VariancePass.PingPong_0.Descriptor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VariancePass.PingPong_1.Descriptor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+        };
+        std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts;
+        Resources.AddDescriptorSet(VulkanDevice, "Variance", Descriptors, DescriptorPool, AdditionalDescriptorSetLayouts);
     }
 }
 
@@ -726,6 +743,13 @@ void deferredHybridRenderer::BuildPipelines()
 		ComputePipelineCreateInfo.stage = LoadShader(VulkanDevice->Device, "resources/shaders/spv/svgfReprojection.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT);
 		VK_CALL(vkCreateComputePipelines(VulkanDevice->Device, nullptr, 1, &ComputePipelineCreateInfo, nullptr, &ReprojectionPass.Pipeline));
     }     
+ 
+    //Variance
+    {
+        VkComputePipelineCreateInfo ComputePipelineCreateInfo = vulkanTools::BuildComputePipelineCreateInfo(Resources.PipelineLayouts->Get("Variance"), 0);
+		ComputePipelineCreateInfo.stage = LoadShader(VulkanDevice->Device, "resources/shaders/spv/svgfVariance.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT);
+		VK_CALL(vkCreateComputePipelines(VulkanDevice->Device, nullptr, 1, &ComputePipelineCreateInfo, nullptr, &VariancePass.Pipeline));
+    }     
 }
 
 
@@ -780,6 +804,53 @@ void deferredHybridRenderer::BuildCommandBuffers()
         vkCmdEndRenderPass(DrawCommandBuffers[i]);
 
         VK_CALL(vkEndCommandBuffer(DrawCommandBuffers[i]));
+    }
+}
+
+void deferredHybridRenderer::BuildSVGFCommandBuffers()
+{
+    //SVGF
+    {
+        VkCommandBufferBeginInfo ComputeCommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
+        VK_CALL(vkBeginCommandBuffer(Compute.CommandBuffer, &ComputeCommandBufferBeginInfo));
+
+        //Ray traced shadows
+        {
+            VkDescriptorSet RendererDescriptorSet = App->Scene->Resources.DescriptorSets->Get("Scene");
+
+            vulkanTools::TransitionImageLayout(Compute.CommandBuffer,
+            ShadowPass.Texture.Image, 
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_GENERAL);
+
+            vkCmdBindPipeline(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, ShadowPass.Pipeline);
+            vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 0, 1, Resources.DescriptorSets->GetPtr("Shadows"), 0, 0);
+            vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 1, 1, &RendererDescriptorSet, 0, nullptr);			
+            
+            vkCmdDispatch(Compute.CommandBuffer, App->Width / 16, App->Height / 16, 1);
+            
+            vulkanTools::TransitionImageLayout(Compute.CommandBuffer,
+            ShadowPass.Texture.Image, 
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+
+        
+        //Reprojection
+        {
+            vkCmdBindPipeline(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, ReprojectionPass.Pipeline);
+            vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Reprojection"), 0, 1, Resources.DescriptorSets->GetPtr("Reprojection"), 0, 0);
+            vkCmdDispatch(Compute.CommandBuffer, App->Width / 16, App->Height / 16, 1);
+        }
+        
+        vkEndCommandBuffer(Compute.CommandBuffer);
+
+        ReprojectionPass.UniformData.PrevProjectionPingPongInx = ReprojectionPass.UniformData.ProjectionPingPonxInx;
+        ReprojectionPass.UniformData.ProjectionPingPonxInx = 1 - ReprojectionPass.UniformData.ProjectionPingPonxInx; 
+
+                
     }
 }
 
@@ -963,52 +1034,7 @@ void deferredHybridRenderer::BuildDeferredCommandBuffers()
     
     
     
-    VK_CALL(vkEndCommandBuffer(OffscreenCommandBuffer));
-    
-    //SVGF
-    {
-        VkCommandBufferBeginInfo ComputeCommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
-        VK_CALL(vkBeginCommandBuffer(Compute.CommandBuffer, &ComputeCommandBufferBeginInfo));
-
-        //Ray traced shadows
-        {
-            VkDescriptorSet RendererDescriptorSet = App->Scene->Resources.DescriptorSets->Get("Scene");
-
-            vulkanTools::TransitionImageLayout(Compute.CommandBuffer,
-            ShadowPass.Texture.Image, 
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_IMAGE_LAYOUT_GENERAL);
-
-            vkCmdBindPipeline(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, ShadowPass.Pipeline);
-            vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 0, 1, Resources.DescriptorSets->GetPtr("Shadows"), 0, 0);
-            vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 1, 1, &RendererDescriptorSet, 0, nullptr);			
-            
-            vkCmdDispatch(Compute.CommandBuffer, App->Width / 16, App->Height / 16, 1);
-            
-            vulkanTools::TransitionImageLayout(Compute.CommandBuffer,
-            ShadowPass.Texture.Image, 
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            VK_IMAGE_LAYOUT_GENERAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        }
-
-        
-        //Reprojection
-        {
-            vkCmdBindPipeline(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, ReprojectionPass.Pipeline);
-            vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Reprojection"), 0, 1, Resources.DescriptorSets->GetPtr("Reprojection"), 0, 0);
-            vkCmdDispatch(Compute.CommandBuffer, App->Width / 16, App->Height / 16, 1);
-        }
-        
-        vkEndCommandBuffer(Compute.CommandBuffer);
-
-        ReprojectionPass.UniformData.PrevProjectionPingPongInx = ReprojectionPass.UniformData.ProjectionPingPonxInx;
-        ReprojectionPass.UniformData.ProjectionPingPonxInx = 1 - ReprojectionPass.UniformData.ProjectionPingPonxInx; 
-
-                
-    }
-    
+    VK_CALL(vkEndCommandBuffer(OffscreenCommandBuffer));    
 }
 
 

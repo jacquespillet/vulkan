@@ -77,6 +77,7 @@ REM --------------------
 
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/rayTracedShadows.comp -o resources/shaders/spv/rayTracedShadows.comp.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/svgfReprojection.comp -o resources/shaders/spv/svgfReprojection.comp.spv --target-spv=spv1.4  --target-env=vulkan1.2 
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/svgfVariance.comp -o resources/shaders/spv/svgfVariance.comp.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybridComposition.frag -o resources/shaders/spv/hybridComposition.frag.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybridGBuffer.frag -o resources/shaders/spv/hybridGBuffer.frag.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 

@@ -63,7 +63,6 @@ public:
         // filteredTextures PingPongFilteredTextures[2];
         filteredTextures FilteredPast;
         vulkanTexture PrevLinearZ;
-
         struct {
             int ProjectionPingPonxInx = 0;
             int PrevProjectionPingPongInx = 1;
@@ -73,6 +72,14 @@ public:
         
         VkPipeline Pipeline;
     } ReprojectionPass;
+
+    struct
+    {
+        vulkanTexture PingPong_0;
+        vulkanTexture PingPong_1;
+
+        VkPipeline Pipeline;
+    } VariancePass;
 
     struct 
     {
@@ -116,4 +123,5 @@ private:
     void BuildLayoutsAndDescriptors();
     void BuildPipelines();
     void BuildDeferredCommandBuffers();
+    void BuildSVGFCommandBuffers();
 };
