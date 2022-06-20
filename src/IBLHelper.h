@@ -100,7 +100,7 @@ namespace IBLHelper
         VK_CALL(vkAllocateDescriptorSets(VulkanDevice->Device, &AllocInfo, &DescriptorSet));
         std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
         {
-            vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &ViewMatricesBuffer.Descriptor),
+            vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &ViewMatricesBuffer.VulkanObjects.Descriptor),
             vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &Cubemap->Descriptor)
         };
         vkUpdateDescriptorSets(VulkanDevice->Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
@@ -256,8 +256,8 @@ namespace IBLHelper
             vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipelines[i]); 
             vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, PipelineLayout, 0, 1, &DescriptorSet, 0, nullptr);
 
-            vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &Cube.VulkanObjects.VertexBuffer.Buffer, Offset);
-            vkCmdBindIndexBuffer(CommandBuffer, Cube.VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &Cube.VulkanObjects.VertexBuffer.VulkanObjects.Buffer, Offset);
+            vkCmdBindIndexBuffer(CommandBuffer, Cube.VulkanObjects.IndexBuffer.VulkanObjects.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
             vkCmdDrawIndexed(CommandBuffer, Cube.IndexCount, 1, 0, 0, 0);
         
@@ -491,7 +491,7 @@ namespace IBLHelper
         VK_CALL(vkAllocateDescriptorSets(VulkanDevice->Device, &AllocInfo, &DescriptorSet));
         std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
         {
-            vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &ViewMatricesBuffer.Descriptor),
+            vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &ViewMatricesBuffer.VulkanObjects.Descriptor),
             vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &Cubemap->Descriptor)
         };
         vkUpdateDescriptorSets(VulkanDevice->Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
@@ -652,8 +652,8 @@ namespace IBLHelper
                 vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipelines[i][j]); 
                 vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, PipelineLayout, 0, 1, &DescriptorSet, 0, nullptr);
 
-                vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &Cube.VulkanObjects.VertexBuffer.Buffer, Offset);
-                vkCmdBindIndexBuffer(CommandBuffer, Cube.VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &Cube.VulkanObjects.VertexBuffer.VulkanObjects.Buffer, Offset);
+                vkCmdBindIndexBuffer(CommandBuffer, Cube.VulkanObjects.IndexBuffer.VulkanObjects.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
                 vkCmdDrawIndexed(CommandBuffer, Cube.IndexCount, 1, 0, 0, 0);
             
@@ -965,8 +965,8 @@ namespace IBLHelper
             VkDeviceSize Offset[1] = {0};
             vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipeline); 
             
-            vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &Quad.VulkanObjects.VertexBuffer.Buffer, Offset);
-            vkCmdBindIndexBuffer(CommandBuffer, Quad.VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &Quad.VulkanObjects.VertexBuffer.VulkanObjects.Buffer, Offset);
+            vkCmdBindIndexBuffer(CommandBuffer, Quad.VulkanObjects.IndexBuffer.VulkanObjects.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
             vkCmdDrawIndexed(CommandBuffer, 6, 1, 0, 0, 0);
         

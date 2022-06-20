@@ -292,7 +292,7 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
     VK_CALL(vkAllocateDescriptorSets(VulkanDevice->Device, &AllocInfo, &DescriptorSet));
     std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
     {
-        vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &ViewMatricesBuffer.Descriptor),
+        vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &ViewMatricesBuffer.VulkanObjects.Descriptor),
         vulkanTools::BuildWriteDescriptorSet( DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &PanoTexture.Descriptor)
     };
     vkUpdateDescriptorSets(VulkanDevice->Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
@@ -450,8 +450,8 @@ void textureLoader::LoadCubemap(std::string PanoFileName, vulkanTexture *Output)
         vkCmdBindPipeline(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipelines[i]); 
         vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, PipelineLayout, 0, 1, &DescriptorSet, 0, nullptr);
 
-        vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &Cube.VulkanObjects.VertexBuffer.Buffer, Offset);
-        vkCmdBindIndexBuffer(CommandBuffer, Cube.VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &Cube.VulkanObjects.VertexBuffer.VulkanObjects.Buffer, Offset);
+        vkCmdBindIndexBuffer(CommandBuffer, Cube.VulkanObjects.IndexBuffer.VulkanObjects.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdDrawIndexed(CommandBuffer, Cube.IndexCount, 1, 0, 0, 0);
     

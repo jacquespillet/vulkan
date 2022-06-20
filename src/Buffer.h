@@ -8,17 +8,21 @@
 class buffer
 {
 public:
-    VkDevice Device;
-    VkBuffer Buffer=VK_NULL_HANDLE;
-    VkDeviceMemory Memory=VK_NULL_HANDLE;
-    
-    VkDeviceSize Allignment=0;
-    VkDeviceSize Size=0;
-    VkBufferUsageFlags UsageFlags;
-    VkMemoryPropertyFlags MemoryPropertyFlags;
-    VkDescriptorBufferInfo Descriptor;
 
-    uint8_t *Mapped = nullptr;
+    struct
+    {
+        VkDevice Device;
+        VkBuffer Buffer=VK_NULL_HANDLE;
+        VkDeviceMemory Memory=VK_NULL_HANDLE;
+        
+        VkDeviceSize Allignment=0;
+        VkDeviceSize Size=0;
+        VkBufferUsageFlags UsageFlags;
+        VkMemoryPropertyFlags MemoryPropertyFlags;
+        VkDescriptorBufferInfo Descriptor;
+        uint8_t *Mapped = nullptr;
+    } VulkanObjects;
+
 
     VkResult Map(VkDeviceSize _Size = VK_WHOLE_SIZE, VkDeviceSize Offset=0);
 
@@ -33,6 +37,5 @@ public:
 
     void Destroy();
 
-    
 	VkResult Flush(VkDeviceSize Size = VK_WHOLE_SIZE, VkDeviceSize Offset=0);
 };

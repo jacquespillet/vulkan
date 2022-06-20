@@ -179,8 +179,8 @@ void objectPicker::FillCommandBuffer()
         {
             vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, PipelineLayout, 1, 1, &Instance.VulkanObjects.DescriptorSet, 0, nullptr);
                 
-            vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VulkanObjects.VertexBuffer.Buffer, Offset);
-            vkCmdBindIndexBuffer(OffscreenCommandBuffer, Instance.Mesh->VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VulkanObjects.VertexBuffer.VulkanObjects.Buffer, Offset);
+            vkCmdBindIndexBuffer(OffscreenCommandBuffer, Instance.Mesh->VulkanObjects.IndexBuffer.VulkanObjects.Buffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(OffscreenCommandBuffer, Instance.Mesh->IndexCount, 1, 0, 0, 0);
         }
     }
@@ -247,7 +247,7 @@ void objectPicker::Pick(int MouseX, int MouseY)
     VkImageSubresourceRange SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     vulkanTools::TransitionImageLayout(OffscreenCommandBuffer, Framebuffer._Attachments[0].Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, SubresourceRange);
     
-    vkCmdCopyImageToBuffer(OffscreenCommandBuffer, Framebuffer._Attachments[0].Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, ImageBuffer.Buffer,1,  &BufferImageCopy);
+    vkCmdCopyImageToBuffer(OffscreenCommandBuffer, Framebuffer._Attachments[0].Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, ImageBuffer.VulkanObjects.Buffer,1,  &BufferImageCopy);
     
     VK_CALL(vkEndCommandBuffer(OffscreenCommandBuffer));
 

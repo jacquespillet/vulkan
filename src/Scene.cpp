@@ -42,7 +42,7 @@ void cubemap::CreateDescriptorSet(vulkanDevice *VulkanDevice)
 
     std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
     {
-        vulkanTools::BuildWriteDescriptorSet( VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &VulkanObjects.UniformBuffer.Descriptor),
+        vulkanTools::BuildWriteDescriptorSet( VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &VulkanObjects.UniformBuffer.VulkanObjects.Descriptor),
         vulkanTools::BuildWriteDescriptorSet( VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &VulkanObjects.Texture.Descriptor),
         vulkanTools::BuildWriteDescriptorSet( VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &VulkanObjects.IrradianceMap.Descriptor),
         vulkanTools::BuildWriteDescriptorSet( VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &VulkanObjects.PrefilteredMap.Descriptor),
@@ -250,7 +250,7 @@ void scene::CreateDescriptorSets()
         //Allocate and write descriptor sets
         VkDescriptorSetAllocateInfo AllocInfo = vulkanTools::BuildDescriptorSetAllocateInfo(DescriptorPool, &SceneDescriptorSetLayout, 1);
         VkDescriptorSet RendererDescriptorSet = Resources.DescriptorSets->Add("Scene", AllocInfo);
-        VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( RendererDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &SceneMatrices.Descriptor);
+        VkWriteDescriptorSet WriteDescriptorSets = vulkanTools::BuildWriteDescriptorSet( RendererDescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &SceneMatrices.VulkanObjects.Descriptor);
         vkUpdateDescriptorSets(Device, 1, &WriteDescriptorSets, 0, nullptr);
     }
 
@@ -276,7 +276,7 @@ void scene::CreateDescriptorSets()
 
             std::vector<VkWriteDescriptorSet> WriteDescriptorSets = 
             {
-                vulkanTools::BuildWriteDescriptorSet( Materials[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &Materials[i].VulkanObjects.UniformBuffer.Descriptor),
+                vulkanTools::BuildWriteDescriptorSet( Materials[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &Materials[i].VulkanObjects.UniformBuffer.VulkanObjects.Descriptor),
                 vulkanTools::BuildWriteDescriptorSet( Materials[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &Materials[i].Diffuse.Descriptor),
                 vulkanTools::BuildWriteDescriptorSet( Materials[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &Materials[i].Specular.Descriptor),
                 vulkanTools::BuildWriteDescriptorSet( Materials[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &Materials[i].Normal.Descriptor),
@@ -303,7 +303,7 @@ void scene::CreateDescriptorSets()
 
                 std::vector<VkWriteDescriptorSet> WriteDescriptorSets;
                 WriteDescriptorSets.push_back(
-                    vulkanTools::BuildWriteDescriptorSet( InstanceGroup.second[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &InstanceGroup.second[i].VulkanObjects.UniformBuffer.Descriptor)
+                    vulkanTools::BuildWriteDescriptorSet( InstanceGroup.second[i].VulkanObjects.DescriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &InstanceGroup.second[i].VulkanObjects.UniformBuffer.VulkanObjects.Descriptor)
                 );
                 vkUpdateDescriptorSets(Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);
             }

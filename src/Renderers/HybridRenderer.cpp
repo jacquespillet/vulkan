@@ -115,7 +115,7 @@ void deferredHybridRenderer::Setup()
 void deferredHybridRenderer::CreateTopLevelAccelerationStructure()
 {
     VkDeviceOrHostAddressConstKHR InstanceDataDeviceAddress {};
-    InstanceDataDeviceAddress.deviceAddress = vulkanTools::GetBufferDeviceAddress(VulkanDevice, InstancesBuffer.Buffer);
+    InstanceDataDeviceAddress.deviceAddress = vulkanTools::GetBufferDeviceAddress(VulkanDevice, InstancesBuffer.VulkanObjects.Buffer);
 
     VkAccelerationStructureGeometryKHR AccelerationStructureGeometry = vulkanTools::BuildAccelerationStructureGeometry();
     AccelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
@@ -215,12 +215,12 @@ void deferredHybridRenderer::CreateBottomLevelAccelarationStructure(scene *Scene
         AccelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         AccelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
         AccelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
-        AccelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanObjects.VulkanDevice, App->Scene->Meshes[i].VulkanObjects.VertexBuffer.Buffer);
+        AccelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanObjects.VulkanDevice, App->Scene->Meshes[i].VulkanObjects.VertexBuffer.VulkanObjects.Buffer);
         AccelerationStructureGeometry.geometry.triangles.maxVertex = (uint32_t)App->Scene->Meshes[i].Vertices.size();
         AccelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(vertex);
         AccelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
-        AccelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanObjects.VulkanDevice, App->Scene->Meshes[i].VulkanObjects.IndexBuffer.Buffer);
-        AccelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanObjects.VulkanDevice, TransformMatrixBuffer.Buffer);
+        AccelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanObjects.VulkanDevice, App->Scene->Meshes[i].VulkanObjects.IndexBuffer.VulkanObjects.Buffer);
+        AccelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = vulkanTools::GetBufferDeviceAddress(App->VulkanObjects.VulkanDevice, TransformMatrixBuffer.VulkanObjects.Buffer);
         AccelerationStructureGeometry.geometry.triangles.transformData.hostAddress=nullptr;
 
         VkAccelerationStructureBuildGeometryInfoKHR AccelerationStructureBuildGeometryInfo = vulkanTools::BuildAccelerationStructureBuildGeometryInfo();
@@ -491,7 +491,7 @@ void deferredHybridRenderer::BuildLayoutsAndDescriptors()
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ShadowPass.Texture.Descriptor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, DescriptorAccelerationStructureInfo),
-            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ShadowPass.UniformBuffer.Descriptor)
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ShadowPass.UniformBuffer.VulkanObjects.Descriptor)
         };
         
         std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts = 
@@ -526,7 +526,7 @@ void deferredHybridRenderer::BuildLayoutsAndDescriptors()
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ReprojectionPass.ProjectionTextures[1].ShadowTexture.Descriptor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
 
             //11Uniforms
-            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ReprojectionPass.UniformBuffer.Descriptor)
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ReprojectionPass.UniformBuffer.VulkanObjects.Descriptor)
         };
         
         std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts;
@@ -794,8 +794,8 @@ void deferredHybridRenderer::BuildCommandBuffers()
         vkCmdBindDescriptorSets(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.PipelineLayouts->Get("Composition"), 2, 1, App->Scene->Resources.DescriptorSets->GetPtr("Scene"), 0, nullptr);
 
         vkCmdBindPipeline(DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, Resources.Pipelines->Get("Composition.SSAO.Enabled"));
-        vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Quad.VulkanObjects.VertexBuffer.Buffer, Offsets);
-        vkCmdBindIndexBuffer(DrawCommandBuffers[i], Quad.VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Quad.VulkanObjects.VertexBuffer.VulkanObjects.Buffer, Offsets);
+        vkCmdBindIndexBuffer(DrawCommandBuffers[i], Quad.VulkanObjects.IndexBuffer.VulkanObjects.Buffer, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(DrawCommandBuffers[i], 6, 1, 0, 0, 1);
 
 
@@ -949,8 +949,8 @@ void deferredHybridRenderer::BuildDeferredCommandBuffers()
             
             for (auto Instance : InstanceGroup.second)
             {
-                vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VulkanObjects.VertexBuffer.Buffer, Offset);
-                vkCmdBindIndexBuffer(OffscreenCommandBuffer, Instance.Mesh->VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindVertexBuffers(OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VulkanObjects.VertexBuffer.VulkanObjects.Buffer, Offset);
+                vkCmdBindIndexBuffer(OffscreenCommandBuffer, Instance.Mesh->VulkanObjects.IndexBuffer.VulkanObjects.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
                 vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->VulkanObjects.DescriptorSet, 0, nullptr);
                 vkCmdBindDescriptorSets(OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.VulkanObjects.DescriptorSet, 0, nullptr);

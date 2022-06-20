@@ -101,7 +101,7 @@ void ImGUI::InitResources(VkRenderPass RenderPass, VkQueue CopyQueue)
         uploadSize));
 
     stagingBuffer.Map();
-    memcpy(stagingBuffer.Mapped, fontData, uploadSize);
+    memcpy(stagingBuffer.VulkanObjects.Mapped, fontData, uploadSize);
     stagingBuffer.Unmap();
 
     // Copy buffer data to font image
@@ -127,7 +127,7 @@ void ImGUI::InitResources(VkRenderPass RenderPass, VkQueue CopyQueue)
 
     vkCmdCopyBufferToImage(
         copyCmd,
-        stagingBuffer.Buffer,
+        stagingBuffer.VulkanObjects.Buffer,
         FontImage,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1,
@@ -287,7 +287,7 @@ void ImGUI::UpdateBuffers()
     // Update buffers only if vertex or index count has been changed compared to current buffer size
 
     // Vertex buffer
-    if ((VertexBuffer.Buffer == VK_NULL_HANDLE) || (VertexCount != imDrawData->TotalVtxCount)) {
+    if ((VertexBuffer.VulkanObjects.Buffer == VK_NULL_HANDLE) || (VertexCount != imDrawData->TotalVtxCount)) {
         VertexBuffer.Unmap();
         VertexBuffer.Destroy();
         VK_CALL(vulkanTools::CreateBuffer(Device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &VertexBuffer, VertexBufferSize));
@@ -296,7 +296,7 @@ void ImGUI::UpdateBuffers()
     }
 
     // Index buffer
-    if ((IndexBuffer.Buffer == VK_NULL_HANDLE) || (IndexCount < imDrawData->TotalIdxCount)) {
+    if ((IndexBuffer.VulkanObjects.Buffer == VK_NULL_HANDLE) || (IndexCount < imDrawData->TotalIdxCount)) {
         IndexBuffer.Unmap();
         IndexBuffer.Destroy();
         VK_CALL(vulkanTools::CreateBuffer(Device, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &IndexBuffer, IndexBufferSize));
@@ -305,8 +305,8 @@ void ImGUI::UpdateBuffers()
     }
 
     // Upload data
-    ImDrawVert* vtxDst = (ImDrawVert*)VertexBuffer.Mapped;
-    ImDrawIdx* idxDst = (ImDrawIdx*)IndexBuffer.Mapped;
+    ImDrawVert* vtxDst = (ImDrawVert*)VertexBuffer.VulkanObjects.Mapped;
+    ImDrawIdx* idxDst = (ImDrawIdx*)IndexBuffer.VulkanObjects.Mapped;
 
     for (int n = 0; n < imDrawData->CmdListsCount; n++) {
         const ImDrawList* cmd_list = imDrawData->CmdLists[n];
@@ -347,8 +347,8 @@ void ImGUI::DrawFrame(VkCommandBuffer CommandBuffer)
     if (imDrawData->CmdListsCount > 0) {
 
         VkDeviceSize offsets[1] = { 0 };
-        vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &VertexBuffer.Buffer, offsets);
-        vkCmdBindIndexBuffer(CommandBuffer, IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT16);
+        vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &VertexBuffer.VulkanObjects.Buffer, offsets);
+        vkCmdBindIndexBuffer(CommandBuffer, IndexBuffer.VulkanObjects.Buffer, 0, VK_INDEX_TYPE_UINT16);
 
         for (int32_t i = 0; i < imDrawData->CmdListsCount; i++)
         {

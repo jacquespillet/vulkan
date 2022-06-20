@@ -151,7 +151,7 @@ void storageImage::Destroy()
 
 void shaderBindingTable::Create(vulkanDevice *_VulkanDevice, uint32_t HandleCount, VkPhysicalDeviceRayTracingPipelinePropertiesKHR RayTracingPipelineProperties)
 {
-    this->Device = _VulkanDevice->Device;
+    this->VulkanObjects.Device = _VulkanDevice->Device;
 
     VK_CALL(vulkanTools::CreateBuffer(
         _VulkanDevice,
@@ -162,9 +162,9 @@ void shaderBindingTable::Create(vulkanDevice *_VulkanDevice, uint32_t HandleCoun
     ));
 
     VkBufferDeviceAddressInfoKHR BufferDeviceAddressInfo {VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
-    BufferDeviceAddressInfo.buffer = Buffer;
+    BufferDeviceAddressInfo.buffer = VulkanObjects.Buffer;
     const uint32_t HandleSizeAligned = vulkanTools::AlignedSize(RayTracingPipelineProperties.shaderGroupHandleSize, RayTracingPipelineProperties.shaderGroupHandleAlignment);
-    StrideDeviceAddressRegion.deviceAddress=_VulkanDevice->_vkGetBufferDeviceAddressKHR(Device, &BufferDeviceAddressInfo);
+    StrideDeviceAddressRegion.deviceAddress=_VulkanDevice->_vkGetBufferDeviceAddressKHR(VulkanObjects.Device, &BufferDeviceAddressInfo);
     StrideDeviceAddressRegion.stride = HandleSizeAligned;
     StrideDeviceAddressRegion.size = HandleCount * HandleSizeAligned;
 

@@ -230,8 +230,8 @@ void deferredRenderer::BuildLayoutsAndDescriptors()
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[0].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Framebuffers.Offscreen._Attachments[1].ImageView, Framebuffers.Offscreen.Sampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
             descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, Textures.SSAONoise.View, Textures.SSAONoise.Sampler),
-            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, UniformBuffers.SSAOKernel.Descriptor),
-            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, UniformBuffers.SSAOParams.Descriptor),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, UniformBuffers.SSAOKernel.VulkanObjects.Descriptor),
+            descriptor(VK_SHADER_STAGE_FRAGMENT_BIT, UniformBuffers.SSAOParams.VulkanObjects.Descriptor),
         };
         VulkanObjects.Resources.AddDescriptorSet(VulkanDevice, "SSAO.Generate", Descriptors, VulkanObjects.DescriptorPool);
     }
@@ -525,8 +525,8 @@ void deferredRenderer::BuildCommandBuffers()
         vkCmdBindDescriptorSets(VulkanObjects.DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, VulkanObjects.Resources.PipelineLayouts->Get("Composition"), 2, 1, App->Scene->Resources.DescriptorSets->GetPtr("Scene"), 0, nullptr);
 
         vkCmdBindPipeline(VulkanObjects.DrawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, VulkanObjects.Resources.Pipelines->Get("Composition.SSAO.Enabled"));
-        vkCmdBindVertexBuffers(VulkanObjects.DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Quad.VulkanObjects.VertexBuffer.Buffer, Offsets);
-        vkCmdBindIndexBuffer(VulkanObjects.DrawCommandBuffers[i], Quad.VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(VulkanObjects.DrawCommandBuffers[i], VERTEX_BUFFER_BIND_ID, 1, &Quad.VulkanObjects.VertexBuffer.VulkanObjects.Buffer, Offsets);
+        vkCmdBindIndexBuffer(VulkanObjects.DrawCommandBuffers[i], Quad.VulkanObjects.IndexBuffer.VulkanObjects.Buffer, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(VulkanObjects.DrawCommandBuffers[i], 6, 1, 0, 0, 1);
 
 
@@ -583,8 +583,8 @@ void deferredRenderer::BuildDeferredCommandBuffers()
 		
 		for (auto Instance : InstanceGroup.second)
 		{
-			vkCmdBindVertexBuffers(VulkanObjects.OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VulkanObjects.VertexBuffer.Buffer, Offset);
-			vkCmdBindIndexBuffer(VulkanObjects.OffscreenCommandBuffer, Instance.Mesh->VulkanObjects.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdBindVertexBuffers(VulkanObjects.OffscreenCommandBuffer, VERTEX_BUFFER_BIND_ID, 1, &Instance.Mesh->VulkanObjects.VertexBuffer.VulkanObjects.Buffer, Offset);
+			vkCmdBindIndexBuffer(VulkanObjects.OffscreenCommandBuffer, Instance.Mesh->VulkanObjects.IndexBuffer.VulkanObjects.Buffer, 0, VK_INDEX_TYPE_UINT32);
 
 			vkCmdBindDescriptorSets(VulkanObjects.OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 1, 1, &Instance.Mesh->Material->VulkanObjects.DescriptorSet, 0, nullptr);
 			vkCmdBindDescriptorSets(VulkanObjects.OffscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, RendererPipelineLayout, 2, 1, &Instance.VulkanObjects.DescriptorSet, 0, nullptr);

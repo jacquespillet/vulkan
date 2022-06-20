@@ -851,14 +851,14 @@ namespace vulkanTools
 
     VkResult CreateBuffer(vulkanDevice *VulkanDevice, VkBufferUsageFlags UsageFlags, VkMemoryPropertyFlags MemoryPropertyFlags, buffer *Buffer, VkDeviceSize Size, void *Data)
     {
-        Buffer->Device = VulkanDevice->Device;
+        Buffer->VulkanObjects.Device = VulkanDevice->Device;
         
         VkBufferCreateInfo BufferCreateInfo = BuildBufferCreateInfo(UsageFlags, Size);
-        VK_CALL(vkCreateBuffer(VulkanDevice->Device, &BufferCreateInfo, nullptr, &Buffer->Buffer));
+        VK_CALL(vkCreateBuffer(VulkanDevice->Device, &BufferCreateInfo, nullptr, &Buffer->VulkanObjects.Buffer));
 
         VkMemoryRequirements MemoryRequirements;
         VkMemoryAllocateInfo MemoryAllocateInfo = BuildMemoryAllocateInfo();
-        vkGetBufferMemoryRequirements(VulkanDevice->Device, Buffer->Buffer, &MemoryRequirements);
+        vkGetBufferMemoryRequirements(VulkanDevice->Device, Buffer->VulkanObjects.Buffer, &MemoryRequirements);
         MemoryAllocateInfo.allocationSize = MemoryRequirements.size;
         MemoryAllocateInfo.memoryTypeIndex = VulkanDevice->GetMemoryType(MemoryRequirements.memoryTypeBits, MemoryPropertyFlags);
 
@@ -869,17 +869,17 @@ namespace vulkanTools
             MemoryAllocateInfo.pNext = &MemoryAllocateFlagsInfo;
         }
 
-        VK_CALL(vkAllocateMemory(VulkanDevice->Device, &MemoryAllocateInfo, nullptr, &Buffer->Memory));
+        VK_CALL(vkAllocateMemory(VulkanDevice->Device, &MemoryAllocateInfo, nullptr, &Buffer->VulkanObjects.Memory));
 
-        Buffer->Allignment = MemoryRequirements.alignment;
-        Buffer->Size = Size;
-        Buffer->UsageFlags = UsageFlags;
-        Buffer->MemoryPropertyFlags = MemoryPropertyFlags;
+        Buffer->VulkanObjects.Allignment = MemoryRequirements.alignment;
+        Buffer->VulkanObjects.Size = Size;
+        Buffer->VulkanObjects.UsageFlags = UsageFlags;
+        Buffer->VulkanObjects.MemoryPropertyFlags = MemoryPropertyFlags;
 
         if(Data != nullptr)
         {
             VK_CALL(Buffer->Map());
-            memcpy(Buffer->Mapped, Data, Size);
+            memcpy(Buffer->VulkanObjects.Mapped, Data, Size);
             Buffer->Unmap();
         }
         
@@ -1095,12 +1095,12 @@ namespace vulkanTools
         VK_CALL(vkBindBufferMemory(Device->Device, Staging.Buffer, Staging.Memory, 0));
 
         BufferInfo = vulkanTools::BuildBufferCreateInfo(Flags | VK_BUFFER_USAGE_TRANSFER_DST_BIT, DataSize);
-        VK_CALL(vkCreateBuffer(Device->Device, &BufferInfo, nullptr, &Buffer->Buffer));
-        vkGetBufferMemoryRequirements(Device->Device, Buffer->Buffer, &MemoryRequirements);
+        VK_CALL(vkCreateBuffer(Device->Device, &BufferInfo, nullptr, &Buffer->VulkanObjects.Buffer));
+        vkGetBufferMemoryRequirements(Device->Device, Buffer->VulkanObjects.Buffer, &MemoryRequirements);
         MemAlloc.allocationSize=MemoryRequirements.size;
         MemAlloc.memoryTypeIndex = Device->GetMemoryType(MemoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        VK_CALL(vkAllocateMemory(Device->Device, &MemAlloc, nullptr, &Buffer->Memory));
-        VK_CALL(vkBindBufferMemory(Device->Device, Buffer->Buffer, Buffer->Memory, 0));      
+        VK_CALL(vkAllocateMemory(Device->Device, &MemAlloc, nullptr, &Buffer->VulkanObjects.Memory));
+        VK_CALL(vkBindBufferMemory(Device->Device, Buffer->VulkanObjects.Buffer, Buffer->VulkanObjects.Memory, 0));      
 
 
         VkCommandBufferBeginInfo CommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
@@ -1112,7 +1112,7 @@ namespace vulkanTools
         vkCmdCopyBuffer(
             CommandBuffer,
             Staging.Buffer,
-            Buffer->Buffer,
+            Buffer->VulkanObjects.Buffer,
             1,
             &CopyRegion
         );
@@ -1130,24 +1130,24 @@ namespace vulkanTools
         vkFreeMemory(Device->Device, Staging.Memory, nullptr);
 
 
-        Buffer->Allignment = MemoryRequirements.alignment;
-        Buffer->Size = MemAlloc.allocationSize;
-        Buffer->UsageFlags = Flags;
-        Buffer->Device = Device->Device;
+        Buffer->VulkanObjects.Allignment = MemoryRequirements.alignment;
+        Buffer->VulkanObjects.Size = MemAlloc.allocationSize;
+        Buffer->VulkanObjects.UsageFlags = Flags;
+        Buffer->VulkanObjects.Device = Device->Device;
 
         Buffer->SetupDescriptor();
     }
 
     void CopyBuffer(vulkanDevice *VulkanDevice, VkCommandPool CommandPool, VkQueue Queue, buffer *Source, buffer *Dest)
     { 
-        assert(Dest->Size <= Source->Size);
-        assert(Source->Buffer);
+        assert(Dest->VulkanObjects.Size <= Source->VulkanObjects.Size);
+        assert(Source->VulkanObjects.Buffer);
 
         VkCommandBuffer CopyCommand = CreateCommandBuffer(VulkanDevice->Device, CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
         VkBufferCopy BufferCopy {};
-        BufferCopy.size = Source->Size;
+        BufferCopy.size = Source->VulkanObjects.Size;
 
-        vkCmdCopyBuffer(CopyCommand, Source->Buffer, Dest->Buffer, 1, &BufferCopy);
+        vkCmdCopyBuffer(CopyCommand, Source->VulkanObjects.Buffer, Dest->VulkanObjects.Buffer, 1, &BufferCopy);
         FlushCommandBuffer(VulkanDevice->Device, CommandPool, CopyCommand, Queue, true);
     }
     
@@ -1180,7 +1180,7 @@ namespace vulkanTools
         BufferImageCopy.bufferImageHeight = 0;
         BufferImageCopy.bufferRowLength=0;
         
-        vkCmdCopyImageToBuffer(CopyCommand, Source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, Dest->Buffer,1,  &BufferImageCopy);
+        vkCmdCopyImageToBuffer(CopyCommand, Source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, Dest->VulkanObjects.Buffer,1,  &BufferImageCopy);
         
         FlushCommandBuffer(VulkanDevice->Device, CommandPool, CopyCommand, Queue, true);        
     }
