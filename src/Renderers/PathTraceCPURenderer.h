@@ -37,6 +37,7 @@ private:
     {
         glm::vec3 Origin;
         glm::vec3 Direction;
+        glm::vec3 InverseDirection;
         float t = 1e30f;
     };
     struct bvhNode
@@ -46,15 +47,22 @@ private:
         uint32_t TriangleCount;
         bool IsLeaf();
     };
+    struct aabb
+    {
+        glm::vec3 Min, Max;
+        float Area();
+        void Grow(glm::vec3 Position);
+    };
 
     void RayTriangleInteresection(ray &Ray, triangle &Triangle);
-    bool RayAABBIntersection(ray &Ray, glm::vec3 AABBMin,glm::vec3 AABBMax);
+    float RayAABBIntersection(ray &Ray, glm::vec3 AABBMin,glm::vec3 AABBMax);
 
     void InitGeometry();
     void BuildBVH();
     void UpdateNodeBounds(uint32_t NodeIndex);
     void Subdivide(uint32_t NodeIndex);
     void IntersectBVH(ray &Ray, uint32_t NodeIndex);
+    float EvaluateSAH(bvhNode &Node, int Axis, float Position);
     int NumTriangles=30;
     std::vector<triangle> Triangles;
     std::vector<uint32_t> TriangleIndices;
@@ -63,6 +71,8 @@ private:
     uint32_t NodesUsed=1;
 
     bool ShouldPathTrace=false;
+
+    int tileSize=4;
     
 
     void PathTrace();

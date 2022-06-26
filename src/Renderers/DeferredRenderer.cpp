@@ -473,13 +473,13 @@ void deferredRenderer::BuildPipelines()
 
     //SSAO blur
     {
-        ShaderStages[0] = LoadShader(VulkanDevice->Device, "resources/shaders/spv/fullscreen.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-        ShaderStages[1] = LoadShader(VulkanDevice->Device, "resources/shaders/spv/blur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-        VulkanObjects.ShaderModules.push_back(ShaderStages[0].module);
-        VulkanObjects.ShaderModules.push_back(ShaderStages[1].module);            
-        PipelineCreateInfo.renderPass = Framebuffers.SSAOBlur.RenderPass;
-        PipelineCreateInfo.layout = VulkanObjects.Resources.PipelineLayouts->Get("SSAO.Blur");
-        VulkanObjects.Resources.Pipelines->Add("SSAO.Blur" ,PipelineCreateInfo, App->VulkanObjects.PipelineCache);
+        //ShaderStages[0] = LoadShader(VulkanDevice->Device, "resources/shaders/spv/fullscreen.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+        //ShaderStages[1] = LoadShader(VulkanDevice->Device, "resources/shaders/spv/blur.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+        //VulkanObjects.ShaderModules.push_back(ShaderStages[0].module);
+        //VulkanObjects.ShaderModules.push_back(ShaderStages[1].module);            
+        //PipelineCreateInfo.renderPass = Framebuffers.SSAOBlur.RenderPass;
+        //PipelineCreateInfo.layout = VulkanObjects.Resources.PipelineLayouts->Get("SSAO.Blur");
+        //VulkanObjects.Resources.Pipelines->Add("SSAO.Blur" ,PipelineCreateInfo, App->VulkanObjects.PipelineCache);
     }        
 }
 

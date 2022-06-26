@@ -59,7 +59,7 @@ class vulkanApp
 {
 public:
     bool EnableValidation=true;
-    bool EnableVSync=true;
+    bool EnableVSync=false;
 
     struct 
     {

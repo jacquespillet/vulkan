@@ -7,6 +7,18 @@ bool pathTraceCPURenderer::bvhNode::IsLeaf()
     return TriangleCount > 0;
 }
 
+float pathTraceCPURenderer::aabb::Area()
+{
+    glm::vec3 e = Max - Min;
+    return e.x * e.y + e.y * e.z + e.z * e.x;
+}
+
+void pathTraceCPURenderer::aabb::Grow(glm::vec3 Position)
+{
+    Min = glm::min(Min, Position);
+    Max = glm::max(Max, Position);
+}
+
 pathTraceCPURenderer::pathTraceCPURenderer(vulkanApp *App) : renderer(App) {}
 
 void pathTraceCPURenderer::Render()
@@ -93,32 +105,39 @@ void pathTraceCPURenderer::PathTrace()
     glm::vec4 Origin = App->Scene->Camera.GetModelMatrix() * glm::vec4(0,0,0,1);
     
     ray Ray = {}; 
-    for(uint32_t yy=0; yy<App->Height; yy++)
+    for(uint32_t y=0; y<App->Height; y+=tileSize)
     {
-        for(uint32_t xx=0; xx<App->Width; xx++)
+        for(uint32_t x=0; x<App->Width; x+=tileSize)
         {
-            Image[yy * App->Width + xx] = { 0, 0, 0, 0 };
-	
-            glm::vec2 uv((float)xx / (float)App->Width, (float)yy / (float)App->Height);
-            Ray.Origin = Origin;
-            glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
-            glm::vec4 Direction = App->Scene->Camera.GetModelMatrix() * glm::normalize(glm::vec4(Target.x,Target.y, Target.z, 0.0f));
-            // vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
-            Ray.Direction = Direction;
-            Ray.t = 1e30f;
-#if 0
-            for(int i=0; i<NumTriangles; i++)
+            for(uint32_t yy=y; yy < y+tileSize; yy++)
             {
-                RayTriangleInteresection(Ray, Triangles[i]);
+                for(uint32_t xx=x; xx < x+tileSize; xx++)
+                {
+                    Image[yy * App->Width + xx] = { 0, 0, 0, 0 };
+            
+                    glm::vec2 uv((float)xx / (float)App->Width, (float)yy / (float)App->Height);
+                    Ray.Origin = Origin;
+                    glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
+                    glm::vec4 Direction = App->Scene->Camera.GetModelMatrix() * glm::normalize(glm::vec4(Target.x,Target.y, Target.z, 0.0f));
+                    // vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
+                    Ray.Direction = Direction;
+                    Ray.InverseDirection = 1.0f / Direction;
+                    Ray.t = 1e30f;
+                    #if 0
+                                for(int i=0; i<NumTriangles; i++)
+                                {
+                                    RayTriangleInteresection(Ray, Triangles[i]);
+                                }
+                    #else
+                        IntersectBVH(Ray, RootNodeIndex);
+                    #endif
+                        if (Ray.t < 1e30f)
+                        {
+                            uint8_t v = (uint8_t)(std::min(1.0f, (Ray.t / 5.0f)) * 255.0f);
+                            Image[yy * App->Width + xx] = {v, v, v, 255 };
+                        }
+                }
             }
-#else
-            IntersectBVH(Ray, RootNodeIndex);
-#endif
-			if (Ray.t < 1e30f)
-			{
-                uint8_t v = (uint8_t)(std::min(1.0f, (Ray.t / 5.0f)) * 255.0f);
-				Image[yy * App->Width + xx] = {v, v, v, 255 };
-			}
         }
     }
 }
@@ -223,18 +242,75 @@ void pathTraceCPURenderer::UpdateNodeBounds(uint32_t NodeIndex)
     }
 }
 
+float pathTraceCPURenderer::EvaluateSAH(bvhNode &Node, int Axis, float Position)
+{
+    aabb LeftBox, RightBox;
+    int LeftCount=0;
+    int RightCount=0;
+
+    for(uint32_t i=0; i<Node.TriangleCount; i++)
+    {
+        triangle &Triangle = Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
+        if(Triangle.Centroid[Axis] < Position)
+        {
+            LeftCount++;
+            LeftBox.Grow(Triangle.v0);
+            LeftBox.Grow(Triangle.v1);
+            LeftBox.Grow(Triangle.v2);
+        }
+        else
+        {
+            RightCount++;
+            RightBox.Grow(Triangle.v0);
+            RightBox.Grow(Triangle.v1);
+            RightBox.Grow(Triangle.v2);
+        }
+    }
+
+    float Cost = LeftCount * LeftBox.Area() + RightCount * RightBox.Area();
+    return Cost > 0 ? Cost : 1e30f;
+}
+
 void pathTraceCPURenderer::Subdivide(uint32_t NodeIndex)
 {
     bvhNode &Node = BVHNodes[NodeIndex];
 
-    if(Node.TriangleCount <=2) return;
 
+#if 0
+    if(Node.TriangleCount <=2) return;
     glm::vec3 Extent = Node.AABBMax - Node.AABBMin;
     int Axis=0;
     if(Extent.y > Extent.x) Axis=1;
     if(Extent.z > Extent[Axis]) Axis=2;
     float SplitPosition = Node.AABBMin[Axis] + Extent[Axis] * 0.5f; 
+#else
+    glm::vec3 e = Node.AABBMax - Node.AABBMin;
+    float ParentArea = e.x * e.y + e.x * e.z + e.y * e.z;
+    float ParentCost = Node.TriangleCount * ParentArea;
 
+    int BestAxis=-1;
+    float BestPosition = 0;
+    float BestCost = 1e30f;
+    for(int Axis=0; Axis<3; Axis++)
+    {
+        for(uint32_t i=0; i<Node.TriangleCount; i++)
+        {
+            triangle &Triangle = Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
+            float CandidatePosition = Triangle.Centroid[Axis];
+            float Cost = EvaluateSAH(Node, Axis, CandidatePosition);
+            if(Cost < BestCost)
+            {
+                BestPosition = CandidatePosition;
+                BestAxis = Axis;
+                BestCost = Cost;
+            }
+        }
+    }
+    if(BestCost >= ParentCost) return;
+
+    int Axis = BestAxis;
+    float SplitPosition = BestPosition;
+#endif
 
     int i=Node.LeftChildOrFirst;
     int j = i + Node.TriangleCount -1;
@@ -290,6 +366,7 @@ void pathTraceCPURenderer::BuildBVH()
 
 void pathTraceCPURenderer::IntersectBVH(ray &Ray, uint32_t NodeIndex)
 {
+#if 0
     bvhNode &Node = BVHNodes[NodeIndex];
     if(!RayAABBIntersection(Ray, Node.AABBMin, Node.AABBMax)) return;
 
@@ -305,17 +382,63 @@ void pathTraceCPURenderer::IntersectBVH(ray &Ray, uint32_t NodeIndex)
         IntersectBVH(Ray, Node.LeftChildOrFirst);
         IntersectBVH(Ray, Node.LeftChildOrFirst+1);
     }
+#else
+
+    bvhNode *Node = &BVHNodes[RootNodeIndex];
+    bvhNode *Stack[64];
+    uint32_t StackPointer=0;
+    while(true)
+    {
+        if(Node->IsLeaf())
+        {
+            for(uint32_t i=0; i<Node->TriangleCount; i++)
+            {
+                RayTriangleInteresection(Ray, Triangles[TriangleIndices[Node->LeftChildOrFirst + i]]);
+            }
+            if(StackPointer==0) break;
+            else Node = Stack[--StackPointer];
+            continue;
+        }
+
+        bvhNode *Child1 = &BVHNodes[Node->LeftChildOrFirst];
+        bvhNode *Child2 = &BVHNodes[Node->LeftChildOrFirst+1];
+
+        float Dist1 = RayAABBIntersection(Ray, Child1->AABBMin, Child1->AABBMax);
+        float Dist2 = RayAABBIntersection(Ray, Child2->AABBMin, Child2->AABBMax);
+        if(Dist1 > Dist2) {
+            std::swap(Dist1, Dist2);
+            std::swap(Child1, Child2);
+        }
+
+        if(Dist1 == 1e30f)
+        {
+            if(StackPointer==0) break;
+            else Node = Stack[--StackPointer];
+        }
+        else
+        {
+            Node = Child1;
+            if(Dist2 != 1e30f)
+            {
+                Stack[StackPointer++] = Child2;
+            }   
+        }
+    }
+
+
+#endif
 }
 
-bool pathTraceCPURenderer::RayAABBIntersection(ray &Ray, glm::vec3 AABBMin,glm::vec3 AABBMax)
+float pathTraceCPURenderer::RayAABBIntersection(ray &Ray, glm::vec3 AABBMin,glm::vec3 AABBMax)
 {
-    float tx1 = (AABBMin.x - Ray.Origin.x) / Ray.Direction.x, tx2 = (AABBMax.x - Ray.Origin.x) / Ray.Direction.x;
+    float tx1 = (AABBMin.x - Ray.Origin.x) * Ray.InverseDirection.x, tx2 = (AABBMax.x - Ray.Origin.x) * Ray.InverseDirection.x;
     float tmin = std::min( tx1, tx2 ), tmax = std::max( tx1, tx2 );
-    float ty1 = (AABBMin.y - Ray.Origin.y) / Ray.Direction.y, ty2 = (AABBMax.y - Ray.Origin.y) / Ray.Direction.y;
+    float ty1 = (AABBMin.y - Ray.Origin.y) * Ray.InverseDirection.y, ty2 = (AABBMax.y - Ray.Origin.y) * Ray.InverseDirection.y;
     tmin = std::max( tmin, std::min( ty1, ty2 ) ), tmax = std::min( tmax, std::max( ty1, ty2 ) );
-    float tz1 = (AABBMin.z - Ray.Origin.z) / Ray.Direction.z, tz2 = (AABBMax.z - Ray.Origin.z) / Ray.Direction.z;
+    float tz1 = (AABBMin.z - Ray.Origin.z) * Ray.InverseDirection.z, tz2 = (AABBMax.z - Ray.Origin.z) * Ray.InverseDirection.z;
     tmin = std::max( tmin, std::min( tz1, tz2 ) ), tmax = std::min( tmax, std::max( tz1, tz2 ) );
-    return tmax >= tmin && tmin < Ray.t && tmax > 0;    
+    if(tmax >= tmin && tmin < Ray.t && tmax > 0) return tmin;
+    else return 1e30f;    
 }
 
 void pathTraceCPURenderer::RayTriangleInteresection(ray &Ray, triangle &Triangle)
