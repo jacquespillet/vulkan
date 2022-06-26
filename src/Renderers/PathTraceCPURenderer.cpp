@@ -102,23 +102,25 @@ void aabb::Grow(aabb &AABB)
     }
 }
 
-bvh::bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices, glm::mat4 &Transform)
+bvh::bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices, glm::mat4 Transform)
 {
     uint32_t AddedTriangles=0;
-    
+    this->InvTransform = glm::inverse(Transform);
+
+
     Triangles.resize(Indices.size()/3);
     for(size_t j=0; j<Indices.size(); j+=3)
     {
         uint32_t i0 = Indices[j+0];
         uint32_t i1 = Indices[j+1];
         uint32_t i2 = Indices[j+2];
-        glm::vec4 v0 = Transform * glm::vec4(glm::vec3(Vertices[i0].Position), 1.0f);
-        glm::vec4 v1 = Transform * glm::vec4(glm::vec3(Vertices[i1].Position), 1.0f);
-        glm::vec4 v2 = Transform * glm::vec4(glm::vec3(Vertices[i2].Position), 1.0f);
+        glm::vec4 v0 = Vertices[i0].Position;
+        glm::vec4 v1 = Vertices[i1].Position;
+        glm::vec4 v2 = Vertices[i2].Position;
 
-        glm::vec4 n0 = Transform * glm::vec4(glm::vec3(Vertices[i0].Normal), 0.0f);
-        glm::vec4 n1 = Transform * glm::vec4(glm::vec3(Vertices[i1].Normal), 0.0f);
-        glm::vec4 n2 = Transform * glm::vec4(glm::vec3(Vertices[i2].Normal), 0.0f);
+        glm::vec4 n0 = Vertices[i0].Normal;
+        glm::vec4 n1 = Vertices[i1].Normal;
+        glm::vec4 n2 = Vertices[i2].Normal;
         
         Triangles[AddedTriangles].v0=v0;
         Triangles[AddedTriangles].v1=v1;
@@ -132,6 +134,19 @@ bvh::bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices, glm::mat
     TriangleCount = AddedTriangles;    
 
     Build();
+
+    
+    glm::vec3 Min = BVHNodes[0].AABBMin;
+    glm::vec3 Max = BVHNodes[0].AABBMax;
+    Bounds = {};
+    for (int i = 0; i < 8; i++)
+    {
+		Bounds.Grow( Transform *  glm::vec4( 
+                                    i & 1 ? Max.x : Min.x,
+                                    i & 2 ? Max.y : Min.y, 
+                                    i & 4 ? Max.z : Min.z,
+                                    1.0f ));
+    }
 }
 void bvh::Build()
 {
@@ -318,8 +333,13 @@ void bvh::Refit()
 
 }
 
-void bvh::Intersect(ray &Ray)
+void bvh::Intersect(ray Ray, rayPayload &RayPayload)
 {
+    Ray.Origin = InvTransform * glm::vec4(Ray.Origin, 1.0f);
+    Ray.Direction = InvTransform * glm::vec4(Ray.Direction, 0.0f);
+    Ray.InverseDirection = 1.0f / Ray.Direction;
+
+
     bvhNode *Node = &BVHNodes[RootNodeIndex];
     bvhNode *Stack[64];
     uint32_t StackPointer=0;
@@ -329,7 +349,7 @@ void bvh::Intersect(ray &Ray)
         {
             for(uint32_t i=0; i<Node->TriangleCount; i++)
             {
-                RayTriangleInteresection(Ray, Triangles[TriangleIndices[Node->LeftChildOrFirst + i]]);
+                RayTriangleInteresection(Ray, Triangles[TriangleIndices[Node->LeftChildOrFirst + i]], RayPayload);
             }
             if(StackPointer==0) break;
             else Node = Stack[--StackPointer];
@@ -339,8 +359,8 @@ void bvh::Intersect(ray &Ray)
         bvhNode *Child1 = &BVHNodes[Node->LeftChildOrFirst];
         bvhNode *Child2 = &BVHNodes[Node->LeftChildOrFirst+1];
 
-        float Dist1 = RayAABBIntersection(Ray, Child1->AABBMin, Child1->AABBMax);
-        float Dist2 = RayAABBIntersection(Ray, Child2->AABBMin, Child2->AABBMax);
+        float Dist1 = RayAABBIntersection(Ray, Child1->AABBMin, Child1->AABBMax, RayPayload);
+        float Dist2 = RayAABBIntersection(Ray, Child2->AABBMin, Child2->AABBMax, RayPayload);
         if(Dist1 > Dist2) {
             std::swap(Dist1, Dist2);
             std::swap(Child1, Child2);
@@ -542,17 +562,17 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
             glm::vec4 Direction = App->Scene->Camera.GetModelMatrix() * glm::normalize(glm::vec4(Target.x,Target.y, Target.z, 0.0f));
             
             Ray.Direction = Direction;
-            Ray.InverseDirection = 1.0f / Direction;
-            Ray.t = 1e30f;
             
+            rayPayload RayPayload = {};
+            RayPayload.Distance = 1e30f;
             for(size_t i=0; i<BVHs.size(); i++)
             {
-                BVHs[i].Intersect(Ray);
+                BVHs[i].Intersect(Ray, RayPayload);
             }
 
-            if (Ray.t < 1e30f)
+            if (RayPayload.Distance < 1e30f)
             {
-                uint8_t v = (uint8_t)(std::min(1.0f, (Ray.t / 5.0f)) * 255.0f);
+                uint8_t v = (uint8_t)(std::min(1.0f, (RayPayload.Distance / 5.0f)) * 255.0f);
                 (*ImageToWrite)[yy * ImageWidth + xx] = {v, v, v, 255 };
             }
         }
@@ -618,9 +638,17 @@ void pathTraceCPURenderer::Setup()
 
     for(size_t i=0; i<App->Scene->InstancesPointers.size(); i++)
     {
-        BVHs.push_back(bvh(App->Scene->InstancesPointers[0]->Mesh->Indices,
-                    App->Scene->InstancesPointers[0]->Mesh->Vertices,
-                    App->Scene->InstancesPointers[0]->InstanceData.Transform));
+        BVHs.push_back(bvh(App->Scene->InstancesPointers[i]->Mesh->Indices,
+                    App->Scene->InstancesPointers[i]->Mesh->Vertices,
+                    App->Scene->InstancesPointers[i]->InstanceData.Transform));
+    }
+    
+    glm::mat4 Transform = glm::translate(glm::mat4(1), glm::vec3(2,0,0));
+    for(size_t i=0; i<App->Scene->InstancesPointers.size(); i++)
+    {
+        BVHs.push_back(bvh(App->Scene->InstancesPointers[i]->Mesh->Indices,
+                    App->Scene->InstancesPointers[i]->Mesh->Vertices,
+                    Transform * App->Scene->InstancesPointers[i]->InstanceData.Transform));
     }
 
 }
@@ -656,7 +684,7 @@ void pathTraceCPURenderer::Destroy()
 
 
 
-float RayAABBIntersection(ray &Ray, glm::vec3 AABBMin,glm::vec3 AABBMax)
+float RayAABBIntersection(ray Ray, glm::vec3 AABBMin,glm::vec3 AABBMax, rayPayload &RayPayload)
 {
     float tx1 = (AABBMin.x - Ray.Origin.x) * Ray.InverseDirection.x, tx2 = (AABBMax.x - Ray.Origin.x) * Ray.InverseDirection.x;
     float tmin = std::min( tx1, tx2 ), tmax = std::max( tx1, tx2 );
@@ -664,11 +692,11 @@ float RayAABBIntersection(ray &Ray, glm::vec3 AABBMin,glm::vec3 AABBMax)
     tmin = std::max( tmin, std::min( ty1, ty2 ) ), tmax = std::min( tmax, std::max( ty1, ty2 ) );
     float tz1 = (AABBMin.z - Ray.Origin.z) * Ray.InverseDirection.z, tz2 = (AABBMax.z - Ray.Origin.z) * Ray.InverseDirection.z;
     tmin = std::max( tmin, std::min( tz1, tz2 ) ), tmax = std::min( tmax, std::max( tz1, tz2 ) );
-    if(tmax >= tmin && tmin < Ray.t && tmax > 0) return tmin;
+    if(tmax >= tmin && tmin < RayPayload.Distance && tmax > 0) return tmin;
     else return 1e30f;    
 }
 
-void RayTriangleInteresection(ray &Ray, triangle &Triangle)
+void RayTriangleInteresection(ray Ray, triangle &Triangle, rayPayload &RayPayload)
 {
     glm::vec3 Edge1 = Triangle.v1 - Triangle.v0;
     glm::vec3 Edge2 = Triangle.v2 - Triangle.v0;
@@ -687,5 +715,5 @@ void RayTriangleInteresection(ray &Ray, triangle &Triangle)
     if(v < 0 || u + v > 1) return;
     
     float t = f * glm::dot(Edge2, q);
-    if(t > 0.0001f) Ray.t = std::min(Ray.t, t);
+    if(t > 0.0001f) RayPayload.Distance = std::min(RayPayload.Distance, t);
 }

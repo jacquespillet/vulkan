@@ -28,7 +28,6 @@ struct ray
     glm::vec3 Origin;
     glm::vec3 Direction;
     glm::vec3 InverseDirection;
-    float t = 1e30f;
 };
 
 struct triangle
@@ -58,12 +57,19 @@ struct bin
     uint32_t TrianglesCount=0;
 };
 
+
+struct rayPayload
+{
+    float Distance;
+};
+
+
 struct bvh
 {
-    bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices, glm::mat4 &Transform);
+    bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices, glm::mat4 Transform);
     void Build();
     void Refit();
-    void Intersect(ray &Ray);
+    void Intersect(ray Ray, rayPayload &RayPayload);
 
     void Subdivide(uint32_t NodeIndex);
     void UpdateNodeBounds(uint32_t NodeIndex);
@@ -75,13 +81,16 @@ struct bvh
     std::vector<bvhNode> BVHNodes;
     std::vector<triangle> Triangles;
     std::vector<uint32_t> TriangleIndices;
-    uint32_t NodesUsed;
-    uint32_t TriangleCount;
+    uint32_t NodesUsed=1;
+    uint32_t TriangleCount=0;
     uint32_t RootNodeIndex=0;
+
+    glm::mat4 InvTransform;
+    aabb Bounds;
 };
 
-void RayTriangleInteresection(ray &Ray, triangle &Triangle);
-float RayAABBIntersection(ray &Ray, glm::vec3 AABBMin,glm::vec3 AABBMax);
+void RayTriangleInteresection(ray Ray, triangle &Triangle, rayPayload &RayPayload);
+float RayAABBIntersection(ray Ray, glm::vec3 AABBMin,glm::vec3 AABBMax, rayPayload &RayPayload);
 
 
 class pathTraceCPURenderer : public renderer    
