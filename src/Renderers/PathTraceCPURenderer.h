@@ -1,5 +1,27 @@
 #pragma once
 #include "../Renderer.h"
+#include <functional>
+#include <thread>
+#include <mutex>
+
+struct threadPool
+{
+    void Start();
+    void AddJob(const std::function<void()>& Job);
+    void Stop();
+    bool Busy();
+
+    bool ShouldTerminate=false;
+    std::mutex QueueMutex;
+    
+    //Mutex for access of the jobs queue
+    std::condition_variable MutexCondition;
+
+    std::vector<std::thread> Threads;
+    std::queue<std::function<void()>> Jobs;
+
+    
+};
 
 class pathTraceCPURenderer : public renderer    
 {
@@ -27,6 +49,9 @@ public:
 
     void UpdateCamera();
 private:
+
+    threadPool ThreadPool;
+
     struct triangle
     {
         glm::vec3 v0, v1, v2; 
@@ -72,10 +97,11 @@ private:
 
     bool ShouldPathTrace=false;
 
-    int tileSize=4;
+    int TileSize=32;
     
 
     void PathTrace();
+    void PathTraceTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight);
     void CreateCommandBuffers();
 
     //Random

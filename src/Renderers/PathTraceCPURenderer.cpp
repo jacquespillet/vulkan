@@ -2,6 +2,79 @@
 #include "App.h"
 #include "imgui.h"
 
+void threadPool::Start()
+{
+    uint32_t NumThreads = std::thread::hardware_concurrency();
+    
+    Threads.resize(NumThreads);
+    for(uint32_t i=0; i<NumThreads; i++)
+    {
+        Threads[i] = std::thread([this]()
+        {
+            while(true)
+            {
+                std::function<void()> Job;
+
+                {
+                    //Wait for the job to not be empty, or for the souldTerminate signal
+                    std::unique_lock<std::mutex> Lock(QueueMutex);
+                    
+                    //Locks the thread until MutexCondition is being signalized, or if the jobs queue is not empty, or if we should terminate
+                    MutexCondition.wait(Lock, [this]{
+                        return !Jobs.empty() || ShouldTerminate;
+                    });
+
+                    if(ShouldTerminate) return;
+
+                    Job = Jobs.front();
+                    Jobs.pop();
+                }
+
+                Job();
+            }       
+        });
+    }
+
+}
+
+void threadPool::AddJob(const std::function<void()>& Job)
+{
+    {
+        std::unique_lock<std::mutex> Lock(QueueMutex);
+        Jobs.push(Job);
+    }
+    //Notifies one thread waiting on this condition to be signalized
+    MutexCondition.notify_one();
+}
+
+void threadPool::Stop()
+{
+    {
+        std::unique_lock<std::mutex> lock(QueueMutex);
+        ShouldTerminate=true;
+    }
+
+    MutexCondition.notify_all();
+    for(int i=0; i<Threads.size(); i++)
+    {
+        Threads[i].join();
+    }
+    Threads.clear();
+}
+
+bool threadPool::Busy()
+{
+    bool Busy;
+    {
+        std::unique_lock<std::mutex> Lock(QueueMutex);
+        Busy = Jobs.empty();
+    }
+
+    return Busy;
+}
+
+
+
 bool pathTraceCPURenderer::bvhNode::IsLeaf()
 {
     return TriangleCount > 0;
@@ -100,50 +173,52 @@ void pathTraceCPURenderer::Render()
     VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 }
 
-void pathTraceCPURenderer::PathTrace()
+void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight)
 {
     glm::vec4 Origin = App->Scene->Camera.GetModelMatrix() * glm::vec4(0,0,0,1);
-    
     ray Ray = {}; 
-    for(uint32_t y=0; y<App->Height; y+=tileSize)
+    for(uint32_t yy=StartY; yy < StartY+TileHeight; yy++)
     {
-        for(uint32_t x=0; x<App->Width; x+=tileSize)
+        for(uint32_t xx=StartX; xx < StartX+TileWidth; xx++)
         {
-            for(uint32_t yy=y; yy < y+tileSize; yy++)
+            Image[yy * App->Width + xx] = { 0, 0, 0, 0 };
+    
+            glm::vec2 uv((float)xx / (float)App->Width, (float)yy / (float)App->Height);
+            Ray.Origin = Origin;
+            glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
+            glm::vec4 Direction = App->Scene->Camera.GetModelMatrix() * glm::normalize(glm::vec4(Target.x,Target.y, Target.z, 0.0f));
+            // vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
+            Ray.Direction = Direction;
+            Ray.InverseDirection = 1.0f / Direction;
+            Ray.t = 1e30f;
+            IntersectBVH(Ray, RootNodeIndex);
+            if (Ray.t < 1e30f)
             {
-                for(uint32_t xx=x; xx < x+tileSize; xx++)
-                {
-                    Image[yy * App->Width + xx] = { 0, 0, 0, 0 };
-            
-                    glm::vec2 uv((float)xx / (float)App->Width, (float)yy / (float)App->Height);
-                    Ray.Origin = Origin;
-                    glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
-                    glm::vec4 Direction = App->Scene->Camera.GetModelMatrix() * glm::normalize(glm::vec4(Target.x,Target.y, Target.z, 0.0f));
-                    // vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
-                    Ray.Direction = Direction;
-                    Ray.InverseDirection = 1.0f / Direction;
-                    Ray.t = 1e30f;
-                    #if 0
-                                for(int i=0; i<NumTriangles; i++)
-                                {
-                                    RayTriangleInteresection(Ray, Triangles[i]);
-                                }
-                    #else
-                        IntersectBVH(Ray, RootNodeIndex);
-                    #endif
-                        if (Ray.t < 1e30f)
-                        {
-                            uint8_t v = (uint8_t)(std::min(1.0f, (Ray.t / 5.0f)) * 255.0f);
-                            Image[yy * App->Width + xx] = {v, v, v, 255 };
-                        }
-                }
+                uint8_t v = (uint8_t)(std::min(1.0f, (Ray.t / 5.0f)) * 255.0f);
+                Image[yy * App->Width + xx] = {v, v, v, 255 };
             }
+        }
+    }
+}
+
+void pathTraceCPURenderer::PathTrace()
+{
+    for(uint32_t y=0; y<App->Height; y+=TileSize)
+    {
+        for(uint32_t x=0; x<App->Width; x+=TileSize)
+        {
+            // 
+            ThreadPool.AddJob([x, y, this]()
+            {
+               PathTraceTile(x, y, TileSize, TileSize); 
+            });
         }
     }
 }
 
 void pathTraceCPURenderer::Setup()
 {
+    ThreadPool.Start();
     CreateCommandBuffers();
 
     Image.resize(App->Width * App->Height);
@@ -160,6 +235,7 @@ void pathTraceCPURenderer::Setup()
                               &VulkanObjects.ImageStagingBuffer, Image.size() * sizeof(rgba8), Image.data());
 
     InitGeometry();
+
 }
 
 //
@@ -186,6 +262,8 @@ void pathTraceCPURenderer::Resize(uint32_t Width, uint32_t Height)
 void pathTraceCPURenderer::Destroy()
 {
     vkFreeCommandBuffers(Device, App->VulkanObjects.CommandPool, 1, &VulkanObjects.DrawCommandBuffer);
+
+    ThreadPool.Stop();
 }
 
 void pathTraceCPURenderer::InitGeometry()
