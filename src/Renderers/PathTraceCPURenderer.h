@@ -89,6 +89,29 @@ struct bvh
     aabb Bounds;
 };
 
+struct tlasNode
+{
+    glm::vec3 AABBMin;
+    uint32_t LeftBLAS;
+    glm::vec3 AABBMax;
+    uint32_t IsLeaf;
+};
+
+struct tlas
+{
+    tlas(std::vector<bvh>* Instances);
+    tlas();
+    void Build();
+    void Intersect(ray Ray, rayPayload &RayPayload);
+
+    //Instances
+    std::vector<bvh>* BLAS;
+    
+    std::vector<tlasNode> Nodes;
+
+    uint32_t NodesUsed=0;
+};
+
 void RayTriangleInteresection(ray Ray, triangle &Triangle, rayPayload &RayPayload);
 float RayAABBIntersection(ray Ray, glm::vec3 AABBMin,glm::vec3 AABBMax, rayPayload &RayPayload);
 
@@ -128,6 +151,7 @@ private:
     threadPool ThreadPool;
 
     std::vector<bvh> BVHs;
+    tlas TLAS;
 
     bool ShouldPathTrace=false;
     

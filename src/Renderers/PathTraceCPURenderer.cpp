@@ -3,6 +3,9 @@
 #include "imgui.h"
 #define BINS 8
 
+
+////////////////////////////////////////////////////////////////////////////////////////
+
 void threadPool::Start()
 {
     uint32_t NumThreads = std::thread::hardware_concurrency();
@@ -74,12 +77,15 @@ bool threadPool::Busy()
     return Busy;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////
 
 
 bool bvhNode::IsLeaf()
 {
     return TriangleCount > 0;
 }
+
+////////////////////////////////////////////////////////////////////////////////////////
 
 float aabb::Area()
 {
@@ -101,6 +107,10 @@ void aabb::Grow(aabb &AABB)
         Grow(AABB.Max);
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////
 
 bvh::bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices, glm::mat4 Transform)
 {
@@ -400,6 +410,81 @@ void bvh::UpdateNodeBounds(uint32_t NodeIndex)
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+tlas::tlas()
+{}
+
+tlas::tlas(std::vector<bvh>* BVHList)
+{
+    BLAS = BVHList;
+    Nodes.resize(BLAS->size() * 2);
+    NodesUsed=2;
+}
+
+void tlas::Build()
+{
+    Nodes[2].LeftBLAS = 0; //Reference to the primitive
+    Nodes[2].AABBMin = glm::vec3(-3);
+    Nodes[2].AABBMax = glm::vec3(3);
+    Nodes[2].IsLeaf=true;
+    
+    Nodes[3].LeftBLAS = 1; //Reference to the primitive
+    Nodes[3].AABBMin = glm::vec3(-3);
+    Nodes[3].AABBMax = glm::vec3(3);
+    Nodes[3].IsLeaf=true;
+
+    Nodes[0].LeftBLAS=2;
+    Nodes[0].AABBMin = glm::min(Nodes[3].AABBMin, Nodes[2].AABBMin);
+    Nodes[0].AABBMax = glm::max(Nodes[3].AABBMax, Nodes[2].AABBMax);
+    Nodes[0].IsLeaf=false;
+}
+
+void tlas::Intersect(ray Ray, rayPayload &RayPayload)
+{
+    Ray.InverseDirection = 1.0f / Ray.Direction;
+    tlasNode *Node = &Nodes[0];
+    tlasNode *Stack[64];
+    uint32_t StackPtr=0;
+    while(1)
+    {
+        //If we hit the leaf, check intersection with the bvhs
+        if(Node->IsLeaf)
+        {
+            (*BLAS)[Node->LeftBLAS].Intersect(Ray, RayPayload);
+            if(StackPtr == 0) break;
+            else Node = Stack[--StackPtr];
+            continue;
+        }
+
+        //Check if hit any of the children
+        tlasNode *Child1 = &Nodes[Node->LeftBLAS];
+        tlasNode *Child2 = &Nodes[Node->LeftBLAS + 1];
+        float Dist1 = RayAABBIntersection(Ray, Child1->AABBMin, Child1->AABBMax, RayPayload);
+        float Dist2 = RayAABBIntersection(Ray, Child2->AABBMin, Child2->AABBMax, RayPayload);
+        if(Dist1 > Dist2) { //Swap if dist 2 is closer
+            std::swap(Dist1, Dist2);
+            std::swap(Child1, Child2);
+        }
+        
+        if(Dist1 == 1e30f) //We didn't hit a child
+        {
+            if(StackPtr == 0) break; //There's no node left to explore
+            else Node = Stack[--StackPtr]; //Go to the next node in the stack
+        }
+        else //We hit a child
+        {
+            Node = Child1; //Set the current node to the first child
+            if(Dist2 != 1e30f) Stack[StackPtr++] = Child2; //If we also hit the other node, add it in the stack
+        }
+
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+
 pathTraceCPURenderer::pathTraceCPURenderer(vulkanApp *App) : renderer(App) {}
 
 void pathTraceCPURenderer::Render()
@@ -565,10 +650,12 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
             
             rayPayload RayPayload = {};
             RayPayload.Distance = 1e30f;
-            for(size_t i=0; i<BVHs.size(); i++)
-            {
-                BVHs[i].Intersect(Ray, RayPayload);
-            }
+            
+            //  for(size_t i=0; i<BVHs.size(); i++)
+            //  {
+            //      BVHs[i].Intersect(Ray, RayPayload);
+            //  }
+            TLAS.Intersect(Ray, RayPayload);
 
             if (RayPayload.Distance < 1e30f)
             {
@@ -651,6 +738,8 @@ void pathTraceCPURenderer::Setup()
                     Transform * App->Scene->InstancesPointers[i]->InstanceData.Transform));
     }
 
+    TLAS = tlas(&BVHs);
+    TLAS.Build();
 }
 
 //
