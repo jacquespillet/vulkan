@@ -1,7 +1,6 @@
 #include "PathTraceCPURenderer.h"
 #include "App.h"
 #include "imgui.h"
-#define BINS 8
 
 void threadPool::Start()
 {
@@ -76,308 +75,21 @@ bool threadPool::Busy()
 
 
 
-bool bvhNode::IsLeaf()
+bool pathTraceCPURenderer::bvhNode::IsLeaf()
 {
     return TriangleCount > 0;
 }
 
-float aabb::Area()
+float pathTraceCPURenderer::aabb::Area()
 {
     glm::vec3 e = Max - Min;
     return e.x * e.y + e.y * e.z + e.z * e.x;
 }
 
-void aabb::Grow(glm::vec3 Position)
+void pathTraceCPURenderer::aabb::Grow(glm::vec3 Position)
 {
     Min = glm::min(Min, Position);
     Max = glm::max(Max, Position);
-}
-
-void aabb::Grow(aabb &AABB)
-{
-    if(AABB.Min.x != 1e30f)
-    {
-        Grow(AABB.Min);
-        Grow(AABB.Max);
-    }
-}
-
-bvh::bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices, glm::mat4 &Transform)
-{
-    uint32_t AddedTriangles=0;
-    
-    Triangles.resize(Indices.size()/3);
-    for(size_t j=0; j<Indices.size(); j+=3)
-    {
-        uint32_t i0 = Indices[j+0];
-        uint32_t i1 = Indices[j+1];
-        uint32_t i2 = Indices[j+2];
-        glm::vec4 v0 = Transform * glm::vec4(glm::vec3(Vertices[i0].Position), 1.0f);
-        glm::vec4 v1 = Transform * glm::vec4(glm::vec3(Vertices[i1].Position), 1.0f);
-        glm::vec4 v2 = Transform * glm::vec4(glm::vec3(Vertices[i2].Position), 1.0f);
-
-        glm::vec4 n0 = Transform * glm::vec4(glm::vec3(Vertices[i0].Normal), 0.0f);
-        glm::vec4 n1 = Transform * glm::vec4(glm::vec3(Vertices[i1].Normal), 0.0f);
-        glm::vec4 n2 = Transform * glm::vec4(glm::vec3(Vertices[i2].Normal), 0.0f);
-        
-        Triangles[AddedTriangles].v0=v0;
-        Triangles[AddedTriangles].v1=v1;
-        Triangles[AddedTriangles].v2=v2;
-        Triangles[AddedTriangles].Normal0=n0;
-        Triangles[AddedTriangles].Normal1=n1;
-        Triangles[AddedTriangles].Normal2=n2;
-        AddedTriangles++;
-    }
-    
-    TriangleCount = AddedTriangles;    
-
-    Build();
-}
-void bvh::Build()
-{
-    BVHNodes.resize(TriangleCount * 2 - 1);
-    TriangleIndices.resize(Triangles.size());
-
-    for(size_t i=0; i<Triangles.size(); i++)
-    {
-        Triangles[i].Centroid = (Triangles[i].v0 + Triangles[i].v1 + Triangles[i].v2) * 0.33333f;
-        TriangleIndices[i] = (uint32_t)i;
-    }
-
-    bvhNode &Root = BVHNodes[RootNodeIndex];
-    Root.LeftChildOrFirst = 0;
-    Root.TriangleCount = TriangleCount;
-    UpdateNodeBounds(RootNodeIndex);
-    Subdivide(RootNodeIndex);
-}
-
-
-float bvh::EvaluateSAH(bvhNode &Node, int Axis, float Position)
-{
-    aabb LeftBox, RightBox;
-    int LeftCount=0;
-    int RightCount=0;
-
-    for(uint32_t i=0; i<Node.TriangleCount; i++)
-    {
-        triangle &Triangle = Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
-        if(Triangle.Centroid[Axis] < Position)
-        {
-            LeftCount++;
-            LeftBox.Grow(Triangle.v0);
-            LeftBox.Grow(Triangle.v1);
-            LeftBox.Grow(Triangle.v2);
-        }
-        else
-        {
-            RightCount++;
-            RightBox.Grow(Triangle.v0);
-            RightBox.Grow(Triangle.v1);
-            RightBox.Grow(Triangle.v2);
-        }
-    }
-
-    float Cost = LeftCount * LeftBox.Area() + RightCount * RightBox.Area();
-    return Cost > 0 ? Cost : 1e30f;
-}
-
-
-float bvh::FindBestSplitPlane(bvhNode &Node, int &Axis, float &SplitPosition)
-{
-    float BestCost = 1e30f;
-    for(int CurrentAxis=0; CurrentAxis<3; CurrentAxis++)
-    {
-        float BoundsMin = 1e30f;
-        float BoundsMax = -1e30f;
-        for(uint32_t i=0; i<Node.TriangleCount; i++)
-        {
-            triangle &Triangle = Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
-            BoundsMin = std::min(BoundsMin, Triangle.Centroid[CurrentAxis]);
-            BoundsMax = std::max(BoundsMax, Triangle.Centroid[CurrentAxis]);
-        }
-        if(BoundsMin == BoundsMax) continue;
-        
-        
-        bin Bins[BINS];
-        float Scale = BINS / (BoundsMax - BoundsMin);
-        for(uint32_t i=0; i<Node.TriangleCount; i++)
-        {
-            triangle &Triangle = Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
-            int BinIndex = std::min(BINS - 1, (int)((Triangle.Centroid[CurrentAxis] - BoundsMin) * Scale));
-            Bins[BinIndex].TrianglesCount++;
-            Bins[BinIndex].Bounds.Grow(Triangle.v0);
-            Bins[BinIndex].Bounds.Grow(Triangle.v1);
-            Bins[BinIndex].Bounds.Grow(Triangle.v2);
-        }
-
-        float LeftArea[BINS-1], RightArea[BINS-1];
-        int LeftCount[BINS-1], RightCount[BINS-1];
-        
-        aabb LeftBox, RightBox;
-        int LeftSum=0, RightSum=0;
-
-        for(int i=0; i<BINS-1; i++)
-        {
-            //Info from the left to the right
-            LeftSum += Bins[i].TrianglesCount;
-            LeftCount[i] = LeftSum; //Number of primitives to the right of this plane
-            LeftBox.Grow(Bins[i].Bounds);
-            LeftArea[i] = LeftBox.Area(); //Area to the right of this plane
-            
-            //Info from the right to the left
-            RightSum += Bins[BINS-1-i].TrianglesCount;
-            RightCount[BINS-2-i] = RightSum; //Number of primitives to the left of this plane
-            RightBox.Grow(Bins[BINS-1-i].Bounds);
-            RightArea[BINS-2-i] = RightBox.Area(); //Area to the left of this plane
-        }
-
-        Scale = (BoundsMax - BoundsMin) / BINS;
-        for(int i=0; i<BINS-1; i++)
-        {
-            float PlaneCost = LeftCount[i] * LeftArea[i] + RightCount[i] * RightArea[i];
-            if(PlaneCost < BestCost)
-            {
-                Axis = CurrentAxis;
-                SplitPosition = BoundsMin + Scale * (i+1);
-                BestCost = PlaneCost;
-            }
-        }
-    }
-
-    return BestCost;
-}
-
-
-
-void bvh::Subdivide(uint32_t NodeIndex)
-{
-    bvhNode &Node = BVHNodes[NodeIndex];
-
-
-#if 0
-    if(Node.TriangleCount <=2) return;
-    glm::vec3 Extent = Node.AABBMax - Node.AABBMin;
-    int Axis=0;
-    if(Extent.y > Extent.x) Axis=1;
-    if(Extent.z > Extent[Axis]) Axis=2;
-    float SplitPosition = Node.AABBMin[Axis] + Extent[Axis] * 0.5f; 
-#else
-
-    int Axis=-1;
-    float SplitPosition = 0;
-    float SplitCost = FindBestSplitPlane(Node, Axis, SplitPosition);
-    float NoSplitCost = CalculateNodeCost(Node);
-    if(SplitCost >= NoSplitCost) return;
-#endif
-
-    int i=Node.LeftChildOrFirst;
-    int j = i + Node.TriangleCount -1;
-    while(i <= j)
-    {
-        if(Triangles[TriangleIndices[i]].Centroid[Axis] < SplitPosition)
-        {
-            i++;
-        }
-        else
-        {
-            std::swap(TriangleIndices[i], TriangleIndices[j--]);
-        }
-    }
-
-    uint32_t LeftCount = i - Node.LeftChildOrFirst;
-    if(LeftCount==0 || LeftCount == Node.TriangleCount) return;
-
-    int LeftChildIndex = NodesUsed++;
-    int RightChildIndex = NodesUsed++;
-    
-    BVHNodes[LeftChildIndex].LeftChildOrFirst = Node.LeftChildOrFirst;
-    BVHNodes[LeftChildIndex].TriangleCount = LeftCount;
-    BVHNodes[RightChildIndex].LeftChildOrFirst = i;
-    BVHNodes[RightChildIndex].TriangleCount = Node.TriangleCount - LeftCount;
-    Node.LeftChildOrFirst = LeftChildIndex;
-    Node.TriangleCount=0;
-
-    UpdateNodeBounds(LeftChildIndex);
-    UpdateNodeBounds(RightChildIndex);
-
-    Subdivide(LeftChildIndex);
-    Subdivide(RightChildIndex);
-}
-
-
-float bvh::CalculateNodeCost(bvhNode &Node)
-{
-    glm::vec3 e = Node.AABBMax - Node.AABBMin;
-    float ParentArea = e.x * e.y + e.x * e.z + e.y * e.z;
-    float NodeCost = Node.TriangleCount * ParentArea;
-    return NodeCost;
-}
-
-void bvh::Refit()
-{
-
-}
-
-void bvh::Intersect(ray &Ray)
-{
-    bvhNode *Node = &BVHNodes[RootNodeIndex];
-    bvhNode *Stack[64];
-    uint32_t StackPointer=0;
-    while(true)
-    {
-        if(Node->IsLeaf())
-        {
-            for(uint32_t i=0; i<Node->TriangleCount; i++)
-            {
-                RayTriangleInteresection(Ray, Triangles[TriangleIndices[Node->LeftChildOrFirst + i]]);
-            }
-            if(StackPointer==0) break;
-            else Node = Stack[--StackPointer];
-            continue;
-        }
-
-        bvhNode *Child1 = &BVHNodes[Node->LeftChildOrFirst];
-        bvhNode *Child2 = &BVHNodes[Node->LeftChildOrFirst+1];
-
-        float Dist1 = RayAABBIntersection(Ray, Child1->AABBMin, Child1->AABBMax);
-        float Dist2 = RayAABBIntersection(Ray, Child2->AABBMin, Child2->AABBMax);
-        if(Dist1 > Dist2) {
-            std::swap(Dist1, Dist2);
-            std::swap(Child1, Child2);
-        }
-
-        if(Dist1 == 1e30f)
-        {
-            if(StackPointer==0) break;
-            else Node = Stack[--StackPointer];
-        }
-        else
-        {
-            Node = Child1;
-            if(Dist2 != 1e30f)
-            {
-                Stack[StackPointer++] = Child2;
-            }   
-        }
-    }
-}
-
-void bvh::UpdateNodeBounds(uint32_t NodeIndex)
-{
-    bvhNode &Node = BVHNodes[NodeIndex];
-    Node.AABBMin = glm::vec3(1e30f);
-    Node.AABBMax = glm::vec3(-1e30f);
-    for(uint32_t First=Node.LeftChildOrFirst, i=0; i<Node.TriangleCount; i++)
-    {
-        uint32_t TriangleIndex = TriangleIndices[First + i];
-        triangle &Triangle = Triangles[TriangleIndex];
-        Node.AABBMin = glm::min(Node.AABBMin, Triangle.v0);
-        Node.AABBMin = glm::min(Node.AABBMin, Triangle.v1);
-        Node.AABBMin = glm::min(Node.AABBMin, Triangle.v2);
-        Node.AABBMax = glm::max(Node.AABBMax, Triangle.v0);
-        Node.AABBMax = glm::max(Node.AABBMax, Triangle.v1);
-        Node.AABBMax = glm::max(Node.AABBMax, Triangle.v2);
-    }
 }
 
 pathTraceCPURenderer::pathTraceCPURenderer(vulkanApp *App) : renderer(App) {}
@@ -390,7 +102,6 @@ void pathTraceCPURenderer::Render()
         PathTrace();    
         ShouldPathTrace=false;
     }
-
     if(App->Scene->Camera.Changed && !ThreadPool.Busy())
     {
         HasPathTrace=false;
@@ -540,16 +251,11 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
             Ray.Origin = Origin;
             glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
             glm::vec4 Direction = App->Scene->Camera.GetModelMatrix() * glm::normalize(glm::vec4(Target.x,Target.y, Target.z, 0.0f));
-            
+            // vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
             Ray.Direction = Direction;
             Ray.InverseDirection = 1.0f / Direction;
             Ray.t = 1e30f;
-            
-            for(size_t i=0; i<BVHs.size(); i++)
-            {
-                BVHs[i].Intersect(Ray);
-            }
-
+            IntersectBVH(Ray, RootNodeIndex);
             if (Ray.t < 1e30f)
             {
                 uint8_t v = (uint8_t)(std::min(1.0f, (Ray.t / 5.0f)) * 255.0f);
@@ -616,12 +322,7 @@ void pathTraceCPURenderer::Setup()
                               &VulkanObjects.previewBuffer, PreviewImage.size() * sizeof(rgba8), PreviewImage.data());    
     VulkanObjects.previewImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, VK_FORMAT_R8G8B8A8_UNORM, {previewSize, previewSize, 1});
 
-    for(size_t i=0; i<App->Scene->InstancesPointers.size(); i++)
-    {
-        BVHs.push_back(bvh(App->Scene->InstancesPointers[0]->Mesh->Indices,
-                    App->Scene->InstancesPointers[0]->Mesh->Vertices,
-                    App->Scene->InstancesPointers[0]->InstanceData.Transform));
-    }
+    InitGeometry();
 
 }
 
@@ -653,10 +354,227 @@ void pathTraceCPURenderer::Destroy()
     ThreadPool.Stop();
 }
 
+void pathTraceCPURenderer::InitGeometry()
+{
+    uint32_t AddedTriangles=0;
+    for(size_t i=0; i<App->Scene->InstancesPointers.size(); i++)
+    {
+        sceneMesh *Mesh = App->Scene->InstancesPointers[i]->Mesh;
+        glm::mat4 Transform = App->Scene->InstancesPointers[i]->InstanceData.Transform;
+        Triangles.resize(Triangles.size() + Mesh->Indices.size()/3);
+        for(size_t j=0; j<Mesh->Indices.size(); j+=3)
+        {
+            uint32_t i0 = Mesh->Indices[j+0];
+            uint32_t i1 = Mesh->Indices[j+1];
+            uint32_t i2 = Mesh->Indices[j+2];
+            glm::vec4 v0 = Transform * glm::vec4(glm::vec3(Mesh->Vertices[i0].Position), 1.0f);
+            glm::vec4 v1 = Transform * glm::vec4(glm::vec3(Mesh->Vertices[i1].Position), 1.0f);
+            glm::vec4 v2 = Transform * glm::vec4(glm::vec3(Mesh->Vertices[i2].Position), 1.0f);
+
+            glm::vec4 n0 = Transform * glm::vec4(glm::vec3(Mesh->Vertices[i0].Normal), 0.0f);
+            glm::vec4 n1 = Transform * glm::vec4(glm::vec3(Mesh->Vertices[i1].Normal), 0.0f);
+            glm::vec4 n2 = Transform * glm::vec4(glm::vec3(Mesh->Vertices[i2].Normal), 0.0f);
+            
+            Triangles[AddedTriangles].v0=v0;
+            Triangles[AddedTriangles].v1=v1;
+            Triangles[AddedTriangles].v2=v2;
+            Triangles[AddedTriangles].Normal0=n0;
+            Triangles[AddedTriangles].Normal1=n1;
+            Triangles[AddedTriangles].Normal2=n2;
+			AddedTriangles++;
+        }
+    }
+
+    NumTriangles = AddedTriangles;
+
+    BuildBVH();
+}
+
+void pathTraceCPURenderer::UpdateNodeBounds(uint32_t NodeIndex)
+{
+    bvhNode &Node = BVHNodes[NodeIndex];
+    Node.AABBMin = glm::vec3(1e30f);
+    Node.AABBMax = glm::vec3(-1e30f);
+    for(uint32_t First=Node.LeftChildOrFirst, i=0; i<Node.TriangleCount; i++)
+    {
+        uint32_t TriangleIndex = TriangleIndices[First + i];
+        triangle &Triangle = Triangles[TriangleIndex];
+        Node.AABBMin = glm::min(Node.AABBMin, Triangle.v0);
+        Node.AABBMin = glm::min(Node.AABBMin, Triangle.v1);
+        Node.AABBMin = glm::min(Node.AABBMin, Triangle.v2);
+        Node.AABBMax = glm::max(Node.AABBMax, Triangle.v0);
+        Node.AABBMax = glm::max(Node.AABBMax, Triangle.v1);
+        Node.AABBMax = glm::max(Node.AABBMax, Triangle.v2);
+    }
+}
+
+float pathTraceCPURenderer::EvaluateSAH(bvhNode &Node, int Axis, float Position)
+{
+    aabb LeftBox, RightBox;
+    int LeftCount=0;
+    int RightCount=0;
+
+    for(uint32_t i=0; i<Node.TriangleCount; i++)
+    {
+        triangle &Triangle = Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
+        if(Triangle.Centroid[Axis] < Position)
+        {
+            LeftCount++;
+            LeftBox.Grow(Triangle.v0);
+            LeftBox.Grow(Triangle.v1);
+            LeftBox.Grow(Triangle.v2);
+        }
+        else
+        {
+            RightCount++;
+            RightBox.Grow(Triangle.v0);
+            RightBox.Grow(Triangle.v1);
+            RightBox.Grow(Triangle.v2);
+        }
+    }
+
+    float Cost = LeftCount * LeftBox.Area() + RightCount * RightBox.Area();
+    return Cost > 0 ? Cost : 1e30f;
+}
+
+void pathTraceCPURenderer::Subdivide(uint32_t NodeIndex)
+{
+    bvhNode &Node = BVHNodes[NodeIndex];
 
 
+#if 0
+    if(Node.TriangleCount <=2) return;
+    glm::vec3 Extent = Node.AABBMax - Node.AABBMin;
+    int Axis=0;
+    if(Extent.y > Extent.x) Axis=1;
+    if(Extent.z > Extent[Axis]) Axis=2;
+    float SplitPosition = Node.AABBMin[Axis] + Extent[Axis] * 0.5f; 
+#else
+    glm::vec3 e = Node.AABBMax - Node.AABBMin;
+    float ParentArea = e.x * e.y + e.x * e.z + e.y * e.z;
+    float ParentCost = Node.TriangleCount * ParentArea;
 
-float RayAABBIntersection(ray &Ray, glm::vec3 AABBMin,glm::vec3 AABBMax)
+    int BestAxis=-1;
+    float BestPosition = 0;
+    float BestCost = 1e30f;
+    for(int Axis=0; Axis<3; Axis++)
+    {
+        for(uint32_t i=0; i<Node.TriangleCount; i++)
+        {
+            triangle &Triangle = Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
+            float CandidatePosition = Triangle.Centroid[Axis];
+            float Cost = EvaluateSAH(Node, Axis, CandidatePosition);
+            if(Cost < BestCost)
+            {
+                BestPosition = CandidatePosition;
+                BestAxis = Axis;
+                BestCost = Cost;
+            }
+        }
+    }
+    if(BestCost >= ParentCost) return;
+
+    int Axis = BestAxis;
+    float SplitPosition = BestPosition;
+#endif
+
+    int i=Node.LeftChildOrFirst;
+    int j = i + Node.TriangleCount -1;
+    while(i <= j)
+    {
+        if(Triangles[TriangleIndices[i]].Centroid[Axis] < SplitPosition)
+        {
+            i++;
+        }
+        else
+        {
+            std::swap(TriangleIndices[i], TriangleIndices[j--]);
+        }
+    }
+
+    uint32_t LeftCount = i - Node.LeftChildOrFirst;
+    if(LeftCount==0 || LeftCount == Node.TriangleCount) return;
+
+    int LeftChildIndex = NodesUsed++;
+    int RightChildIndex = NodesUsed++;
+    
+    BVHNodes[LeftChildIndex].LeftChildOrFirst = Node.LeftChildOrFirst;
+    BVHNodes[LeftChildIndex].TriangleCount = LeftCount;
+    BVHNodes[RightChildIndex].LeftChildOrFirst = i;
+    BVHNodes[RightChildIndex].TriangleCount = Node.TriangleCount - LeftCount;
+    Node.LeftChildOrFirst = LeftChildIndex;
+    Node.TriangleCount=0;
+
+    UpdateNodeBounds(LeftChildIndex);
+    UpdateNodeBounds(RightChildIndex);
+
+    Subdivide(LeftChildIndex);
+    Subdivide(RightChildIndex);
+}
+
+void pathTraceCPURenderer::BuildBVH()
+{
+    BVHNodes.resize(NumTriangles * 2 - 1);
+    TriangleIndices.resize(Triangles.size());
+
+    for(size_t i=0; i<Triangles.size(); i++)
+    {
+        Triangles[i].Centroid = (Triangles[i].v0 + Triangles[i].v1 + Triangles[i].v2) * 0.33333f;
+        TriangleIndices[i] = (uint32_t)i;
+    }
+
+    bvhNode &Root = BVHNodes[RootNodeIndex];
+    Root.LeftChildOrFirst = 0;
+    Root.TriangleCount = NumTriangles;
+    UpdateNodeBounds(RootNodeIndex);
+    Subdivide(RootNodeIndex);
+}
+
+void pathTraceCPURenderer::IntersectBVH(ray &Ray, uint32_t NodeIndex)
+{
+    bvhNode *Node = &BVHNodes[RootNodeIndex];
+    bvhNode *Stack[64];
+    uint32_t StackPointer=0;
+    while(true)
+    {
+        if(Node->IsLeaf())
+        {
+            for(uint32_t i=0; i<Node->TriangleCount; i++)
+            {
+                RayTriangleInteresection(Ray, Triangles[TriangleIndices[Node->LeftChildOrFirst + i]]);
+            }
+            if(StackPointer==0) break;
+            else Node = Stack[--StackPointer];
+            continue;
+        }
+
+        bvhNode *Child1 = &BVHNodes[Node->LeftChildOrFirst];
+        bvhNode *Child2 = &BVHNodes[Node->LeftChildOrFirst+1];
+
+        float Dist1 = RayAABBIntersection(Ray, Child1->AABBMin, Child1->AABBMax);
+        float Dist2 = RayAABBIntersection(Ray, Child2->AABBMin, Child2->AABBMax);
+        if(Dist1 > Dist2) {
+            std::swap(Dist1, Dist2);
+            std::swap(Child1, Child2);
+        }
+
+        if(Dist1 == 1e30f)
+        {
+            if(StackPointer==0) break;
+            else Node = Stack[--StackPointer];
+        }
+        else
+        {
+            Node = Child1;
+            if(Dist2 != 1e30f)
+            {
+                Stack[StackPointer++] = Child2;
+            }   
+        }
+    }
+}
+
+float pathTraceCPURenderer::RayAABBIntersection(ray &Ray, glm::vec3 AABBMin,glm::vec3 AABBMax)
 {
     float tx1 = (AABBMin.x - Ray.Origin.x) * Ray.InverseDirection.x, tx2 = (AABBMax.x - Ray.Origin.x) * Ray.InverseDirection.x;
     float tmin = std::min( tx1, tx2 ), tmax = std::max( tx1, tx2 );
@@ -668,7 +586,7 @@ float RayAABBIntersection(ray &Ray, glm::vec3 AABBMin,glm::vec3 AABBMax)
     else return 1e30f;    
 }
 
-void RayTriangleInteresection(ray &Ray, triangle &Triangle)
+void pathTraceCPURenderer::RayTriangleInteresection(ray &Ray, triangle &Triangle)
 {
     glm::vec3 Edge1 = Triangle.v1 - Triangle.v0;
     glm::vec3 Edge2 = Triangle.v2 - Triangle.v0;
