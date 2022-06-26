@@ -67,7 +67,7 @@ bool threadPool::Busy()
     bool Busy;
     {
         std::unique_lock<std::mutex> Lock(QueueMutex);
-        Busy = Jobs.empty();
+        Busy = !Jobs.empty();
     }
 
     return Busy;
@@ -98,15 +98,32 @@ void pathTraceCPURenderer::Render()
 {
     if(ShouldPathTrace)
     {
+        HasPreview=false;
         PathTrace();    
         ShouldPathTrace=false;
+    }
+    if(App->Scene->Camera.Changed && !ThreadPool.Busy())
+    {
+        HasPathTrace=false;
+        Preview();    
     }
 
     VK_CALL(App->VulkanObjects.Swapchain.AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
     
-    VulkanObjects.ImageStagingBuffer.Map();
-    VulkanObjects.ImageStagingBuffer.CopyTo(Image.data(), Image.size() * sizeof(rgba8));
-    VulkanObjects.ImageStagingBuffer.Unmap();
+    if(HasPathTrace)
+    {
+        VulkanObjects.ImageStagingBuffer.Map();
+        VulkanObjects.ImageStagingBuffer.CopyTo(Image.data(), Image.size() * sizeof(rgba8));
+        VulkanObjects.ImageStagingBuffer.Unmap();
+    }
+
+    if(HasPreview)
+    {
+        VulkanObjects.previewBuffer.Map();
+        VulkanObjects.previewBuffer.CopyTo(PreviewImage.data(), PreviewImage.size() * sizeof(rgba8));
+        VulkanObjects.previewBuffer.Unmap();
+    }
+
 
     //Fill command buffer
     {
@@ -130,22 +147,69 @@ void pathTraceCPURenderer::Render()
         VkImageSubresourceRange SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, App->VulkanObjects.Swapchain.Images[App->VulkanObjects.CurrentBuffer], 
                                            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
-        
-        VkBufferImageCopy Region = {};
-        Region.imageExtent.depth=1;
-        Region.imageExtent.width = App->Width;
-        Region.imageExtent.height = App->Height;
-        Region.imageOffset = {0,0,0};
-        Region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        Region.imageSubresource.baseArrayLayer=0;
-        Region.imageSubresource.layerCount=1;
-        Region.imageSubresource.mipLevel=0;
-        Region.bufferOffset=0;
-        Region.bufferRowLength=0;
 
-        vkCmdCopyBufferToImage(VulkanObjects.DrawCommandBuffer, VulkanObjects.ImageStagingBuffer.VulkanObjects.Buffer, 
-                                App->VulkanObjects.Swapchain.Images[App->VulkanObjects.CurrentBuffer], 
-                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &Region);
+        if(HasPathTrace)
+        {
+            VkBufferImageCopy Region = {};
+            Region.imageExtent.depth=1;
+            Region.imageExtent.width = App->Width;
+            Region.imageExtent.height = App->Height;
+            Region.imageOffset = {0,0,0};
+            Region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            Region.imageSubresource.baseArrayLayer=0;
+            Region.imageSubresource.layerCount=1;
+            Region.imageSubresource.mipLevel=0;
+            Region.bufferOffset=0;
+            Region.bufferRowLength=0;
+
+            vkCmdCopyBufferToImage(VulkanObjects.DrawCommandBuffer, VulkanObjects.ImageStagingBuffer.VulkanObjects.Buffer, 
+                                    App->VulkanObjects.Swapchain.Images[App->VulkanObjects.CurrentBuffer], 
+                                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &Region);
+        }        
+
+        if(HasPreview)
+        {
+            VkBufferImageCopy Region = {};
+            Region.imageExtent.depth=1;
+            Region.imageExtent.width = previewSize;
+            Region.imageExtent.height = previewSize;
+            Region.imageOffset = {0,0,0};
+            Region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            Region.imageSubresource.baseArrayLayer=0;
+            Region.imageSubresource.layerCount=1;
+            Region.imageSubresource.mipLevel=0;
+            Region.bufferOffset=0;
+            Region.bufferRowLength=0;
+
+            vkCmdCopyBufferToImage(VulkanObjects.DrawCommandBuffer, VulkanObjects.previewBuffer.VulkanObjects.Buffer, 
+                                    VulkanObjects.previewImage.Image, 
+                                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &Region);  
+
+            vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, VulkanObjects.previewImage.Image, 
+                                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, SubresourceRange);                                    
+
+            VkImageBlit BlitRegion = {};
+            BlitRegion.srcOffsets[0] = {0,0,0};
+            BlitRegion.srcOffsets[1] = {(int)previewSize, (int)previewSize, 1};
+            BlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            BlitRegion.srcSubresource.mipLevel = 0;
+            BlitRegion.srcSubresource.baseArrayLayer = 0;
+            BlitRegion.srcSubresource.layerCount=1;
+            BlitRegion.dstOffsets[0] = {0,0,0};
+            BlitRegion.dstOffsets[1] = {(int)App->Width, (int)App->Height, 1};
+            BlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            BlitRegion.dstSubresource.mipLevel = 0;
+            BlitRegion.dstSubresource.baseArrayLayer = 0;
+            BlitRegion.dstSubresource.layerCount=1;
+            
+            vkCmdBlitImage(VulkanObjects.DrawCommandBuffer, VulkanObjects.previewImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+                            App->VulkanObjects.Swapchain.Images[App->VulkanObjects.CurrentBuffer], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+                            1, &BlitRegion, VK_FILTER_NEAREST);
+
+
+			vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, VulkanObjects.previewImage.Image,
+				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
+        }
 
         vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, App->VulkanObjects.Swapchain.Images[App->VulkanObjects.CurrentBuffer], 
                                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, SubresourceRange);
@@ -173,7 +237,7 @@ void pathTraceCPURenderer::Render()
     VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 }
 
-void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight)
+void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, std::vector<rgba8>* ImageToWrite)
 {
     glm::vec4 Origin = App->Scene->Camera.GetModelMatrix() * glm::vec4(0,0,0,1);
     ray Ray = {}; 
@@ -181,9 +245,9 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
     {
         for(uint32_t xx=StartX; xx < StartX+TileWidth; xx++)
         {
-            Image[yy * App->Width + xx] = { 0, 0, 0, 0 };
+            (*ImageToWrite)[yy * ImageWidth + xx] = { 0, 0, 0, 0 };
     
-            glm::vec2 uv((float)xx / (float)App->Width, (float)yy / (float)App->Height);
+            glm::vec2 uv((float)xx / (float)ImageWidth, (float)yy / (float)ImageHeight);
             Ray.Origin = Origin;
             glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
             glm::vec4 Direction = App->Scene->Camera.GetModelMatrix() * glm::normalize(glm::vec4(Target.x,Target.y, Target.z, 0.0f));
@@ -195,7 +259,7 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
             if (Ray.t < 1e30f)
             {
                 uint8_t v = (uint8_t)(std::min(1.0f, (Ray.t / 5.0f)) * 255.0f);
-                Image[yy * App->Width + xx] = {v, v, v, 255 };
+                (*ImageToWrite)[yy * ImageWidth + xx] = {v, v, v, 255 };
             }
         }
     }
@@ -210,10 +274,28 @@ void pathTraceCPURenderer::PathTrace()
             // 
             ThreadPool.AddJob([x, y, this]()
             {
-               PathTraceTile(x, y, TileSize, TileSize); 
+               PathTraceTile(x, y, TileSize, TileSize, App->Width, App->Height, &Image); 
             });
         }
     }
+
+    HasPathTrace=true;
+}
+
+void pathTraceCPURenderer::Preview()
+{
+    for(uint32_t y=0; y<previewSize; y+=TileSize)
+    {
+        for(uint32_t x=0; x<previewSize; x+=TileSize)
+        {   
+            ThreadPool.AddJob([x, y, this]()
+            {
+               PathTraceTile(x, y, TileSize, TileSize, previewSize,previewSize, &PreviewImage); 
+            });
+        }
+    }
+
+    HasPreview=true;
 }
 
 void pathTraceCPURenderer::Setup()
@@ -222,6 +304,7 @@ void pathTraceCPURenderer::Setup()
     CreateCommandBuffers();
 
     Image.resize(App->Width * App->Height);
+    PreviewImage.resize(previewSize * previewSize);
     for(uint32_t yy=0; yy<App->Height; yy++)
     {
         for(uint32_t xx=0; xx<App->Height; xx++)
@@ -233,6 +316,11 @@ void pathTraceCPURenderer::Setup()
     vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 
                               &VulkanObjects.ImageStagingBuffer, Image.size() * sizeof(rgba8), Image.data());
+    
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 
+                              &VulkanObjects.previewBuffer, PreviewImage.size() * sizeof(rgba8), PreviewImage.data());    
+    VulkanObjects.previewImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, VK_FORMAT_R8G8B8A8_UNORM, {previewSize, previewSize, 1});
 
     InitGeometry();
 
@@ -444,24 +532,6 @@ void pathTraceCPURenderer::BuildBVH()
 
 void pathTraceCPURenderer::IntersectBVH(ray &Ray, uint32_t NodeIndex)
 {
-#if 0
-    bvhNode &Node = BVHNodes[NodeIndex];
-    if(!RayAABBIntersection(Ray, Node.AABBMin, Node.AABBMax)) return;
-
-    if(Node.IsLeaf())
-    {
-        for(uint32_t i=0; i<Node.TriangleCount; i++)
-        {
-            RayTriangleInteresection(Ray, Triangles[TriangleIndices[Node.LeftChildOrFirst + i]]);
-        }
-    }
-    else
-    {
-        IntersectBVH(Ray, Node.LeftChildOrFirst);
-        IntersectBVH(Ray, Node.LeftChildOrFirst+1);
-    }
-#else
-
     bvhNode *Node = &BVHNodes[RootNodeIndex];
     bvhNode *Stack[64];
     uint32_t StackPointer=0;
@@ -502,9 +572,6 @@ void pathTraceCPURenderer::IntersectBVH(ray &Ray, uint32_t NodeIndex)
             }   
         }
     }
-
-
-#endif
 }
 
 float pathTraceCPURenderer::RayAABBIntersection(ray &Ray, glm::vec3 AABBMin,glm::vec3 AABBMax)

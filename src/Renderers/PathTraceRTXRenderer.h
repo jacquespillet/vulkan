@@ -4,6 +4,7 @@
 
 #include "RayTracingHelper.h"
 
+#include "Image.h"
 class pathTraceRTXRenderer : public renderer    
 {
 public:

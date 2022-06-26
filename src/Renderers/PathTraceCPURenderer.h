@@ -3,6 +3,7 @@
 #include <functional>
 #include <thread>
 #include <mutex>
+#include "../Image.h"
 
 struct threadPool
 {
@@ -39,6 +40,9 @@ public:
         VkSubmitInfo SubmitInfo;
 
         buffer ImageStagingBuffer;
+
+        storageImage previewImage;
+        buffer previewBuffer;
     } VulkanObjects;
 
     struct rgba8
@@ -46,7 +50,9 @@ public:
         uint8_t b, g, r, a;
     };
     std::vector<rgba8> Image; 
+    std::vector<rgba8> PreviewImage; 
 
+    uint32_t previewSize = 128;
     void UpdateCamera();
 private:
 
@@ -96,12 +102,16 @@ private:
     uint32_t NodesUsed=1;
 
     bool ShouldPathTrace=false;
+    
+    bool HasPreview=false;
+    bool HasPathTrace=false;
 
-    int TileSize=32;
+    int TileSize=64;
     
 
     void PathTrace();
-    void PathTraceTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight);
+    void Preview();
+    void PathTraceTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, std::vector<rgba8>* ImageToWrite);
     void CreateCommandBuffers();
 
     //Random

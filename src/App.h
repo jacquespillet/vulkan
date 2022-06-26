@@ -58,7 +58,11 @@ class renderer;
 class vulkanApp
 {
 public:
+#if _DEBUG_
     bool EnableValidation=true;
+#else
+    bool EnableValidation=false;
+#endif
     bool EnableVSync=false;
 
     struct 
@@ -123,7 +127,7 @@ public:
 
     float GuiWidth=200;
 
-    bool RayTracing=true;
+    bool RayTracing=false;
     
     void InitVulkan();
 

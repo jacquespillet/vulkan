@@ -1,5 +1,7 @@
 @echo off
 
+set debug=1
+
 REM GLFW
 set glfwInclude= ..\ext\glfw\include
 set glfwLib= ..\ext\glfw\lib\glfw3.lib
@@ -81,12 +83,16 @@ REM --------------------
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybridComposition.frag -o resources/shaders/spv/hybridComposition.frag.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybridGBuffer.frag -o resources/shaders/spv/hybridGBuffer.frag.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 
+set debugFlag= -O2
+if %debug%==1 (
+    set debugFlag= -Od /D_DEBUG_
+)
 
-set compilerFlags=  -MP -MT -nologo -EHa- -Od -Oi -W4 -Z7 -EHsc -wd4201 -wd4310 -wd4100  /I ../src /I ..\ext\glm /I ..\ext\gli  /I %glfwInclude% /I %vulkanInclude% /I %assimpIncludes% /I %imguiInclude% /I %stbInclude%  /I %tinygltfInclude% /I %oidnIncludes% 
+set compilerFlags=  -MP -MT -nologo -EHa- %debugFlag% -Oi -W4 -Z7 -EHsc -wd4201 -wd4310 -wd4100  /I ../src /I ..\ext\glm /I ..\ext\gli  /I %glfwInclude% /I %vulkanInclude% /I %assimpIncludes% /I %imguiInclude% /I %stbInclude%  /I %tinygltfInclude% /I %oidnIncludes% 
 set linkerFlags=  -opt:ref Gdi32.lib Shell32.lib User32.lib opengl32.lib %glfwLib%  %vulkanLib% %assimpLib% %oidnLib%
 
 set srcFiles= ..\src\App.cpp ..\src\Resources.cpp ..\src\Device.cpp ..\src\Tools.cpp 
-set srcFiles= %srcFiles%  ..\src\Scene.cpp ..\src\Debug.cpp ..\src\Buffer.cpp ..\src\Shader.cpp 
+set srcFiles= %srcFiles%  ..\src\Scene.cpp ..\src\Debug.cpp ..\src\Buffer.cpp ..\src\Shader.cpp  ..\src\Image.cpp 
 set srcFiles= %srcFiles%  ..\src\Camera.cpp ..\src\Renderer.cpp  ..\src\Renderers\DeferredRenderer.cpp  ..\src\Renderers\ForwardRenderer.cpp ..\src\Renderers\PathTraceRTXRenderer.cpp 
 set srcFiles= %srcFiles%  %imguiSrc% ..\src\ImGuiHelper.cpp ..\src\AssimpImporter.cpp ..\src\GLTFImporter.cpp  ..\src\ObjectPicker.cpp  ..\src\Framebuffer.cpp 
 set srcFiles= %srcFiles%  ..\src\TextureLoader.cpp ..\src\RayTracingHelper.cpp ..\src\Renderers\HybridRenderer.cpp  ..\src\Renderers\PathTraceCPURenderer.cpp 
