@@ -22,6 +22,13 @@
 #include <gli/gli.hpp>
 #pragma warning ( default : 4458; default : 4996 )
 
+enum class borderType
+{
+    Clamp,
+    Repeat,
+    Mirror
+};
+
 struct vulkanTexture
 {
     VkSampler Sampler;
@@ -38,6 +45,8 @@ struct vulkanTexture
     std::vector<uint8_t> Data;
 
     void Destroy(vulkanDevice *Device);
+
+    glm::vec4 Sample(glm::vec2 UV, borderType BorderType = borderType::Clamp);
 };
 
 class textureLoader

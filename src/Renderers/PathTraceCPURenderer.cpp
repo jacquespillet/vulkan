@@ -352,7 +352,7 @@ void bvh::Intersect(ray Ray, rayPayload &RayPayload, uint32_t InstanceIndex)
         {
             for(uint32_t i=0; i<Node->TriangleCount; i++)
             {
-                RayTriangleInteresection(Ray, Mesh->Triangles[TriangleIndices[Node->LeftChildOrFirst + i]], RayPayload, InstanceIndex);
+                RayTriangleInteresection(Ray, Mesh->Triangles[TriangleIndices[Node->LeftChildOrFirst + i]], RayPayload, InstanceIndex, TriangleIndices[Node->LeftChildOrFirst + i]);
             }
             if(StackPointer==0) break;
             else Node = Stack[--StackPointer];
@@ -719,6 +719,8 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
     {
         for(uint32_t xx=StartX; xx < StartX+TileWidth; xx++)
         {
+            if(xx >= ImageWidth-1) break;
+
             (*ImageToWrite)[yy * ImageWidth + xx] = { 0, 0, 0, 0 };
     
             glm::vec2 uv((float)xx / (float)ImageWidth, (float)yy / (float)ImageHeight);
@@ -731,44 +733,47 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
             rayPayload RayPayload = {};
             RayPayload.Distance = 1e30f;
             
-            //  for(size_t i=0; i<BVHs.size(); i++)
-            //  {
-            //      BVHs[i].Intersect(Ray, RayPayload);
-            //  }
             TLAS.Intersect(Ray, RayPayload);
 
             if (RayPayload.Distance < 1e30f)
             {
-                //Fetch texture data
+                
                 sceneMaterial *Material = App->Scene->InstancesPointers[RayPayload.InstanceIndex]->Mesh->Material;
                 materialData *MatData = &Material->MaterialData;
                 vulkanTexture *DiffuseTexture = &Material->Diffuse;
-                uint32_t u = (uint32_t)(RayPayload.U * (float)DiffuseTexture->Width);
-                uint32_t v = (uint32_t)(RayPayload.V * (float)DiffuseTexture->Height);
+                
+                glm::vec2 UV = 
+                    Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV1 * RayPayload.U + 
+                    Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV2 * RayPayload.V +
+                    Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV0 * (1 - RayPayload.U - RayPayload.V);
+                
+
+                glm::vec3 FinalColor(0);
 
                 glm::vec3 BaseColor = MatData->BaseColor;
                 if(MatData->BaseColorTextureID >=0 && MatData->UseBaseColor>0)
                 {
-                    glm::vec3 TextureColor(
-                        (float)(DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 0]) / 255.0f,
-                        (float)(DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 1]) / 255.0f,
-                        (float)(DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 2]) / 255.0f
-                    );       
-                    // float texAlpha = (float)(DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 3]) / 255.0f;             
+                    glm::vec4 TextureColor = DiffuseTexture->Sample(UV);
                     
-                    TextureColor *= glm::pow(TextureColor, glm::vec3(2.2f));
-                    BaseColor *= glm::vec3(TextureColor);
+                    TextureColor *= glm::pow(TextureColor, glm::vec4(2.2f));
+                    BaseColor *= glm::vec3(TextureColor);                    
                 }                
 
+                FinalColor += BaseColor;
+                FinalColor *= glm::pow(FinalColor, glm::vec3(1.0f / 2.2f));
                 
-                
-                uint8_t r = (uint8_t)(BaseColor.r * 255.0f);
-                uint8_t g = (uint8_t)(BaseColor.g * 255.0f);
-                uint8_t b = (uint8_t)(BaseColor.b * 255.0f);
+                uint8_t r = (uint8_t)(FinalColor.r * 255.0f);
+                uint8_t g = (uint8_t)(FinalColor.g * 255.0f);
+                uint8_t b = (uint8_t)(FinalColor.b * 255.0f);
+
+                // r = (uint8_t)(UV.x * 255.0f);
+                // g = (uint8_t)(UV.y * 255.0f);
+                // b = 0;
 
                 (*ImageToWrite)[yy * ImageWidth + xx] = {b, g, r, 255 };
             }
         }
+        if(yy >= ImageHeight-1) break;
     }
 }
 
@@ -898,7 +903,7 @@ float RayAABBIntersection(ray Ray, glm::vec3 AABBMin,glm::vec3 AABBMax, rayPaylo
     else return 1e30f;    
 }
 
-void RayTriangleInteresection(ray Ray, triangle &Triangle, rayPayload &RayPayload, uint32_t InstanceIndex)
+void RayTriangleInteresection(ray Ray, triangle &Triangle, rayPayload &RayPayload, uint32_t InstanceIndex, uint32_t PrimitiveIndex)
 {
     glm::vec3 Edge1 = Triangle.v1 - Triangle.v0;
     glm::vec3 Edge2 = Triangle.v2 - Triangle.v0;
@@ -917,10 +922,11 @@ void RayTriangleInteresection(ray Ray, triangle &Triangle, rayPayload &RayPayloa
     if(v < 0 || u + v > 1) return;
     
     float t = f * glm::dot(Edge2, q);
-    if(t > 0.0001f) {
+    if(t > 0.0001f && t < RayPayload.Distance) {
         RayPayload.U = u;
         RayPayload.V = v;
         RayPayload.InstanceIndex = InstanceIndex;
-        RayPayload.Distance = std::min(RayPayload.Distance, t);
+        RayPayload.Distance = t;
+        RayPayload.PrimitiveIndex = PrimitiveIndex;
     }
 }

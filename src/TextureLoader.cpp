@@ -2,6 +2,47 @@
 #include "Scene.h"
 #include "GLTFImporter.h"
 
+glm::vec4 vulkanTexture::Sample(glm::vec2 UV, borderType BorderType)
+{
+	// UV = glm::abs(UV);
+	// UV = glm::clamp(UV, glm::vec2(0), glm::vec2(1));
+    if(UV.x > 1)
+    {
+        float d;
+        UV.x = modf(UV.x, &d);
+    }
+    if(UV.y > 1)
+    {
+        float d;
+        UV.y = modf(UV.y, &d);
+    }
+
+    if(UV.x < 0)
+    {
+        UV.x = 1 + UV.x;
+    }
+    if(UV.y < 0)
+    {
+        UV.y = 1 + UV.y;
+    }
+    //if(BorderType == borderType::Clamp) 
+    // if(BorderType==borderType::Repeat) {
+    //     glm::vec2 i;
+    //     UV = glm::modf(UV, i);
+    // }
+    
+    glm::ivec2 TexCoords = glm::ivec2(UV * glm::vec2(Width, Height));
+    uint32_t BaseInx = (uint32_t)(TexCoords.y * Width * 4) + (uint32_t)(TexCoords.x * 4);
+    glm::vec4 TextureColor(
+        (float)(Data[BaseInx + 0]) / 255.0f,
+        (float)(Data[BaseInx + 1]) / 255.0f,
+        (float)(Data[BaseInx + 2]) / 255.0f,
+        (float)(Data[BaseInx + 3]) / 255.0f
+    );       
+
+    return TextureColor;
+}
+
 textureLoader::textureLoader(vulkanDevice *VulkanDevice, VkQueue Queue, VkCommandPool CommandPool) :
                   VulkanDevice(VulkanDevice), Queue(Queue), CommandPool(CommandPool)
 {

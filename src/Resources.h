@@ -179,7 +179,7 @@ public:
             Pixels = stbi_load("resources/models/sponza/dummy.png", &Width, &Height, NULL, 4);
             Loader->CreateTexture(
                 Pixels,
-                Width * Height * 4 * sizeof(float),
+                Width * Height * 4 * sizeof(uint8_t),
                 VK_FORMAT_R8G8B8A8_UNORM,
                 Width, Height,
                 &DummyDiffuse,
@@ -193,7 +193,7 @@ public:
             Pixels = stbi_load("resources/models/sponza/dummy_specular.png", &Width, &Height, NULL, 4);
             Loader->CreateTexture(
                 Pixels,
-                Width * Height * 4 * sizeof(float),
+                Width * Height * 4 * sizeof(uint8_t),
                 VK_FORMAT_R8G8B8A8_UNORM,
                 Width, Height,
                 &DummySpecular,
@@ -207,7 +207,7 @@ public:
             Pixels = stbi_load("resources/models/sponza/dummy_ddn.png", &Width, &Height, NULL, 4);
             Loader->CreateTexture(
                 Pixels,
-                Width * Height * 4 * sizeof(float),
+                Width * Height * 4 * sizeof(uint8_t),
                 VK_FORMAT_R8G8B8A8_UNORM,
                 Width, Height,
                 &DummyNormal,

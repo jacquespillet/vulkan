@@ -63,7 +63,7 @@ public:
 #else
     bool EnableValidation=false;
 #endif
-    bool EnableVSync=false;
+    bool EnableVSync=true;
 
     struct 
     {
