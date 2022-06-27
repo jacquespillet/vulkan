@@ -3,6 +3,8 @@
 #include "imgui.h"
 #include "brdf.h"
 
+#include <chrono>
+
 #define BINS 8
 
 #define DIFFUSE_TYPE 1
@@ -17,9 +19,10 @@ void threadPool::Start()
     uint32_t NumThreads = std::thread::hardware_concurrency();
     
     Threads.resize(NumThreads);
+    Finished.resize(NumThreads, false);
     for(uint32_t i=0; i<NumThreads; i++)
     {
-        Threads[i] = std::thread([this]()
+        Threads[i] = std::thread([this, i]()
         {
             while(true)
             {
@@ -38,9 +41,11 @@ void threadPool::Start()
 
                     Job = Jobs.front();
                     Jobs.pop();
+                    Finished[i] = false;
                 }
 
                 Job();
+                Finished[i]=true;
             }       
         });
     }
@@ -77,8 +82,17 @@ bool threadPool::Busy()
     bool Busy;
     {
         std::unique_lock<std::mutex> Lock(QueueMutex);
-        Busy = !Jobs.empty();
-    }
+        bool AllFinished=true;
+        for(int i=0; i<Finished.size(); i++)
+        {
+            if(!Finished[i])
+            {
+                AllFinished=false;
+                break;
+            }
+        }
+        Busy = !AllFinished;
+    }  
 
     return Busy;
 }
@@ -577,27 +591,38 @@ void pathTraceCPURenderer::Render()
 {
     if(ShouldPathTrace)
     {
-        HasPreview=false;
+        ProcessingPreview=false;
         PathTrace();    
         ShouldPathTrace=false;
+        PathTraceFinished=false;
     }
 
     if(App->Scene->Camera.Changed && !ThreadPool.Busy())
     {
-        HasPathTrace=false;
+        ProcessingPathTrace=false;
         Preview();    
     }
 
     VK_CALL(App->VulkanObjects.Swapchain.AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
     
-    if(HasPathTrace)
+    if(ProcessingPathTrace || PathTraceFinished)
     {
         VulkanObjects.ImageStagingBuffer.Map();
         VulkanObjects.ImageStagingBuffer.CopyTo(Image.data(), Image.size() * sizeof(rgba8));
         VulkanObjects.ImageStagingBuffer.Unmap();
+
+        if(!ThreadPool.Busy() && !PathTraceFinished)
+        {
+            stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+            float seconds = (float)duration.count() / 1000.0f;
+            std::cout << seconds << std::endl;  
+
+            PathTraceFinished=true; 
+        }
     }
 
-    if(HasPreview)
+    if(ProcessingPreview)
     {
         VulkanObjects.previewBuffer.Map();
         VulkanObjects.previewBuffer.CopyTo(PreviewImage.data(), PreviewImage.size() * sizeof(rgba8));
@@ -628,7 +653,7 @@ void pathTraceCPURenderer::Render()
         vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, App->VulkanObjects.Swapchain.Images[App->VulkanObjects.CurrentBuffer], 
                                            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
 
-        if(HasPathTrace)
+        if(ProcessingPathTrace)
         {
             VkBufferImageCopy Region = {};
             Region.imageExtent.depth=1;
@@ -647,7 +672,7 @@ void pathTraceCPURenderer::Render()
                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &Region);
         }        
 
-        if(HasPreview)
+        if(ProcessingPreview)
         {
             VkBufferImageCopy Region = {};
             Region.imageExtent.depth=1;
@@ -800,9 +825,9 @@ float RandomBilateral(uint32_t &State)
 
 void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, std::vector<rgba8>* ImageToWrite)
 {
-    uint32_t RayBounces=2;
-    uint32_t SampleCount=1;
 
+    uint32_t RayBounces=2;
+    uint32_t SampleCount=32;
     ray Ray = {}; 
     for(uint32_t yy=StartY; yy < StartY+TileHeight; yy++)
     {
@@ -813,17 +838,20 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
 
             float OneOverSampleCount = 1.0f / (float) SampleCount;
             glm::vec3 SampleColor(0.0f);
+
+            glm::vec3 Origin = App->Scene->Camera.GetModelMatrix() * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
             for(uint32_t Sample=0; Sample<SampleCount; Sample++)
             {
+                Ray.Origin = Origin;
+                
                 rayPayload RayPayload = {};
                 RayPayload.RandomState = (xx * 1973 + yy * 9277 + Sample * 26699) | 1; 
                 RayPayload.Depth=0;
 
                 glm::vec2 Jitter = glm::vec2(RandomBilateral(RayPayload.RandomState), RandomBilateral(RayPayload.RandomState)) - 0.5f;
                 glm::vec2 uv((float)(xx + Jitter.x) / (float)ImageWidth, (float)(yy + Jitter.y) / (float)ImageHeight);
-                glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
+                glm::vec4 Target = App->Scene->Camera.GetInverseProjectionMatrix() * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
                 
-                Ray.Origin = App->Scene->Camera.GetModelMatrix() * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
                 Ray.Direction = App->Scene->Camera.GetModelMatrix() * glm::vec4(glm::normalize(glm::vec3(Target)), 0.0);
                 
                 glm::vec3 Attenuation(1.0);
@@ -970,10 +998,13 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
         }
         if(yy >= ImageHeight-1) break;
     }
+
 }
 
 void pathTraceCPURenderer::PathTrace()
 {
+    start = std::chrono::high_resolution_clock::now();
+    
     for(uint32_t y=0; y<App->Height; y+=TileSize)
     {
         for(uint32_t x=0; x<App->Width; x+=TileSize)
@@ -985,7 +1016,7 @@ void pathTraceCPURenderer::PathTrace()
         }
     }
 
-    HasPathTrace=true;
+    ProcessingPathTrace=true;
 }
 
 void pathTraceCPURenderer::Preview()
@@ -1001,7 +1032,7 @@ void pathTraceCPURenderer::Preview()
         }
     }
 
-    HasPreview=true;
+    ProcessingPreview=true;
 }
 
 void pathTraceCPURenderer::Setup()

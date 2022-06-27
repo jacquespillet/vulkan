@@ -21,6 +21,7 @@ struct threadPool
 
     std::vector<std::thread> Threads;
     std::queue<std::function<void()>> Jobs;  
+    std::vector<bool> Finished;
 };
 
 struct ray
@@ -194,10 +195,14 @@ private:
 
     bool ShouldPathTrace=false;
     
-    bool HasPreview=false;
-    bool HasPathTrace=false;
+    bool ProcessingPreview=false;
+    bool ProcessingPathTrace=false;
+    bool PathTraceFinished=false;
 
     int TileSize=64;
+
+    std::chrono::steady_clock::time_point start;
+    std::chrono::steady_clock::time_point stop;
     
 
     void PathTrace();

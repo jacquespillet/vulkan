@@ -40,9 +40,12 @@ public:
     void RecalculateProjectionMatrix() {
         projectionMatrix = glm::perspectiveRH(glm::radians(fov), aspectRatio, nearPlane, farPlane);
         projectionMatrix[1][1] *= -1;
+
+        InverseProjectionMatrix = glm::inverse(projectionMatrix);
     }
 
     glm::mat4 GetProjectionMatrix() const{return projectionMatrix;}
+    glm::mat4 GetInverseProjectionMatrix() const{return InverseProjectionMatrix;}
     glm::mat4 GetViewMatrix() const{return invModelMatrix;}
     glm::mat4 GetModelMatrix() const{return modelMatrix;}
     float GetFov() const{return fov;}
@@ -78,9 +81,10 @@ private:
     glm::vec3 up;
     float phi=0;
     float theta=0;
-    float distance = 15;
+    float distance = 5;
 
     glm::mat4 projectionMatrix;
+    glm::mat4 InverseProjectionMatrix;
 
     bool IsLeftMousePressed=false;
     bool IsRightMousePressed=false;
