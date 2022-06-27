@@ -20,6 +20,7 @@ public:
     vulkanApp *App;
     VkDevice Device;
     vulkanDevice *VulkanDevice;
+    bool UseGizmo=true;
 
     renderer(vulkanApp *App);
 

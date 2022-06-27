@@ -177,7 +177,8 @@ public:
     std::vector<rgba8> Image; 
     std::vector<rgba8> PreviewImage; 
 
-    uint32_t previewSize = 128;
+    uint32_t previewWidth = 128;
+    uint32_t previewHeight = 128;
     void UpdateCamera();
 private:
 

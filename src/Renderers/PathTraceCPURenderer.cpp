@@ -563,7 +563,9 @@ void tlas::Intersect(ray Ray, rayPayload &RayPayload)
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
-pathTraceCPURenderer::pathTraceCPURenderer(vulkanApp *App) : renderer(App) {}
+pathTraceCPURenderer::pathTraceCPURenderer(vulkanApp *App) : renderer(App) {
+    this->UseGizmo=false;
+}
 
 void pathTraceCPURenderer::Render()
 {
@@ -643,8 +645,8 @@ void pathTraceCPURenderer::Render()
         {
             VkBufferImageCopy Region = {};
             Region.imageExtent.depth=1;
-            Region.imageExtent.width = previewSize;
-            Region.imageExtent.height = previewSize;
+            Region.imageExtent.width = previewWidth;
+            Region.imageExtent.height = previewHeight;
             Region.imageOffset = {0,0,0};
             Region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
             Region.imageSubresource.baseArrayLayer=0;
@@ -662,7 +664,7 @@ void pathTraceCPURenderer::Render()
 
             VkImageBlit BlitRegion = {};
             BlitRegion.srcOffsets[0] = {0,0,0};
-            BlitRegion.srcOffsets[1] = {(int)previewSize, (int)previewSize, 1};
+            BlitRegion.srcOffsets[1] = {(int)previewWidth, (int)previewHeight, 1};
             BlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
             BlitRegion.srcSubresource.mipLevel = 0;
             BlitRegion.srcSubresource.baseArrayLayer = 0;
@@ -738,15 +740,33 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
             if (RayPayload.Distance < 1e30f)
             {
                 //Fetch texture data
-                vulkanTexture *DiffuseTexture = &App->Scene->InstancesPointers[RayPayload.InstanceIndex]->Mesh->Material->Diffuse;
+                sceneMaterial *Material = App->Scene->InstancesPointers[RayPayload.InstanceIndex]->Mesh->Material;
+                materialData *MatData = &Material->MaterialData;
+                vulkanTexture *DiffuseTexture = &Material->Diffuse;
                 uint32_t u = (uint32_t)(RayPayload.U * (float)DiffuseTexture->Width);
                 uint32_t v = (uint32_t)(RayPayload.V * (float)DiffuseTexture->Height);
-                uint8_t r = DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 0];
-                uint8_t g = DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 1];
-                uint8_t b = DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 2];
-                uint8_t a = DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 3];
 
-                (*ImageToWrite)[yy * ImageWidth + xx] = {r, g, b, a };
+                glm::vec3 BaseColor = MatData->BaseColor;
+                if(MatData->BaseColorTextureID >=0 && MatData->UseBaseColor>0)
+                {
+                    glm::vec3 TextureColor(
+                        (float)(DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 0]) / 255.0f,
+                        (float)(DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 1]) / 255.0f,
+                        (float)(DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 2]) / 255.0f
+                    );       
+                    // float texAlpha = (float)(DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 3]) / 255.0f;             
+                    
+                    TextureColor *= glm::pow(TextureColor, glm::vec3(2.2f));
+                    BaseColor *= glm::vec3(TextureColor);
+                }                
+
+                
+                
+                uint8_t r = (uint8_t)(BaseColor.r * 255.0f);
+                uint8_t g = (uint8_t)(BaseColor.g * 255.0f);
+                uint8_t b = (uint8_t)(BaseColor.b * 255.0f);
+
+                (*ImageToWrite)[yy * ImageWidth + xx] = {b, g, r, 255 };
             }
         }
     }
@@ -758,7 +778,6 @@ void pathTraceCPURenderer::PathTrace()
     {
         for(uint32_t x=0; x<App->Width; x+=TileSize)
         {
-            // 
             ThreadPool.AddJob([x, y, this]()
             {
                PathTraceTile(x, y, TileSize, TileSize, App->Width, App->Height, &Image); 
@@ -771,13 +790,13 @@ void pathTraceCPURenderer::PathTrace()
 
 void pathTraceCPURenderer::Preview()
 {
-    for(uint32_t y=0; y<previewSize; y+=TileSize)
+    for(uint32_t y=0; y<previewHeight; y+=TileSize)
     {
-        for(uint32_t x=0; x<previewSize; x+=TileSize)
+        for(uint32_t x=0; x<previewWidth; x+=TileSize)
         {   
             ThreadPool.AddJob([x, y, this]()
             {
-               PathTraceTile(x, y, TileSize, TileSize, previewSize,previewSize, &PreviewImage); 
+               PathTraceTile(x, y, TileSize, TileSize, previewWidth,previewHeight, &PreviewImage); 
             });
         }
     }
@@ -787,11 +806,14 @@ void pathTraceCPURenderer::Preview()
 
 void pathTraceCPURenderer::Setup()
 {
+    previewWidth = App->Width / 10;
+    previewHeight = App->Height / 10;
+
     ThreadPool.Start();
     CreateCommandBuffers();
 
     Image.resize(App->Width * App->Height);
-    PreviewImage.resize(previewSize * previewSize);
+    PreviewImage.resize(previewWidth * previewHeight);
     for(uint32_t yy=0; yy<App->Height; yy++)
     {
         for(uint32_t xx=0; xx<App->Height; xx++)
@@ -807,7 +829,7 @@ void pathTraceCPURenderer::Setup()
     vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 
                               &VulkanObjects.previewBuffer, PreviewImage.size() * sizeof(rgba8), PreviewImage.data());    
-    VulkanObjects.previewImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, VK_FORMAT_B8G8R8A8_UNORM, {previewSize, previewSize, 1});
+    VulkanObjects.previewImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, VK_FORMAT_B8G8R8A8_UNORM, {previewWidth, previewHeight, 1});
 
     
     for(size_t i=0; i<App->Scene->Meshes.size(); i++)

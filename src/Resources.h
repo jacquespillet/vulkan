@@ -170,9 +170,53 @@ public:
     textureList(VkDevice &Device, textureLoader *Loader) : 
                 vulkanResourceList(Device),
                 Loader(Loader) {
-        Loader->LoadTexture2D("resources/models/sponza/dummy.dds", VK_FORMAT_BC2_UNORM_BLOCK, &DummyDiffuse);
-        Loader->LoadTexture2D("resources/models/sponza/dummy_specular.dds", VK_FORMAT_BC2_UNORM_BLOCK, &DummyNormal);
-        Loader->LoadTexture2D("resources/models/sponza/dummy_ddn.dds", VK_FORMAT_BC2_UNORM_BLOCK, &DummySpecular);                    
+        // Loader->LoadTexture2D("resources/models/sponza/dummy.png", VK_FORMAT_R8G8B8A8_UNORM, &DummyDiffuse);
+        // Loader->LoadTexture2D("resources/models/sponza/dummy_specular.png", VK_FORMAT_R8G8B8A8_UNORM, &DummyNormal);
+        // Loader->LoadTexture2D("resources/models/sponza/dummy_ddn.png", VK_FORMAT_R8G8B8A8_UNORM, &DummySpecular);    
+        {
+            uint8_t *Pixels;
+            int Width, Height;
+            Pixels = stbi_load("resources/models/sponza/dummy.png", &Width, &Height, NULL, 4);
+            Loader->CreateTexture(
+                Pixels,
+                Width * Height * 4 * sizeof(float),
+                VK_FORMAT_R8G8B8A8_UNORM,
+                Width, Height,
+                &DummyDiffuse,
+                false
+            );
+            stbi_image_free(Pixels);
+        }
+        {
+            uint8_t *Pixels;
+            int Width, Height;
+            Pixels = stbi_load("resources/models/sponza/dummy_specular.png", &Width, &Height, NULL, 4);
+            Loader->CreateTexture(
+                Pixels,
+                Width * Height * 4 * sizeof(float),
+                VK_FORMAT_R8G8B8A8_UNORM,
+                Width, Height,
+                &DummySpecular,
+                false
+            );
+            stbi_image_free(Pixels);
+        }
+        {
+            uint8_t *Pixels;
+            int Width, Height;
+            Pixels = stbi_load("resources/models/sponza/dummy_ddn.png", &Width, &Height, NULL, 4);
+            Loader->CreateTexture(
+                Pixels,
+                Width * Height * 4 * sizeof(float),
+                VK_FORMAT_R8G8B8A8_UNORM,
+                Width, Height,
+                &DummyNormal,
+                false
+            );
+            stbi_image_free(Pixels);
+        }
+
+                                    
     }
 
     void Destroy()
