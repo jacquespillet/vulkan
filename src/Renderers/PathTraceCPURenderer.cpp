@@ -341,7 +341,7 @@ void bvh::Refit()
 
 }
 
-void bvh::Intersect(ray Ray, rayPayload &RayPayload)
+void bvh::Intersect(ray Ray, rayPayload &RayPayload, uint32_t InstanceIndex)
 {
     bvhNode *Node = &BVHNodes[RootNodeIndex];
     bvhNode *Stack[64];
@@ -352,7 +352,7 @@ void bvh::Intersect(ray Ray, rayPayload &RayPayload)
         {
             for(uint32_t i=0; i<Node->TriangleCount; i++)
             {
-                RayTriangleInteresection(Ray, Mesh->Triangles[TriangleIndices[Node->LeftChildOrFirst + i]], RayPayload);
+                RayTriangleInteresection(Ray, Mesh->Triangles[TriangleIndices[Node->LeftChildOrFirst + i]], RayPayload, InstanceIndex);
             }
             if(StackPointer==0) break;
             else Node = Stack[--StackPointer];
@@ -428,11 +428,9 @@ void bvhInstance::Intersect(ray Ray, rayPayload &RayPayload)
     Ray.Direction = InverseTransform * glm::vec4(Ray.Direction, 0);
     Ray.InverseDirection = 1.0f / Ray.Direction;
 
-    BVH->Intersect(Ray, RayPayload);
+    BVH->Intersect(Ray, RayPayload, Index);
 }
 
-
-////////////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -739,8 +737,16 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
 
             if (RayPayload.Distance < 1e30f)
             {
-                uint8_t v = (uint8_t)(std::min(1.0f, (RayPayload.Distance / 5.0f)) * 255.0f);
-                (*ImageToWrite)[yy * ImageWidth + xx] = {v, v, v, 255 };
+                //Fetch texture data
+                vulkanTexture *DiffuseTexture = &App->Scene->InstancesPointers[RayPayload.InstanceIndex]->Mesh->Material->Diffuse;
+                uint32_t u = (uint32_t)(RayPayload.U * (float)DiffuseTexture->Width);
+                uint32_t v = (uint32_t)(RayPayload.V * (float)DiffuseTexture->Height);
+                uint8_t r = DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 0];
+                uint8_t g = DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 1];
+                uint8_t b = DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 2];
+                uint8_t a = DiffuseTexture->Data[v * DiffuseTexture->Width * 4 + u * 4 + 3];
+
+                (*ImageToWrite)[yy * ImageWidth + xx] = {r, g, b, a };
             }
         }
     }
@@ -801,7 +807,7 @@ void pathTraceCPURenderer::Setup()
     vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 
                               &VulkanObjects.previewBuffer, PreviewImage.size() * sizeof(rgba8), PreviewImage.data());    
-    VulkanObjects.previewImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, VK_FORMAT_R8G8B8A8_UNORM, {previewSize, previewSize, 1});
+    VulkanObjects.previewImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, VK_FORMAT_B8G8R8A8_UNORM, {previewSize, previewSize, 1});
 
     
     for(size_t i=0; i<App->Scene->Meshes.size(); i++)
@@ -813,7 +819,7 @@ void pathTraceCPURenderer::Setup()
     {
         Instances.push_back(
             bvhInstance(Meshes[App->Scene->InstancesPointers[i]->MeshIndex]->BVH,
-                        App->Scene->InstancesPointers[i]->InstanceData.Transform)
+                        App->Scene->InstancesPointers[i]->InstanceData.Transform, (uint32_t)i)
         );
     }
     
@@ -870,7 +876,7 @@ float RayAABBIntersection(ray Ray, glm::vec3 AABBMin,glm::vec3 AABBMax, rayPaylo
     else return 1e30f;    
 }
 
-void RayTriangleInteresection(ray Ray, triangle &Triangle, rayPayload &RayPayload)
+void RayTriangleInteresection(ray Ray, triangle &Triangle, rayPayload &RayPayload, uint32_t InstanceIndex)
 {
     glm::vec3 Edge1 = Triangle.v1 - Triangle.v0;
     glm::vec3 Edge2 = Triangle.v2 - Triangle.v0;
@@ -889,5 +895,10 @@ void RayTriangleInteresection(ray Ray, triangle &Triangle, rayPayload &RayPayloa
     if(v < 0 || u + v > 1) return;
     
     float t = f * glm::dot(Edge2, q);
-    if(t > 0.0001f) RayPayload.Distance = std::min(RayPayload.Distance, t);
+    if(t > 0.0001f) {
+        RayPayload.U = u;
+        RayPayload.V = v;
+        RayPayload.InstanceIndex = InstanceIndex;
+        RayPayload.Distance = std::min(RayPayload.Distance, t);
+    }
 }

@@ -35,6 +35,8 @@ struct vulkanTexture
     VkDescriptorImageInfo Descriptor;
     uint32_t Index;
 
+    std::vector<uint8_t> Data;
+
     void Destroy(vulkanDevice *Device);
 };
 

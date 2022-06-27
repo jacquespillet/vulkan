@@ -54,6 +54,9 @@ void textureLoader::LoadTexture2D(std::string Filename, VkFormat Format, vulkanT
     std::vector<VkBufferImageCopy> BufferCopyRegions;
     uint32_t Offset = 0;
 
+    Texture->Data.resize(Texture->Width * Texture->Height * 4);
+    memcpy(Texture->Data.data(), GliTexture[0].data(), Texture->Data.size());
+
     for(uint32_t i=0; i<Texture->MipLevels; i++)
     {
         VkBufferImageCopy BufferCopyRegion = {};
@@ -760,6 +763,10 @@ void textureLoader::GenerateCubemapMipmaps(VkImage Image, uint32_t Width, uint32
 void textureLoader::CreateTexture(void *Buffer, VkDeviceSize BufferSize, VkFormat Format, uint32_t Width, uint32_t Height, vulkanTexture *Texture, bool DoGenerateMipmaps, VkFilter Filter, VkImageUsageFlags ImageUsageFlags)
 {
     assert(Buffer);
+    
+    //Save a copy of the data on the cpu (CPU Ray tracer / Rasterizer)
+    Texture->Data.resize(Width * Height * 4);
+    memcpy(Texture->Data.data(), Buffer, Width * Height * 4);
 
     Texture->Width = Width;
     Texture->Height = Height;

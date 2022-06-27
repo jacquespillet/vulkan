@@ -66,6 +66,9 @@ struct bin
 struct rayPayload
 {
     float Distance;
+    float U, V;
+    uint32_t InstanceIndex;
+    // uint32_t InstPrim;
 };
 
 struct mesh;
@@ -75,7 +78,7 @@ struct bvh
     bvh(mesh *Mesh);
     void Build();
     void Refit();
-    void Intersect(ray Ray, rayPayload &RayPayload);
+    void Intersect(ray Ray, rayPayload &RayPayload, uint32_t InstanceIndex);
 
     void Subdivide(uint32_t NodeIndex);
     void UpdateNodeBounds(uint32_t NodeIndex);
@@ -112,13 +115,14 @@ struct tlasNode
 
 struct bvhInstance
 {
-    bvhInstance(bvh *Blas, glm::mat4 Transform) : BVH(Blas) 
+    bvhInstance(bvh *Blas, glm::mat4 Transform, uint32_t Index) : BVH(Blas), Index(Index)
     {
         SetTransform(Transform);
     }
     void SetTransform(glm::mat4 &Transform);
     void Intersect(ray Ray, rayPayload &RayPayload);
 
+    uint32_t Index=0;
     bvh *BVH;
     glm::mat4 InverseTransform;
     aabb Bounds;
@@ -141,7 +145,7 @@ struct tlas
     uint32_t NodesUsed=0;
 };
 
-void RayTriangleInteresection(ray Ray, triangle &Triangle, rayPayload &RayPayload);
+void RayTriangleInteresection(ray Ray, triangle &Triangle, rayPayload &RayPayload, uint32_t InstanceIndex);
 float RayAABBIntersection(ray Ray, glm::vec3 AABBMin,glm::vec3 AABBMax, rayPayload &RayPayload);
 
 
