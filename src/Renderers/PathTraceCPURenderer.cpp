@@ -110,13 +110,12 @@ void aabb::Grow(aabb &AABB)
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////////////
-
-bvh::bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices)
+mesh::mesh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices)
 {
     uint32_t AddedTriangles=0;
 
     Triangles.resize(Indices.size()/3);
+    TrianglesExtraData.resize(Indices.size()/3);
     for(size_t j=0; j<Indices.size(); j+=3)
     {
         uint32_t i0 = Indices[j+0];
@@ -133,30 +132,44 @@ bvh::bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices)
         Triangles[AddedTriangles].v0=v0;
         Triangles[AddedTriangles].v1=v1;
         Triangles[AddedTriangles].v2=v2;
-        Triangles[AddedTriangles].Normal0=n0;
-        Triangles[AddedTriangles].Normal1=n1;
-        Triangles[AddedTriangles].Normal2=n2;
+        
+        TrianglesExtraData[AddedTriangles].Normal0=n0;
+        TrianglesExtraData[AddedTriangles].Normal1=n1;
+        TrianglesExtraData[AddedTriangles].Normal2=n2;
+
+        TrianglesExtraData[AddedTriangles].UV0 = glm::vec2(v0.w, n0.w);
+        TrianglesExtraData[AddedTriangles].UV1 = glm::vec2(v1.w, n1.w);
+        TrianglesExtraData[AddedTriangles].UV2 = glm::vec2(v2.w, n2.w);
+        
+
         AddedTriangles++;
     }
-    
-    TriangleCount = AddedTriangles;    
 
+    BVH = new bvh(this);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+bvh::bvh(mesh *_Mesh)
+{
+    this->Mesh = _Mesh;
     Build();
 }
+
 void bvh::Build()
 {
-    BVHNodes.resize(TriangleCount * 2 - 1);
-    TriangleIndices.resize(Triangles.size());
+    BVHNodes.resize(Mesh->Triangles.size() * 2 - 1);
+    TriangleIndices.resize(Mesh->Triangles.size());
 
-    for(size_t i=0; i<Triangles.size(); i++)
+    for(size_t i=0; i<Mesh->Triangles.size(); i++)
     {
-        Triangles[i].Centroid = (Triangles[i].v0 + Triangles[i].v1 + Triangles[i].v2) * 0.33333f;
+        Mesh->Triangles[i].Centroid = (Mesh->Triangles[i].v0 + Mesh->Triangles[i].v1 + Mesh->Triangles[i].v2) * 0.33333f;
         TriangleIndices[i] = (uint32_t)i;
     }
 
     bvhNode &Root = BVHNodes[RootNodeIndex];
     Root.LeftChildOrFirst = 0;
-    Root.TriangleCount = TriangleCount;
+    Root.TriangleCount = (uint32_t)Mesh->Triangles.size();
     UpdateNodeBounds(RootNodeIndex);
     Subdivide(RootNodeIndex);
 }
@@ -170,7 +183,7 @@ float bvh::EvaluateSAH(bvhNode &Node, int Axis, float Position)
 
     for(uint32_t i=0; i<Node.TriangleCount; i++)
     {
-        triangle &Triangle = Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
+        triangle &Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
         if(Triangle.Centroid[Axis] < Position)
         {
             LeftCount++;
@@ -201,7 +214,7 @@ float bvh::FindBestSplitPlane(bvhNode &Node, int &Axis, float &SplitPosition)
         float BoundsMax = -1e30f;
         for(uint32_t i=0; i<Node.TriangleCount; i++)
         {
-            triangle &Triangle = Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
+            triangle &Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
             BoundsMin = std::min(BoundsMin, Triangle.Centroid[CurrentAxis]);
             BoundsMax = std::max(BoundsMax, Triangle.Centroid[CurrentAxis]);
         }
@@ -212,7 +225,7 @@ float bvh::FindBestSplitPlane(bvhNode &Node, int &Axis, float &SplitPosition)
         float Scale = BINS / (BoundsMax - BoundsMin);
         for(uint32_t i=0; i<Node.TriangleCount; i++)
         {
-            triangle &Triangle = Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
+            triangle &Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
             int BinIndex = std::min(BINS - 1, (int)((Triangle.Centroid[CurrentAxis] - BoundsMin) * Scale));
             Bins[BinIndex].TrianglesCount++;
             Bins[BinIndex].Bounds.Grow(Triangle.v0);
@@ -284,7 +297,7 @@ void bvh::Subdivide(uint32_t NodeIndex)
     int j = i + Node.TriangleCount -1;
     while(i <= j)
     {
-        if(Triangles[TriangleIndices[i]].Centroid[Axis] < SplitPosition)
+        if(Mesh->Triangles[TriangleIndices[i]].Centroid[Axis] < SplitPosition)
         {
             i++;
         }
@@ -339,7 +352,7 @@ void bvh::Intersect(ray Ray, rayPayload &RayPayload)
         {
             for(uint32_t i=0; i<Node->TriangleCount; i++)
             {
-                RayTriangleInteresection(Ray, Triangles[TriangleIndices[Node->LeftChildOrFirst + i]], RayPayload);
+                RayTriangleInteresection(Ray, Mesh->Triangles[TriangleIndices[Node->LeftChildOrFirst + i]], RayPayload);
             }
             if(StackPointer==0) break;
             else Node = Stack[--StackPointer];
@@ -380,7 +393,7 @@ void bvh::UpdateNodeBounds(uint32_t NodeIndex)
     for(uint32_t First=Node.LeftChildOrFirst, i=0; i<Node.TriangleCount; i++)
     {
         uint32_t TriangleIndex = TriangleIndices[First + i];
-        triangle &Triangle = Triangles[TriangleIndex];
+        triangle &Triangle = Mesh->Triangles[TriangleIndex];
         Node.AABBMin = glm::min(Node.AABBMin, Triangle.v0);
         Node.AABBMin = glm::min(Node.AABBMin, Triangle.v1);
         Node.AABBMin = glm::min(Node.AABBMin, Triangle.v2);
@@ -793,13 +806,13 @@ void pathTraceCPURenderer::Setup()
     
     for(size_t i=0; i<App->Scene->Meshes.size(); i++)
     {
-        BVHs.push_back(bvh(App->Scene->Meshes[i].Indices,
+        Meshes.push_back(new mesh(App->Scene->Meshes[i].Indices,
                     App->Scene->Meshes[i].Vertices));
     }
     for(size_t i=0; i<App->Scene->InstancesPointers.size(); i++)
     {
         Instances.push_back(
-            bvhInstance(&BVHs[App->Scene->InstancesPointers[i]->MeshIndex],
+            bvhInstance(Meshes[App->Scene->InstancesPointers[i]->MeshIndex]->BVH,
                         App->Scene->InstancesPointers[i]->InstanceData.Transform)
         );
     }
@@ -831,6 +844,12 @@ void pathTraceCPURenderer::Resize(uint32_t Width, uint32_t Height)
 
 void pathTraceCPURenderer::Destroy()
 {
+    for(int i=0; i<Meshes.size(); i++)
+    {
+        delete Meshes[i]->BVH;
+        delete Meshes[i];
+    }
+
     vkFreeCommandBuffers(Device, App->VulkanObjects.CommandPool, 1, &VulkanObjects.DrawCommandBuffer);
 
     ThreadPool.Stop();

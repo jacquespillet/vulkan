@@ -33,8 +33,13 @@ struct ray
 struct triangle
 {
     glm::vec3 v0, v1, v2; 
-    glm::vec3 Normal0, Normal1, Normal2; 
     glm::vec3 Centroid;
+};
+
+struct triangleExtraData
+{
+    glm::vec3 Normal0, Normal1, Normal2; 
+    glm::vec2 UV0, UV1, UV2; 
 };
 
 struct bvhNode
@@ -63,10 +68,11 @@ struct rayPayload
     float Distance;
 };
 
+struct mesh;
 
 struct bvh
 {
-    bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices);
+    bvh(mesh *Mesh);
     void Build();
     void Refit();
     void Intersect(ray Ray, rayPayload &RayPayload);
@@ -78,12 +84,21 @@ struct bvh
     float EvaluateSAH(bvhNode &Node, int Axis, float Position);
     float CalculateNodeCost(bvhNode &Node);
 
-    std::vector<bvhNode> BVHNodes;
-    std::vector<triangle> Triangles;
+    mesh *Mesh;
+    
     std::vector<uint32_t> TriangleIndices;
+
+    std::vector<bvhNode> BVHNodes;
     uint32_t NodesUsed=1;
-    uint32_t TriangleCount=0;
     uint32_t RootNodeIndex=0;
+};
+
+struct mesh
+{
+    mesh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices);
+    bvh *BVH;
+    std::vector<triangle> Triangles;
+    std::vector<triangleExtraData> TrianglesExtraData;
 };
 
 struct tlasNode
@@ -164,7 +179,7 @@ private:
 
     threadPool ThreadPool;
 
-    std::vector<bvh> BVHs;
+    std::vector<mesh*> Meshes;
     std::vector<bvhInstance> Instances;
     tlas TLAS;
 
