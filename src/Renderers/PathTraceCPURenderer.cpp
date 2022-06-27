@@ -19,7 +19,7 @@ void threadPool::Start()
     uint32_t NumThreads = std::thread::hardware_concurrency();
     
     Threads.resize(NumThreads);
-    Finished.resize(NumThreads, false);
+    Finished.resize(NumThreads, true);
     for(uint32_t i=0; i<NumThreads; i++)
     {
         Threads[i] = std::thread([this, i]()
@@ -109,7 +109,7 @@ bool bvhNode::IsLeaf()
 
 float aabb::Area()
 {
-    glm::vec3 e = Max - Min;
+    glm::vec3 e = Max - Min; // box extent
     return e.x * e.y + e.y * e.z + e.z * e.x;
 }
 
@@ -197,36 +197,60 @@ void bvh::Build()
 
 float bvh::EvaluateSAH(bvhNode &Node, int Axis, float Position)
 {
-    aabb LeftBox, RightBox;
-    int LeftCount=0;
-    int RightCount=0;
+    // aabb LeftBox, RightBox;
+    // int LeftCount=0;
+    // int RightCount=0;
 
-    for(uint32_t i=0; i<Node.TriangleCount; i++)
-    {
-        triangle &Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
-        if(Triangle.Centroid[Axis] < Position)
-        {
-            LeftCount++;
-            LeftBox.Grow(Triangle.v0);
-            LeftBox.Grow(Triangle.v1);
-            LeftBox.Grow(Triangle.v2);
-        }
-        else
-        {
-            RightCount++;
-            RightBox.Grow(Triangle.v0);
-            RightBox.Grow(Triangle.v1);
-            RightBox.Grow(Triangle.v2);
-        }
-    }
+    // for(uint32_t i=0; i<Node.TriangleCount; i++)
+    // {
+    //     triangle &Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
+    //     if(Triangle.Centroid[Axis] < Position)
+    //     {
+    //         LeftCount++;
+    //         LeftBox.Grow(Triangle.v0);
+    //         LeftBox.Grow(Triangle.v1);
+    //         LeftBox.Grow(Triangle.v2);
+    //     }
+    //     else
+    //     {
+    //         RightCount++;
+    //         RightBox.Grow(Triangle.v0);
+    //         RightBox.Grow(Triangle.v1);
+    //         RightBox.Grow(Triangle.v2);
+    //     }
+    // }
 
-    float Cost = LeftCount * LeftBox.Area() + RightCount * RightBox.Area();
-    return Cost > 0 ? Cost : 1e30f;
+    // float Cost = LeftCount * LeftBox.Area() + RightCount * RightBox.Area();
+    // return Cost > 0 ? Cost : 1e30f;
+	// determine triangle counts and bounds for this split candidate
+	aabb leftBox, rightBox;
+	int leftCount = 0, rightCount = 0;
+	for (uint32_t i = 0; i < Node.TriangleCount; i++)
+	{
+		triangle& Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
+		if (Triangle.Centroid[Axis] < Position)
+		{
+			leftCount++;
+			leftBox.Grow( Triangle.v0 );
+			leftBox.Grow( Triangle.v1 );
+			leftBox.Grow( Triangle.v2 );
+		}
+		else
+		{
+			rightCount++;
+			rightBox.Grow( Triangle.v0 );
+			rightBox.Grow( Triangle.v1 );
+			rightBox.Grow( Triangle.v2 );
+		}
+	}
+	float cost = leftCount * leftBox.Area() + rightCount * rightBox.Area();
+	return cost > 0 ? cost : 1e30f;    
 }
 
 
 float bvh::FindBestSplitPlane(bvhNode &Node, int &Axis, float &SplitPosition)
 {
+#if 1
     float BestCost = 1e30f;
     for(int CurrentAxis=0; CurrentAxis<3; CurrentAxis++)
     {
@@ -286,26 +310,56 @@ float bvh::FindBestSplitPlane(bvhNode &Node, int &Axis, float &SplitPosition)
             }
         }
     }
-
     return BestCost;
+#else
+
+    float bestCost = 1e30f;
+    for (int a = 0; a < 3; a++) for (uint32_t i = 0; i < Node.TriangleCount; i++)
+    {
+        triangle& Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
+        float candidatePos = Triangle.Centroid[a];
+        float cost = EvaluateSAH( Node, a, candidatePos );
+        if (cost < bestCost) SplitPosition = candidatePos, Axis = a, bestCost = cost;
+    }
+    return bestCost;
+#endif
 }
 
-
+#define MODE 2
 
 void bvh::Subdivide(uint32_t NodeIndex)
 {
     bvhNode &Node = BVHNodes[NodeIndex];
 
 
-#if 0
+#if MODE == 0
+    //4.2
     if(Node.TriangleCount <=2) return;
     glm::vec3 Extent = Node.AABBMax - Node.AABBMin;
     int Axis=0;
     if(Extent.y > Extent.x) Axis=1;
     if(Extent.z > Extent[Axis]) Axis=2;
     float SplitPosition = Node.AABBMin[Axis] + Extent[Axis] * 0.5f; 
-#else
-
+#elif MODE == 1
+    //8.4
+	int bestAxis = -1;
+	float bestPos = 0, bestCost = 1e30f;
+	for (int axis = 0; axis < 3; axis++) for (uint32_t i = 0; i < Node.TriangleCount; i++)
+	{
+		triangle& Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
+		float candidatePos = Triangle.Centroid[axis];
+		float cost = EvaluateSAH( Node, axis, candidatePos );
+		if (cost < bestCost)
+			bestPos = candidatePos, bestAxis = axis, bestCost = cost;
+	}
+	int Axis = bestAxis;
+	float SplitPosition = bestPos;
+	glm::vec3 e = Node.AABBMax - Node.AABBMin; // extent of parent
+	float parentArea = e.x * e.y + e.y * e.z + e.z * e.x;
+	float parentCost = Node.TriangleCount * parentArea;
+	if (bestCost >= parentCost) return;
+#elif MODE==2
+    //4.01
     int Axis=-1;
     float SplitPosition = 0;
     float SplitCost = FindBestSplitPlane(Node, Axis, SplitPosition);
@@ -827,7 +881,7 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
 {
 
     uint32_t RayBounces=2;
-    uint32_t SampleCount=32;
+    uint32_t SampleCount=256;
     ray Ray = {}; 
     for(uint32_t yy=StartY; yy < StartY+TileHeight; yy++)
     {

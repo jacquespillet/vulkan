@@ -52,7 +52,8 @@ struct bvhNode
 };
 struct aabb
 {
-    glm::vec3 Min, Max;
+    glm::vec3 Min =glm::vec3(1e30f);
+    glm::vec3 Max =glm::vec3(-1e30f);
     float Area();
     void Grow(glm::vec3 Position);
     void Grow(aabb &AABB);
