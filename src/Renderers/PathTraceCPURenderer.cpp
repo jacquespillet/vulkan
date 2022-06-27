@@ -112,11 +112,9 @@ void aabb::Grow(aabb &AABB)
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
-bvh::bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices, glm::mat4 Transform)
+bvh::bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices)
 {
     uint32_t AddedTriangles=0;
-    this->InvTransform = glm::inverse(Transform);
-
 
     Triangles.resize(Indices.size()/3);
     for(size_t j=0; j<Indices.size(); j+=3)
@@ -144,19 +142,6 @@ bvh::bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices, glm::mat
     TriangleCount = AddedTriangles;    
 
     Build();
-
-    
-    glm::vec3 Min = BVHNodes[0].AABBMin;
-    glm::vec3 Max = BVHNodes[0].AABBMax;
-    Bounds = {};
-    for (int i = 0; i < 8; i++)
-    {
-		Bounds.Grow( Transform *  glm::vec4( 
-                                    i & 1 ? Max.x : Min.x,
-                                    i & 2 ? Max.y : Min.y, 
-                                    i & 4 ? Max.z : Min.z,
-                                    1.0f ));
-    }
 }
 void bvh::Build()
 {
@@ -345,11 +330,6 @@ void bvh::Refit()
 
 void bvh::Intersect(ray Ray, rayPayload &RayPayload)
 {
-    Ray.Origin = InvTransform * glm::vec4(Ray.Origin, 1.0f);
-    Ray.Direction = InvTransform * glm::vec4(Ray.Direction, 0.0f);
-    Ray.InverseDirection = 1.0f / Ray.Direction;
-
-
     bvhNode *Node = &BVHNodes[RootNodeIndex];
     bvhNode *Stack[64];
     uint32_t StackPointer=0;
@@ -412,12 +392,43 @@ void bvh::UpdateNodeBounds(uint32_t NodeIndex)
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
+void bvhInstance::SetTransform(glm::mat4 &Transform)
+{
+    this->InverseTransform = glm::inverse(Transform);
+    
+    glm::vec3 Min = BVH->BVHNodes[0].AABBMin;
+    glm::vec3 Max = BVH->BVHNodes[0].AABBMax;
+    Bounds = {};
+    for (int i = 0; i < 8; i++)
+    {
+		Bounds.Grow( Transform *  glm::vec4( 
+                                    i & 1 ? Max.x : Min.x,
+                                    i & 2 ? Max.y : Min.y, 
+                                    i & 4 ? Max.z : Min.z,
+                                    1.0f ));
+    }    
+}
+
+void bvhInstance::Intersect(ray Ray, rayPayload &RayPayload)
+{
+    Ray.Origin = InverseTransform * glm::vec4(Ray.Origin, 1);
+    Ray.Direction = InverseTransform * glm::vec4(Ray.Direction, 0);
+    Ray.InverseDirection = 1.0f / Ray.Direction;
+
+    BVH->Intersect(Ray, RayPayload);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////
+
 ////////////////////////////////////////////////////////////////////////////////////////
 
 tlas::tlas()
 {}
 
-tlas::tlas(std::vector<bvh>* BVHList)
+tlas::tlas(std::vector<bvhInstance>* BVHList)
 {
     BLAS = BVHList;
     Nodes.resize(BLAS->size() * 2);
@@ -779,14 +790,21 @@ void pathTraceCPURenderer::Setup()
                               &VulkanObjects.previewBuffer, PreviewImage.size() * sizeof(rgba8), PreviewImage.data());    
     VulkanObjects.previewImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, VK_FORMAT_R8G8B8A8_UNORM, {previewSize, previewSize, 1});
 
+    
+    for(size_t i=0; i<App->Scene->Meshes.size(); i++)
+    {
+        BVHs.push_back(bvh(App->Scene->Meshes[i].Indices,
+                    App->Scene->Meshes[i].Vertices));
+    }
     for(size_t i=0; i<App->Scene->InstancesPointers.size(); i++)
     {
-        BVHs.push_back(bvh(App->Scene->InstancesPointers[i]->Mesh->Indices,
-                    App->Scene->InstancesPointers[i]->Mesh->Vertices,
-                    App->Scene->InstancesPointers[i]->InstanceData.Transform));
+        Instances.push_back(
+            bvhInstance(&BVHs[App->Scene->InstancesPointers[i]->MeshIndex],
+                        App->Scene->InstancesPointers[i]->InstanceData.Transform)
+        );
     }
     
-    TLAS = tlas(&BVHs);
+    TLAS = tlas(&Instances);
     TLAS.Build();
 }
 

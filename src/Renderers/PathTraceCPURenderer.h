@@ -66,7 +66,7 @@ struct rayPayload
 
 struct bvh
 {
-    bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices, glm::mat4 Transform);
+    bvh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices);
     void Build();
     void Refit();
     void Intersect(ray Ray, rayPayload &RayPayload);
@@ -84,9 +84,6 @@ struct bvh
     uint32_t NodesUsed=1;
     uint32_t TriangleCount=0;
     uint32_t RootNodeIndex=0;
-
-    glm::mat4 InvTransform;
-    aabb Bounds;
 };
 
 struct tlasNode
@@ -98,9 +95,23 @@ struct tlasNode
     bool IsLeaf() {return LeftRight==0;}
 };
 
+struct bvhInstance
+{
+    bvhInstance(bvh *Blas, glm::mat4 Transform) : BVH(Blas) 
+    {
+        SetTransform(Transform);
+    }
+    void SetTransform(glm::mat4 &Transform);
+    void Intersect(ray Ray, rayPayload &RayPayload);
+
+    bvh *BVH;
+    glm::mat4 InverseTransform;
+    aabb Bounds;
+};
+
 struct tlas
 {
-    tlas(std::vector<bvh>* Instances);
+    tlas(std::vector<bvhInstance>* Instances);
     tlas();
     void Build();
     void Intersect(ray Ray, rayPayload &RayPayload);
@@ -108,7 +119,7 @@ struct tlas
     int FindBestMatch(std::vector<int>& List, int N, int A);
 
     //Instances
-    std::vector<bvh>* BLAS;
+    std::vector<bvhInstance>* BLAS;
     
     std::vector<tlasNode> Nodes;
 
@@ -154,6 +165,7 @@ private:
     threadPool ThreadPool;
 
     std::vector<bvh> BVHs;
+    std::vector<bvhInstance> Instances;
     tlas TLAS;
 
     bool ShouldPathTrace=false;
