@@ -92,9 +92,10 @@ struct bvh
 struct tlasNode
 {
     glm::vec3 AABBMin;
-    uint32_t LeftBLAS;
+    uint32_t LeftRight;
     glm::vec3 AABBMax;
-    uint32_t IsLeaf;
+    uint32_t BLAS;
+    bool IsLeaf() {return LeftRight==0;}
 };
 
 struct tlas
@@ -103,6 +104,8 @@ struct tlas
     tlas();
     void Build();
     void Intersect(ray Ray, rayPayload &RayPayload);
+
+    int FindBestMatch(std::vector<int>& List, int N, int A);
 
     //Instances
     std::vector<bvh>* BLAS;

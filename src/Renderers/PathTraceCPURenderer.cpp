@@ -424,22 +424,78 @@ tlas::tlas(std::vector<bvh>* BVHList)
     NodesUsed=2;
 }
 
+int tlas::FindBestMatch(std::vector<int>& List, int N, int A)
+{
+    float Smallest = 1e30f;
+    int BestB = -1;
+    for(int B=0; B< N; B++)
+    {
+        if(B != A)
+        {
+            glm::vec3 BMax = glm::max(Nodes[List[A]].AABBMax, Nodes[List[B]].AABBMax);
+            glm::vec3 BMin = glm::min(Nodes[List[A]].AABBMin, Nodes[List[B]].AABBMin);
+            glm::vec3 Diff = BMax - BMin;
+            float Area = Diff.x * Diff.y + Diff.y * Diff.z + Diff.x * Diff.z;
+            if(Area < Smallest) 
+            {
+                Smallest = Area;
+                BestB = B;
+            }
+        }
+    }
+
+    return BestB;
+}
+
 void tlas::Build()
 {
-    Nodes[2].LeftBLAS = 0; //Reference to the primitive
-    Nodes[2].AABBMin = glm::vec3(-3);
-    Nodes[2].AABBMax = glm::vec3(3);
-    Nodes[2].IsLeaf=true;
-    
-    Nodes[3].LeftBLAS = 1; //Reference to the primitive
-    Nodes[3].AABBMin = glm::vec3(-3);
-    Nodes[3].AABBMax = glm::vec3(3);
-    Nodes[3].IsLeaf=true;
+    std::vector<int> NodeIndex(BLAS->size());
+    int NodeIndices = (int)BLAS->size();
+    NodesUsed=1;
+    for(uint32_t i=0; i<BLAS->size(); i++)
+    {
+        NodeIndex[i] = NodesUsed;
+        Nodes[NodesUsed].AABBMin = (*BLAS)[i].Bounds.Min;
+        Nodes[NodesUsed].AABBMax = (*BLAS)[i].Bounds.Max;
+        Nodes[NodesUsed].BLAS = i;
+        Nodes[NodesUsed].LeftRight = 0; //Makes it a leaf.
+        NodesUsed++;
+    }
 
-    Nodes[0].LeftBLAS=2;
-    Nodes[0].AABBMin = glm::min(Nodes[3].AABBMin, Nodes[2].AABBMin);
-    Nodes[0].AABBMax = glm::max(Nodes[3].AABBMax, Nodes[2].AABBMax);
-    Nodes[0].IsLeaf=false;
+
+    int A = 0;
+    int B= FindBestMatch(NodeIndex, NodeIndices, A); //Best match for A
+    while(NodeIndices >1)
+    {
+        int C = FindBestMatch(NodeIndex, NodeIndices, B); //Best match for B
+        if(A == C) //There is no better match --> Create a parent for them
+        {
+            int NodeIndexA = NodeIndex[A];
+            int NodeIndexB = NodeIndex[B];
+            tlasNode &NodeA = Nodes[NodeIndexA];
+            tlasNode &NodeB = Nodes[NodeIndexB];
+            
+            tlasNode &NewNode = Nodes[NodesUsed];
+            NewNode.LeftRight = NodeIndexA + (NodeIndexB << 16);
+            NewNode.AABBMin = glm::min(NodeA.AABBMin, NodeB.AABBMin);
+            NewNode.AABBMax = glm::max(NodeA.AABBMax, NodeB.AABBMax);
+            
+            NodeIndex[A] = NodesUsed++;
+            NodeIndex[B] = NodeIndex[NodeIndices-1];
+            B = FindBestMatch(NodeIndex, --NodeIndices, A);
+        }
+        else
+        {
+            A = B;
+            B = C;
+        }
+    }
+
+    Nodes[0] = Nodes[NodeIndex[A]];
+
+
+
+
 }
 
 void tlas::Intersect(ray Ray, rayPayload &RayPayload)
@@ -451,17 +507,17 @@ void tlas::Intersect(ray Ray, rayPayload &RayPayload)
     while(1)
     {
         //If we hit the leaf, check intersection with the bvhs
-        if(Node->IsLeaf)
+        if(Node->IsLeaf())
         {
-            (*BLAS)[Node->LeftBLAS].Intersect(Ray, RayPayload);
+            (*BLAS)[Node->BLAS].Intersect(Ray, RayPayload);
             if(StackPtr == 0) break;
             else Node = Stack[--StackPtr];
             continue;
         }
 
         //Check if hit any of the children
-        tlasNode *Child1 = &Nodes[Node->LeftBLAS];
-        tlasNode *Child2 = &Nodes[Node->LeftBLAS + 1];
+        tlasNode *Child1 = &Nodes[Node->LeftRight & 0xffff];
+        tlasNode *Child2 = &Nodes[Node->LeftRight >> 16];
         float Dist1 = RayAABBIntersection(Ray, Child1->AABBMin, Child1->AABBMax, RayPayload);
         float Dist2 = RayAABBIntersection(Ray, Child2->AABBMin, Child2->AABBMax, RayPayload);
         if(Dist1 > Dist2) { //Swap if dist 2 is closer
@@ -730,14 +786,6 @@ void pathTraceCPURenderer::Setup()
                     App->Scene->InstancesPointers[i]->InstanceData.Transform));
     }
     
-    glm::mat4 Transform = glm::translate(glm::mat4(1), glm::vec3(2,0,0));
-    for(size_t i=0; i<App->Scene->InstancesPointers.size(); i++)
-    {
-        BVHs.push_back(bvh(App->Scene->InstancesPointers[i]->Mesh->Indices,
-                    App->Scene->InstancesPointers[i]->Mesh->Vertices,
-                    Transform * App->Scene->InstancesPointers[i]->InstanceData.Transform));
-    }
-
     TLAS = tlas(&BVHs);
     TLAS.Build();
 }
