@@ -5,7 +5,7 @@
 #include <glm/ext.hpp>
 
 #define PI 3.14159265359f
-#define TWO_PI 6.28318530717958647692529
+#define TWO_PI 6.28318530717958647692529f
 
 class camera {
 public:

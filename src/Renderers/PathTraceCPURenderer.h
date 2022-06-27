@@ -67,8 +67,11 @@ struct rayPayload
 {
     float Distance;
     float U, V;
+    glm::vec3 Emission;
     uint32_t InstanceIndex;
     uint32_t PrimitiveIndex;
+    uint32_t RandomState;
+    uint8_t Depth;
     // uint32_t InstPrim;
 };
 
@@ -200,8 +203,6 @@ private:
     void PathTrace();
     void Preview();
     void PathTraceTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, std::vector<rgba8>* ImageToWrite);
+    void PreviewTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, std::vector<rgba8>* ImageToWrite);
     void CreateCommandBuffers();
-
-    //Random
-    float RandomUnilateral();
 };

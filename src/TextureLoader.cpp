@@ -3,27 +3,33 @@
 #include "GLTFImporter.h"
 
 glm::vec4 vulkanTexture::Sample(glm::vec2 UV, borderType BorderType)
-{
+{ 	
 	// UV = glm::abs(UV);
 	// UV = glm::clamp(UV, glm::vec2(0), glm::vec2(1));
-    if(UV.x > 1)
+	if (UV.x < -5.4)
+	{
+		int a=0;
+	}
+	glm::vec2 IntPart;
+    glm::vec2 CorrectedUV = glm::modf(UV,IntPart);
+	if(UV.x > 1)
     {
         float d;
-        UV.x = modf(UV.x, &d);
+		CorrectedUV.x = modf(CorrectedUV.x, &d);
     }
     if(UV.y > 1)
     {
         float d;
-        UV.y = modf(UV.y, &d);
+		CorrectedUV.y = modf(CorrectedUV.y, &d);
     }
 
     if(UV.x < 0)
     {
-        UV.x = 1 + UV.x;
+		CorrectedUV.x = 1 + CorrectedUV.x;
     }
     if(UV.y < 0)
     {
-        UV.y = 1 + UV.y;
+		CorrectedUV.y = 1 + CorrectedUV.y;
     }
     //if(BorderType == borderType::Clamp) 
     // if(BorderType==borderType::Repeat) {
@@ -31,7 +37,7 @@ glm::vec4 vulkanTexture::Sample(glm::vec2 UV, borderType BorderType)
     //     UV = glm::modf(UV, i);
     // }
     
-    glm::ivec2 TexCoords = glm::ivec2(UV * glm::vec2(Width, Height));
+    glm::ivec2 TexCoords = glm::ivec2(CorrectedUV * glm::vec2(Width, Height));
     uint32_t BaseInx = (uint32_t)(TexCoords.y * Width * 4) + (uint32_t)(TexCoords.x * 4);
     glm::vec4 TextureColor(
         (float)(Data[BaseInx + 0]) / 255.0f,

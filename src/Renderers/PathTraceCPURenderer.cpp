@@ -1,7 +1,13 @@
 #include "PathTraceCPURenderer.h"
 #include "App.h"
 #include "imgui.h"
+#include "brdf.h"
+
 #define BINS 8
+
+#define DIFFUSE_TYPE 1
+#define SPECULAR_TYPE 2
+
 
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -711,7 +717,7 @@ void pathTraceCPURenderer::Render()
     VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 }
 
-void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, std::vector<rgba8>* ImageToWrite)
+void pathTraceCPURenderer::PreviewTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, std::vector<rgba8>* ImageToWrite)
 {
     glm::vec4 Origin = App->Scene->Camera.GetModelMatrix() * glm::vec4(0,0,0,1);
     ray Ray = {}; 
@@ -727,7 +733,6 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
             Ray.Origin = Origin;
             glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
             glm::vec4 Direction = App->Scene->Camera.GetModelMatrix() * glm::normalize(glm::vec4(Target.x,Target.y, Target.z, 0.0f));
-            
             Ray.Direction = Direction;
             
             rayPayload RayPayload = {};
@@ -766,12 +771,202 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                 uint8_t g = (uint8_t)(FinalColor.g * 255.0f);
                 uint8_t b = (uint8_t)(FinalColor.b * 255.0f);
 
-                // r = (uint8_t)(UV.x * 255.0f);
-                // g = (uint8_t)(UV.y * 255.0f);
-                // b = 0;
-
                 (*ImageToWrite)[yy * ImageWidth + xx] = {b, g, r, 255 };
             }
+        }
+        if(yy >= ImageHeight-1) break;
+    }
+}
+
+uint32_t wang_hash(uint32_t &seed)
+{
+    seed = uint32_t(seed ^ uint32_t(61)) ^ uint32_t(seed >> uint32_t(16));
+    seed *= uint32_t(9);
+    seed = seed ^ (seed >> 4);
+    seed *= uint32_t(0x27d4eb2d);
+    seed = seed ^ (seed >> 15);
+    return seed;
+}
+
+float RandomUnilateral(uint32_t &State)
+{
+    return float(wang_hash(State)) / 4294967296.0f;
+}
+
+float RandomBilateral(uint32_t &State)
+{
+    return RandomUnilateral(State) * 2.0f - 1.0f;
+}
+
+void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, std::vector<rgba8>* ImageToWrite)
+{
+    uint32_t RayBounces=2;
+    uint32_t SampleCount=1;
+
+    ray Ray = {}; 
+    for(uint32_t yy=StartY; yy < StartY+TileHeight; yy++)
+    {
+        for(uint32_t xx=StartX; xx < StartX+TileWidth; xx++)
+        {
+            if(xx >= ImageWidth-1) break;
+            (*ImageToWrite)[yy * ImageWidth + xx] = { 0, 0, 0, 0 };
+
+            float OneOverSampleCount = 1.0f / (float) SampleCount;
+            glm::vec3 SampleColor(0.0f);
+            for(uint32_t Sample=0; Sample<SampleCount; Sample++)
+            {
+                rayPayload RayPayload = {};
+                RayPayload.RandomState = (xx * 1973 + yy * 9277 + Sample * 26699) | 1; 
+                RayPayload.Depth=0;
+
+                glm::vec2 Jitter = glm::vec2(RandomBilateral(RayPayload.RandomState), RandomBilateral(RayPayload.RandomState)) - 0.5f;
+                glm::vec2 uv((float)(xx + Jitter.x) / (float)ImageWidth, (float)(yy + Jitter.y) / (float)ImageHeight);
+                glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
+                
+                Ray.Origin = App->Scene->Camera.GetModelMatrix() * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+                Ray.Direction = App->Scene->Camera.GetModelMatrix() * glm::vec4(glm::normalize(glm::vec3(Target)), 0.0);
+                
+                glm::vec3 Attenuation(1.0);
+                glm::vec3 Radiance(0);
+                
+                
+                RayPayload.Distance = 1e30f;
+                for(uint32_t j=0; j<RayBounces; j++)
+                {
+                    TLAS.Intersect(Ray, RayPayload);
+                        
+                    //Sky
+                    {
+                        if(RayPayload.Distance == 1e30f)
+                        {
+                            // if(SceneUbo.Data.BackgroundType ==BACKGROUND_TYPE_CUBEMAP)
+                            // {
+                            //     vec3 SkyDirection = Direction.xyz;
+                            //     SkyDirection.y *=-1;
+                            //     Radiance += Attenuation * SceneUbo.Data.BackgroundIntensity * texture(IrradianceMap, SkyDirection).rgb;
+                            // }
+                            // else if(SceneUbo.Data.BackgroundType ==BACKGROUND_TYPE_COLOR)
+                            // {
+                                Radiance += Attenuation * App->Scene->UBOSceneMatrices.BackgroundIntensity * App->Scene->UBOSceneMatrices.BackgroundColor;
+                            // }
+                            break;
+                        }
+                    }
+
+                    ////UNPACK TRIANGLE DATA
+                    sceneMaterial *Material = App->Scene->InstancesPointers[RayPayload.InstanceIndex]->Mesh->Material;
+                    materialData *MatData = &Material->MaterialData;
+                    vulkanTexture *DiffuseTexture = &Material->Diffuse;
+                    vulkanTexture *MetallicRoughnessTexture = &Material->Specular;
+                    
+                    glm::vec2 UV = 
+                        Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV1 * RayPayload.U + 
+                        Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV2 * RayPayload.V +
+                        Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV0 * (1 - RayPayload.U - RayPayload.V);
+                    
+                    glm::vec3 Normal = 
+                        Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].Normal1 * RayPayload.U + 
+                        Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].Normal2 * RayPayload.V +
+                        Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].Normal0 * (1 - RayPayload.U - RayPayload.V);
+                    
+                    glm::vec3 BaseColor = MatData->BaseColor;
+                    if(MatData->BaseColorTextureID >=0 && MatData->UseBaseColor>0)
+                    {
+                        glm::vec4 TextureColor = DiffuseTexture->Sample(UV);
+                        
+                        TextureColor *= glm::pow(TextureColor, glm::vec4(2.2f));
+                        BaseColor *= glm::vec3(TextureColor);                    
+                    }
+
+                    float Roughness = MatData->Roughness;
+                    float Metallic = MatData->Metallic;
+                    if(MatData->MetallicRoughnessTextureID >=0 && MatData->UseMetallicRoughness>0)
+                    {
+                        glm::vec2 RoughnessMetallic = MetallicRoughnessTexture->Sample(UV);
+                        Metallic *= RoughnessMetallic.r;
+                        Roughness *= RoughnessMetallic.g;
+                    }    
+
+                    ////////////////////////                    
+                    
+                    Radiance += Attenuation * RayPayload.Emission;
+
+                    //Sample lights
+                    {
+                        
+                    }
+
+
+                    if(j == RayBounces-1) break;
+                    
+                    // Russian roulette
+                    {
+                        if (j >= 3)
+                        {
+                            float q = std::min(std::max(Attenuation.x, std::max(Attenuation.y, Attenuation.z)) + 0.001f, 0.95f);
+                            if (RandomUnilateral(RayPayload.RandomState) > q)
+                                break;
+                            Attenuation /= q;
+                        }
+                    }
+                    
+
+                    //Eval brdf
+                    {
+                        glm::vec3 V = -Ray.Direction;
+                        int brdfType = DIFFUSE_TYPE;
+                        if (Metallic == 1.0f && Roughness == 0.0f) {
+                            brdfType = SPECULAR_TYPE;
+                        } else {
+                            float brdfProbability = GetBrdfProbability(RayPayload, V, Normal, BaseColor, Metallic);
+
+                            if (RandomUnilateral(RayPayload.RandomState) < brdfProbability) {
+                                brdfType = SPECULAR_TYPE;
+                                Attenuation /= brdfProbability;
+                            } else {
+                                brdfType = DIFFUSE_TYPE;
+                                Attenuation /= (1.0f - brdfProbability);
+                            }
+                        }
+
+                        glm::vec3 brdfWeight;
+                        glm::vec2 Xi = glm::vec2(RandomUnilateral(RayPayload.RandomState),RandomUnilateral(RayPayload.RandomState));
+                        glm::vec3 ScatterDir = glm::vec3(0);
+                        
+                        if(brdfType == DIFFUSE_TYPE)
+                        {
+                            if (!SampleDiffuseBRDF(Xi, Normal, V,  ScatterDir, brdfWeight, BaseColor, Metallic)) {
+                                break;
+                            }
+                        }
+                        else if(brdfType == SPECULAR_TYPE)
+                        {
+                            if (!SampleSpecularBRDF(Xi, Normal, V,  ScatterDir, brdfWeight, BaseColor, Roughness, Metallic)) {
+                                break;
+                            }
+                        }
+
+                        //the weights already contains color * brdf * cosine term / pdf
+                        Attenuation *= brdfWeight;						
+
+                        Ray.Origin = Ray.Origin + RayPayload.Distance * Ray.Direction;
+                        Ray.Direction = glm::vec4(ScatterDir, 0.0f);
+                        RayPayload.Distance = 1e30f;
+                    }					   
+                }
+
+                SampleColor += Radiance * OneOverSampleCount;	
+            }
+
+            
+            SampleColor *= glm::pow(SampleColor, glm::vec3(1.0f / 2.2f));
+			SampleColor = glm::clamp(SampleColor, glm::vec3(0), glm::vec3(1));
+
+            uint8_t r = (uint8_t)(SampleColor.r * 255.0f);
+            uint8_t g = (uint8_t)(SampleColor.g * 255.0f);
+            uint8_t b = (uint8_t)(SampleColor.b * 255.0f);
+
+            (*ImageToWrite)[yy * ImageWidth + xx] = {b, g, r, 255 };
         }
         if(yy >= ImageHeight-1) break;
     }
@@ -801,7 +996,7 @@ void pathTraceCPURenderer::Preview()
         {   
             ThreadPool.AddJob([x, y, this]()
             {
-               PathTraceTile(x, y, TileSize, TileSize, previewWidth,previewHeight, &PreviewImage); 
+               PreviewTile(x, y, TileSize, TileSize, previewWidth,previewHeight, &PreviewImage); 
             });
         }
     }
@@ -923,6 +1118,10 @@ void RayTriangleInteresection(ray Ray, triangle &Triangle, rayPayload &RayPayloa
     
     float t = f * glm::dot(Edge2, q);
     if(t > 0.0001f && t < RayPayload.Distance) {
+        
+
+
+
         RayPayload.U = u;
         RayPayload.V = v;
         RayPayload.InstanceIndex = InstanceIndex;
