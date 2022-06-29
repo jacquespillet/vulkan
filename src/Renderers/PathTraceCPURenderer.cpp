@@ -875,8 +875,11 @@ void pathTraceCPURenderer::Render()
     VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 }
 
-void pathTraceCPURenderer::PreviewTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, std::vector<rgba8>* ImageToWrite)
+void pathTraceCPURenderer::PreviewTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, uint32_t RenderWidth, uint32_t RenderHeight, std::vector<rgba8>* ImageToWrite)
 {
+    float StartRatio = App->Scene->ViewportStart / App->Width;
+    uint32_t StartPreview = (StartRatio * (float)previewWidth);
+    
     glm::vec4 Origin = App->Scene->Camera.GetModelMatrix() * glm::vec4(0,0,0,1);
     ray Ray = {}; 
     for(uint32_t yy=StartY; yy < StartY+TileHeight; yy++)
@@ -885,9 +888,9 @@ void pathTraceCPURenderer::PreviewTile(uint32_t StartX, uint32_t StartY, uint32_
         {
             if(xx >= ImageWidth-1) break;
 
-            (*ImageToWrite)[yy * ImageWidth + xx] = { 0, 0, 0, 0 };
-    
-            glm::vec2 uv((float)xx / (float)ImageWidth, (float)yy / (float)ImageHeight);
+            (*ImageToWrite)[yy * ImageWidth + xx] = { 255, 0, 0, 0 };
+
+            glm::vec2 uv((float)(xx - StartPreview) / (float)RenderWidth, (float)yy / (float)RenderHeight);
             Ray.Origin = Origin;
             glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
             glm::vec4 Direction = App->Scene->Camera.GetModelMatrix() * glm::normalize(glm::vec4(Target.x,Target.y, Target.z, 0.0f));
@@ -981,12 +984,10 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
             glm::mat4 ModelMatrix = App->Scene->Camera.GetModelMatrix();
             glm::vec3 Origin(ModelMatrix[3][0],ModelMatrix[3][1],ModelMatrix[3][2]);
             
-            //Direction
-            glm::vec2 uv((float)(xx) / (float)ImageWidth, (float)(yy) / (float)ImageHeight);
-            float Px = (2 * ((xx + 0.5f) / ImageWidth) - 1) * tan(App->Scene->Camera.GetFov() / 2 * PI / 180) * imageAspectRatio; 
-            float Py = (1 - 2 * ((yy + 0.5f) / ImageHeight) * tan(App->Scene->Camera.GetFov() / 2 * PI / 180)); 
-            glm::vec3 Target = glm::vec3(Px, Py, -1);  //note that this just equal to Vec3f(Px, Py, -1);        
-
+            glm::vec2 uv((float)(xx - App->Scene->ViewportStart) / (float)(ImageWidth-App->Scene->ViewportStart), (float)yy / (float)ImageHeight);
+            Ray.Origin = Origin;
+            glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
+        
             for(uint32_t Sample=0; Sample<SamplesPerFrame; Sample++)
             {
                 Ray.Origin = Origin;
@@ -995,7 +996,7 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
 
                 //Jitter
                 glm::vec2 Jitter = (glm::vec2(RandomBilateral(RayPayload.RandomState), RandomBilateral(RayPayload.RandomState))) * InverseImageSize;
-                glm::vec3 JitteredTarget = Target + glm::vec3(Jitter,0);
+                glm::vec3 JitteredTarget = Target + glm::vec4(Jitter,0,0);
                 Ray.Direction = App->Scene->Camera.GetModelMatrix() * glm::vec4(glm::normalize(JitteredTarget), 0.0);
                 
                 glm::vec3 Attenuation(1.0);
@@ -1155,7 +1156,7 @@ void pathTraceCPURenderer::PathTrace()
     CurrentSampleCount += SamplesPerFrame;
     for(uint32_t y=0; y<App->Height; y+=TileSize)
     {
-        for(uint32_t x=0; x<App->Width; x+=TileSize)
+        for(uint32_t x=App->Scene->ViewportStart; x<App->Width; x+=TileSize)
         {
             ThreadPool.AddJob([x, y, this]()
             {
@@ -1169,13 +1170,22 @@ void pathTraceCPURenderer::PathTrace()
 
 void pathTraceCPURenderer::Preview()
 {
+    float StartRatio = App->Scene->ViewportStart / App->Width;
+    uint32_t StartPreview = (StartRatio * (float)previewWidth);
+    
+    uint32_t RenderWidth = previewWidth - StartPreview;
+    uint32_t RenderHeight = previewHeight;
     for(uint32_t y=0; y<previewHeight; y+=TileSize)
     {
-        for(uint32_t x=0; x<previewWidth; x+=TileSize)
+        for(uint32_t x=StartPreview; x<previewWidth; x+=TileSize)
         {   
-            ThreadPool.AddJob([x, y, this]()
+            ThreadPool.AddJob([x, y, RenderWidth, RenderHeight, this]()
             {
-               PreviewTile(x, y, TileSize, TileSize, previewWidth,previewHeight, &PreviewImage); 
+               PreviewTile(x, y, 
+                           TileSize, TileSize, 
+                           previewWidth, previewHeight, 
+                           RenderWidth,  RenderHeight, 
+                           &PreviewImage); 
             });
         }
     }

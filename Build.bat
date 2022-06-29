@@ -1,6 +1,6 @@
 @echo off
 
-set debug=0
+set debug=1
 
 REM GLFW
 set glfwInclude= ..\ext\glfw\include
