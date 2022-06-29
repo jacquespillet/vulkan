@@ -190,7 +190,7 @@ public:
     uint32_t previewHeight = 128;
 
     uint32_t SamplesPerFrame=1;
-    uint32_t TotalSamples = 256;
+    uint32_t TotalSamples = 16000;
     uint32_t CurrentSampleCount=0;
 
     void UpdateCamera();

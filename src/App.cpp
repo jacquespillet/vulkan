@@ -4,6 +4,7 @@
 #include "Renderers/PathTraceRTXRenderer.h"
 #include "Renderers/HybridRenderer.h"
 #include "Renderers/PathTraceCPURenderer.h"
+#include "Renderers/RasterizerRenderer.h"
 #include "imgui.h"
 #include "ImGuizmo.h"
 void vulkanApp::InitVulkan()
@@ -208,9 +209,9 @@ void vulkanApp::BuildScene()
     //  Scene->Load("resources/models/sponza/sponza.dae", CopyCommand);
     // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
-    // Scene->Load("D:/Boulot/Models/Duck/glTF/Duck.gltf", CopyCommand);
+    Scene->Load("D:/Boulot/Models/Duck/glTF/Duck.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/Cube/glTF/Cube.gltf", CopyCommand);
-    Scene->Load("D:/Boulot/Models/Pica pica/scene.gltf", CopyCommand);
+    // Scene->Load("D:/Boulot/Models/Pica pica/scene.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
@@ -270,6 +271,7 @@ void vulkanApp::CreateGeneralResources()
         // Renderers.push_back(new deferredHybridRenderer(this));
     }
     Renderers.push_back(new pathTraceCPURenderer(this));
+    Renderers.push_back(new rasterizerRenderer(this));
     for(int i=0; i<Renderers.size(); i++)
     {
         Renderers[i]->Setup();
@@ -409,7 +411,7 @@ void vulkanApp::RenderGUI()
             if (ImGui::BeginTabItem("Renderer"))
             {
                 static int RendererInx = 0;
-                ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0PathTraceRTX\0PathTraceCPU\0\0");
+                ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0PathTraceRTX\0PathTraceCPU\0Rasterizer\0\0");
                 CurrentRenderer = RendererInx;   
 
                 ImGui::DragFloat("Exposure", &Scene->UBOSceneMatrices.Exposure, 0.01f);

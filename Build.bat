@@ -96,7 +96,8 @@ set srcFiles= %srcFiles%  ..\src\Scene.cpp ..\src\Debug.cpp ..\src\Buffer.cpp ..
 set srcFiles= %srcFiles%  ..\src\Camera.cpp ..\src\Renderer.cpp  ..\src\Renderers\DeferredRenderer.cpp  ..\src\Renderers\ForwardRenderer.cpp ..\src\Renderers\PathTraceRTXRenderer.cpp 
 set srcFiles= %srcFiles%  %imguiSrc% ..\src\ImGuiHelper.cpp ..\src\AssimpImporter.cpp ..\src\GLTFImporter.cpp  ..\src\ObjectPicker.cpp  ..\src\Framebuffer.cpp 
 set srcFiles= %srcFiles%  ..\src\TextureLoader.cpp ..\src\RayTracingHelper.cpp ..\src\Renderers\HybridRenderer.cpp  ..\src\Renderers\PathTraceCPURenderer.cpp  ..\src\Renderers\brdf.cpp  
-
+set srcFiles= %srcFiles%  ..\src\Renderers/RasterizerRenderer.cpp 
+ 
 IF NOT EXIST .\build mkdir .\build
 pushd .\build
 cl.exe %compilerFlags% ..\Main.cpp  %srcFiles%  /link %linkerFlags%

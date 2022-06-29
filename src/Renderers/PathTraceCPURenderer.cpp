@@ -1185,15 +1185,20 @@ void pathTraceCPURenderer::Resize(uint32_t Width, uint32_t Height)
 
 void pathTraceCPURenderer::Destroy()
 {
+    ThreadPool.Stop();
     for(int i=0; i<Meshes.size(); i++)
     {
         delete Meshes[i]->BVH;
         delete Meshes[i];
     }
+    
+    VulkanObjects.ImageStagingBuffer.Destroy();
+
+    VulkanObjects.previewImage.Destroy();
+    VulkanObjects.previewBuffer.Destroy();
 
     vkFreeCommandBuffers(Device, App->VulkanObjects.CommandPool, 1, &VulkanObjects.DrawCommandBuffer);
 
-    ThreadPool.Stop();
 }
 
 
