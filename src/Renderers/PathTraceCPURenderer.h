@@ -165,6 +165,8 @@ public:
     void RenderGUI() override;
     void Resize(uint32_t Width, uint32_t Height) override;
 
+    void StartPathTrace();
+
     struct
     {
         VkCommandBuffer DrawCommandBuffer;
@@ -182,9 +184,15 @@ public:
     };
     std::vector<rgba8> Image; 
     std::vector<rgba8> PreviewImage; 
+    std::vector<glm::vec3> AccumulationImage; 
 
     uint32_t previewWidth = 128;
     uint32_t previewHeight = 128;
+
+    uint32_t SamplesPerFrame=1;
+    uint32_t TotalSamples = 32;
+    uint32_t CurrentSampleCount=0;
+
     void UpdateCamera();
 private:
 

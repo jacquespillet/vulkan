@@ -17,6 +17,7 @@
 void threadPool::Start()
 {
     uint32_t NumThreads = std::thread::hardware_concurrency();
+    // NumThreads=1;
     
     Threads.resize(NumThreads);
     Finished.resize(NumThreads, true);
@@ -641,18 +642,35 @@ pathTraceCPURenderer::pathTraceCPURenderer(vulkanApp *App) : renderer(App) {
     this->UseGizmo=false;
 }
 
+void pathTraceCPURenderer::StartPathTrace()
+{
+    PathTraceFinished=true;
+    ShouldPathTrace=true;
+    CurrentSampleCount=0;
+    for(uint32_t i=0; i<AccumulationImage.size(); i++)
+    {
+        AccumulationImage[i] = glm::vec3(0);
+    }
+}
+
 void pathTraceCPURenderer::Render()
 {
     if(ShouldPathTrace)
     {
         ProcessingPreview=false;
-        PathTrace();    
-        ShouldPathTrace=false;
-        PathTraceFinished=false;
+        if(!ThreadPool.Busy()) PathTrace();    
     }
 
-    if(App->Scene->Camera.Changed && !ThreadPool.Busy())
+    if(CurrentSampleCount >= TotalSamples)
     {
+        ShouldPathTrace=false;
+        PathTraceFinished=true;
+        ProcessingPathTrace=false;
+    }
+
+    if(App->Scene->Camera.Changed)
+    {
+        ShouldPathTrace=false;
         ProcessingPathTrace=false;
         Preview();    
     }
@@ -879,34 +897,45 @@ float RandomBilateral(uint32_t &State)
 
 void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, std::vector<rgba8>* ImageToWrite)
 {
-
     uint32_t RayBounces=2;
-    uint32_t SampleCount=256;
     ray Ray = {}; 
+    glm::vec2 InverseImageSize = 1.0f / glm::vec2(ImageWidth, ImageHeight);
+    float imageAspectRatio = ImageWidth / (float)ImageHeight;
+
+    rayPayload RayPayload = {};
+                 
+
     for(uint32_t yy=StartY; yy < StartY+TileHeight; yy++)
     {
         for(uint32_t xx=StartX; xx < StartX+TileWidth; xx++)
         {
+            RayPayload.RandomState = (xx * 1973 + yy * 9277 + CurrentSampleCount * 26699) | 1; 
+
             if(xx >= ImageWidth-1) break;
             (*ImageToWrite)[yy * ImageWidth + xx] = { 0, 0, 0, 0 };
 
-            float OneOverSampleCount = 1.0f / (float) SampleCount;
             glm::vec3 SampleColor(0.0f);
 
-            glm::vec3 Origin = App->Scene->Camera.GetModelMatrix() * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-            for(uint32_t Sample=0; Sample<SampleCount; Sample++)
+            //Origin
+            glm::mat4 ModelMatrix = App->Scene->Camera.GetModelMatrix();
+            glm::vec3 Origin(ModelMatrix[3][0],ModelMatrix[3][1],ModelMatrix[3][2]);
+            
+            //Direction
+            glm::vec2 uv((float)(xx) / (float)ImageWidth, (float)(yy) / (float)ImageHeight);
+            float Px = (2 * ((xx + 0.5f) / ImageWidth) - 1) * tan(App->Scene->Camera.GetFov() / 2 * PI / 180) * imageAspectRatio; 
+            float Py = (1 - 2 * ((yy + 0.5f) / ImageHeight) * tan(App->Scene->Camera.GetFov() / 2 * PI / 180)); 
+            glm::vec3 Target = glm::vec3(Px, Py, -1);  //note that this just equal to Vec3f(Px, Py, -1);        
+
+            for(uint32_t Sample=0; Sample<SamplesPerFrame; Sample++)
             {
                 Ray.Origin = Origin;
                 
-                rayPayload RayPayload = {};
-                RayPayload.RandomState = (xx * 1973 + yy * 9277 + Sample * 26699) | 1; 
                 RayPayload.Depth=0;
 
-                glm::vec2 Jitter = glm::vec2(RandomBilateral(RayPayload.RandomState), RandomBilateral(RayPayload.RandomState)) - 0.5f;
-                glm::vec2 uv((float)(xx + Jitter.x) / (float)ImageWidth, (float)(yy + Jitter.y) / (float)ImageHeight);
-                glm::vec4 Target = App->Scene->Camera.GetInverseProjectionMatrix() * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
-                
-                Ray.Direction = App->Scene->Camera.GetModelMatrix() * glm::vec4(glm::normalize(glm::vec3(Target)), 0.0);
+                //Jitter
+                glm::vec2 Jitter = (glm::vec2(RandomBilateral(RayPayload.RandomState), RandomBilateral(RayPayload.RandomState))) * InverseImageSize;
+                glm::vec3 JitteredTarget = Target + glm::vec3(Jitter,0);
+                Ray.Direction = App->Scene->Camera.GetModelMatrix() * glm::vec4(glm::normalize(JitteredTarget), 0.0);
                 
                 glm::vec3 Attenuation(1.0);
                 glm::vec3 Radiance(0);
@@ -935,7 +964,7 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                         }
                     }
 
-                    ////UNPACK TRIANGLE DATA
+                    ////Unpack triangle data
                     sceneMaterial *Material = App->Scene->InstancesPointers[RayPayload.InstanceIndex]->Mesh->Material;
                     materialData *MatData = &Material->MaterialData;
                     vulkanTexture *DiffuseTexture = &Material->Diffuse;
@@ -969,7 +998,6 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                         Roughness *= RoughnessMetallic.g;
                     }    
 
-                    ////////////////////////                    
                     
                     Radiance += Attenuation * RayPayload.Emission;
 
@@ -1037,16 +1065,19 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                     }					   
                 }
 
-                SampleColor += Radiance * OneOverSampleCount;	
+                SampleColor += Radiance;	
             }
 
-            
-            SampleColor *= glm::pow(SampleColor, glm::vec3(1.0f / 2.2f));
-			SampleColor = glm::clamp(SampleColor, glm::vec3(0), glm::vec3(1));
+			AccumulationImage[yy * ImageWidth + xx] += SampleColor;
 
-            uint8_t r = (uint8_t)(SampleColor.r * 255.0f);
-            uint8_t g = (uint8_t)(SampleColor.g * 255.0f);
-            uint8_t b = (uint8_t)(SampleColor.b * 255.0f);
+			glm::vec3 Color = AccumulationImage[yy * ImageWidth + xx] / CurrentSampleCount;
+
+			Color *= glm::pow(Color, glm::vec3(1.0f / 2.2f));
+			Color = glm::clamp(Color, glm::vec3(0), glm::vec3(1));
+
+            uint8_t r = (uint8_t)(Color.r * 255.0f);
+            uint8_t g = (uint8_t)(Color.g * 255.0f);
+            uint8_t b = (uint8_t)(Color.b * 255.0f);
 
             (*ImageToWrite)[yy * ImageWidth + xx] = {b, g, r, 255 };
         }
@@ -1059,6 +1090,7 @@ void pathTraceCPURenderer::PathTrace()
 {
     start = std::chrono::high_resolution_clock::now();
     
+    CurrentSampleCount += SamplesPerFrame;
     for(uint32_t y=0; y<App->Height; y+=TileSize)
     {
         for(uint32_t x=0; x<App->Width; x+=TileSize)
@@ -1097,15 +1129,10 @@ void pathTraceCPURenderer::Setup()
     ThreadPool.Start();
     CreateCommandBuffers();
 
-    Image.resize(App->Width * App->Height);
+    Image.resize(App->Width * App->Height, {0, 0, 0, 255});
+    AccumulationImage.resize(App->Width * App->Height, glm::vec3(0));
     PreviewImage.resize(previewWidth * previewHeight);
-    for(uint32_t yy=0; yy<App->Height; yy++)
-    {
-        for(uint32_t xx=0; xx<App->Height; xx++)
-        {
-            Image[yy * App->Width + xx] = {0, 0, 0, 255};
-        }
-    }
+    
 
     vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 
@@ -1147,7 +1174,7 @@ void pathTraceCPURenderer::RenderGUI()
 {
     if(ImGui::Button("PathTrace"))
     {
-        ShouldPathTrace=true;
+        StartPathTrace();
     }
 }
 

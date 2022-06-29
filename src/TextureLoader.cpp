@@ -6,10 +6,6 @@ glm::vec4 vulkanTexture::Sample(glm::vec2 UV, borderType BorderType)
 { 	
 	// UV = glm::abs(UV);
 	// UV = glm::clamp(UV, glm::vec2(0), glm::vec2(1));
-	if (UV.x < -5.4)
-	{
-		int a=0;
-	}
 	glm::vec2 IntPart;
     glm::vec2 CorrectedUV = glm::modf(UV,IntPart);
 	if(UV.x > 1)
