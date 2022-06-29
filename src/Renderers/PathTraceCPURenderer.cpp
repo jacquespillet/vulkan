@@ -250,7 +250,6 @@ float bvh::EvaluateSAH(bvhNode &Node, int Axis, float Position)
 
 float bvh::FindBestSplitPlane(bvhNode &Node, int &Axis, float &SplitPosition)
 {
-#if 1
     float BestCost = 1e30f;
     for(int CurrentAxis=0; CurrentAxis<3; CurrentAxis++)
     {
@@ -311,61 +310,19 @@ float bvh::FindBestSplitPlane(bvhNode &Node, int &Axis, float &SplitPosition)
         }
     }
     return BestCost;
-#else
-
-    float bestCost = 1e30f;
-    for (int a = 0; a < 3; a++) for (uint32_t i = 0; i < Node.TriangleCount; i++)
-    {
-        triangle& Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
-        float candidatePos = Triangle.Centroid[a];
-        float cost = EvaluateSAH( Node, a, candidatePos );
-        if (cost < bestCost) SplitPosition = candidatePos, Axis = a, bestCost = cost;
-    }
-    return bestCost;
-#endif
 }
 
-#define MODE 2
 
 void bvh::Subdivide(uint32_t NodeIndex)
 {
     bvhNode &Node = BVHNodes[NodeIndex];
 
-
-#if MODE == 0
-    //4.2
-    if(Node.TriangleCount <=2) return;
-    glm::vec3 Extent = Node.AABBMax - Node.AABBMin;
-    int Axis=0;
-    if(Extent.y > Extent.x) Axis=1;
-    if(Extent.z > Extent[Axis]) Axis=2;
-    float SplitPosition = Node.AABBMin[Axis] + Extent[Axis] * 0.5f; 
-#elif MODE == 1
-    //8.4
-	int bestAxis = -1;
-	float bestPos = 0, bestCost = 1e30f;
-	for (int axis = 0; axis < 3; axis++) for (uint32_t i = 0; i < Node.TriangleCount; i++)
-	{
-		triangle& Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
-		float candidatePos = Triangle.Centroid[axis];
-		float cost = EvaluateSAH( Node, axis, candidatePos );
-		if (cost < bestCost)
-			bestPos = candidatePos, bestAxis = axis, bestCost = cost;
-	}
-	int Axis = bestAxis;
-	float SplitPosition = bestPos;
-	glm::vec3 e = Node.AABBMax - Node.AABBMin; // extent of parent
-	float parentArea = e.x * e.y + e.y * e.z + e.z * e.x;
-	float parentCost = Node.TriangleCount * parentArea;
-	if (bestCost >= parentCost) return;
-#elif MODE==2
     //4.01
     int Axis=-1;
     float SplitPosition = 0;
     float SplitCost = FindBestSplitPlane(Node, Axis, SplitPosition);
     float NoSplitCost = CalculateNodeCost(Node);
     if(SplitCost >= NoSplitCost) return;
-#endif
 
     int i=Node.LeftChildOrFirst;
     int j = i + Node.TriangleCount -1;
@@ -882,31 +839,40 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
 
     uint32_t RayBounces=2;
     uint32_t SampleCount=256;
-    ray Ray = {}; 
+    ray Ray = {};
+    rayPayload RayPayload = {};
+    glm::vec2 InverseImageSize = 1.0f / glm::vec2(ImageWidth, ImageHeight);
+                 
+    float imageAspectRatio = ImageWidth / (float)ImageHeight;
     for(uint32_t yy=StartY; yy < StartY+TileHeight; yy++)
     {
         for(uint32_t xx=StartX; xx < StartX+TileWidth; xx++)
         {
+            RayPayload.RandomState = (xx * 1973 + yy * 9277) | 1; 
             if(xx >= ImageWidth-1) break;
             (*ImageToWrite)[yy * ImageWidth + xx] = { 0, 0, 0, 0 };
 
             float OneOverSampleCount = 1.0f / (float) SampleCount;
             glm::vec3 SampleColor(0.0f);
 
-            glm::vec3 Origin = App->Scene->Camera.GetModelMatrix() * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+            glm::mat4 ModelMatrix = App->Scene->Camera.GetModelMatrix();
+            glm::vec3 Origin(ModelMatrix[3][0],ModelMatrix[3][1],ModelMatrix[3][2]);
+            glm::vec2 uv((float)(xx) / (float)ImageWidth, (float)(yy) / (float)ImageHeight);
+            
+            // glm::vec4 Target = App->Scene->Camera.GetInverseProjectionMatrix() * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
+            float Px = (2 * ((xx + 0.5f) / ImageWidth) - 1) * tan(App->Scene->Camera.GetFov() / 2 * PI / 180) * imageAspectRatio; 
+            float Py = (1 - 2 * ((yy + 0.5f) / ImageHeight) * tan(App->Scene->Camera.GetFov() / 2 * PI / 180)); 
+            glm::vec3 Target = glm::vec3(Px, Py, -1);  //note that this just equal to Vec3f(Px, Py, -1);             
+            
             for(uint32_t Sample=0; Sample<SampleCount; Sample++)
             {
                 Ray.Origin = Origin;
                 
-                rayPayload RayPayload = {};
-                RayPayload.RandomState = (xx * 1973 + yy * 9277 + Sample * 26699) | 1; 
                 RayPayload.Depth=0;
-
-                glm::vec2 Jitter = glm::vec2(RandomBilateral(RayPayload.RandomState), RandomBilateral(RayPayload.RandomState)) - 0.5f;
-                glm::vec2 uv((float)(xx + Jitter.x) / (float)ImageWidth, (float)(yy + Jitter.y) / (float)ImageHeight);
-                glm::vec4 Target = App->Scene->Camera.GetInverseProjectionMatrix() * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
                 
-                Ray.Direction = App->Scene->Camera.GetModelMatrix() * glm::vec4(glm::normalize(glm::vec3(Target)), 0.0);
+                glm::vec2 Jitter = (glm::vec2(RandomBilateral(RayPayload.RandomState), RandomBilateral(RayPayload.RandomState))) * InverseImageSize;
+                glm::vec3 JitteredTarget = Target + glm::vec3(Jitter,0);
+                Ray.Direction = App->Scene->Camera.GetModelMatrix() * glm::vec4(glm::normalize(JitteredTarget), 0.0);
                 
                 glm::vec3 Attenuation(1.0);
                 glm::vec3 Radiance(0);

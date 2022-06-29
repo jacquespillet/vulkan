@@ -1,6 +1,6 @@
 @echo off
 
-set debug=0
+set debug=1
 
 REM GLFW
 set glfwInclude= ..\ext\glfw\include
@@ -88,7 +88,7 @@ if %debug%==1 (
     set debugFlag= -Od /D_DEBUG_
 )
 
-set compilerFlags=  -MP -MT -nologo -EHa- %debugFlag% -Oi -W4 -Z7 -EHsc -wd4201 -wd4310 -wd4100  /I ../src /I ..\ext\glm /I ..\ext\gli  /I %glfwInclude% /I %vulkanInclude% /I %assimpIncludes% /I %imguiInclude% /I %stbInclude%  /I %tinygltfInclude% /I %oidnIncludes% 
+set compilerFlags= -arch:AVX2 -MP -MT -nologo -EHa- %debugFlag% -Oi -W4 -Z7 -EHsc -wd4201 -wd4310 -wd4100 /fp:fast /I ../src /I ..\ext\glm /I ..\ext\gli  /I %glfwInclude% /I %vulkanInclude% /I %assimpIncludes% /I %imguiInclude% /I %stbInclude%  /I %tinygltfInclude% /I %oidnIncludes% 
 set linkerFlags=  -opt:ref Gdi32.lib Shell32.lib User32.lib opengl32.lib %glfwLib%  %vulkanLib% %assimpLib% %oidnLib%
 
 set srcFiles= ..\src\App.cpp ..\src\Resources.cpp ..\src\Device.cpp ..\src\Tools.cpp 
