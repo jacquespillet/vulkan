@@ -888,7 +888,7 @@ void pathTraceCPURenderer::PreviewTile(uint32_t StartX, uint32_t StartY, uint32_
         {
             if(xx >= ImageWidth-1) break;
 
-            (*ImageToWrite)[yy * ImageWidth + xx] = { 255, 0, 0, 0 };
+            (*ImageToWrite)[yy * ImageWidth + xx] = { 0, 0, 0, 0 };
 
             glm::vec2 uv((float)(xx - StartPreview) / (float)RenderWidth, (float)yy / (float)RenderHeight);
             Ray.Origin = Origin;
@@ -926,7 +926,7 @@ void pathTraceCPURenderer::PreviewTile(uint32_t StartX, uint32_t StartY, uint32_
                 }                
 
                 FinalColor += BaseColor;
-                FinalColor *= glm::pow(FinalColor, glm::vec3(1.0f / 2.2f));
+                FinalColor = toneMap(FinalColor, App->Scene->UBOSceneMatrices.Exposure);
                 
                 uint8_t r = (uint8_t)(FinalColor.r * 255.0f);
                 uint8_t g = (uint8_t)(FinalColor.g * 255.0f);
@@ -1134,7 +1134,7 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
 
 			glm::vec3 Color = AccumulationImage[yy * ImageWidth + xx] / CurrentSampleCount;
 
-            toneMap(Color, App->Scene->UBOSceneMatrices.Exposure);
+            Color = toneMap(Color, App->Scene->UBOSceneMatrices.Exposure);
 			Color = glm::clamp(Color, glm::vec3(0), glm::vec3(1));
 			// Color *= glm::pow(Color, glm::vec3(1.0f / 2.2f));
 
