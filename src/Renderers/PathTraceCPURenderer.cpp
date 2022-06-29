@@ -198,32 +198,6 @@ void bvh::Build()
 
 float bvh::EvaluateSAH(bvhNode &Node, int Axis, float Position)
 {
-    // aabb LeftBox, RightBox;
-    // int LeftCount=0;
-    // int RightCount=0;
-
-    // for(uint32_t i=0; i<Node.TriangleCount; i++)
-    // {
-    //     triangle &Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
-    //     if(Triangle.Centroid[Axis] < Position)
-    //     {
-    //         LeftCount++;
-    //         LeftBox.Grow(Triangle.v0);
-    //         LeftBox.Grow(Triangle.v1);
-    //         LeftBox.Grow(Triangle.v2);
-    //     }
-    //     else
-    //     {
-    //         RightCount++;
-    //         RightBox.Grow(Triangle.v0);
-    //         RightBox.Grow(Triangle.v1);
-    //         RightBox.Grow(Triangle.v2);
-    //     }
-    // }
-
-    // float Cost = LeftCount * LeftBox.Area() + RightCount * RightBox.Area();
-    // return Cost > 0 ? Cost : 1e30f;
-	// determine triangle counts and bounds for this split candidate
 	aabb leftBox, rightBox;
 	int leftCount = 0, rightCount = 0;
 	for (uint32_t i = 0; i < Node.TriangleCount; i++)
@@ -251,7 +225,6 @@ float bvh::EvaluateSAH(bvhNode &Node, int Axis, float Position)
 
 float bvh::FindBestSplitPlane(bvhNode &Node, int &Axis, float &SplitPosition)
 {
-#if 1
     float BestCost = 1e30f;
     for(int CurrentAxis=0; CurrentAxis<3; CurrentAxis++)
     {
@@ -312,61 +285,18 @@ float bvh::FindBestSplitPlane(bvhNode &Node, int &Axis, float &SplitPosition)
         }
     }
     return BestCost;
-#else
 
-    float bestCost = 1e30f;
-    for (int a = 0; a < 3; a++) for (uint32_t i = 0; i < Node.TriangleCount; i++)
-    {
-        triangle& Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
-        float candidatePos = Triangle.Centroid[a];
-        float cost = EvaluateSAH( Node, a, candidatePos );
-        if (cost < bestCost) SplitPosition = candidatePos, Axis = a, bestCost = cost;
-    }
-    return bestCost;
-#endif
 }
-
-#define MODE 2
 
 void bvh::Subdivide(uint32_t NodeIndex)
 {
     bvhNode &Node = BVHNodes[NodeIndex];
 
-
-#if MODE == 0
-    //4.2
-    if(Node.TriangleCount <=2) return;
-    glm::vec3 Extent = Node.AABBMax - Node.AABBMin;
-    int Axis=0;
-    if(Extent.y > Extent.x) Axis=1;
-    if(Extent.z > Extent[Axis]) Axis=2;
-    float SplitPosition = Node.AABBMin[Axis] + Extent[Axis] * 0.5f; 
-#elif MODE == 1
-    //8.4
-	int bestAxis = -1;
-	float bestPos = 0, bestCost = 1e30f;
-	for (int axis = 0; axis < 3; axis++) for (uint32_t i = 0; i < Node.TriangleCount; i++)
-	{
-		triangle& Triangle = Mesh->Triangles[TriangleIndices[Node.LeftChildOrFirst + i]];
-		float candidatePos = Triangle.Centroid[axis];
-		float cost = EvaluateSAH( Node, axis, candidatePos );
-		if (cost < bestCost)
-			bestPos = candidatePos, bestAxis = axis, bestCost = cost;
-	}
-	int Axis = bestAxis;
-	float SplitPosition = bestPos;
-	glm::vec3 e = Node.AABBMax - Node.AABBMin; // extent of parent
-	float parentArea = e.x * e.y + e.y * e.z + e.z * e.x;
-	float parentCost = Node.TriangleCount * parentArea;
-	if (bestCost >= parentCost) return;
-#elif MODE==2
-    //4.01
     int Axis=-1;
     float SplitPosition = 0;
     float SplitCost = FindBestSplitPlane(Node, Axis, SplitPosition);
     float NoSplitCost = CalculateNodeCost(Node);
     if(SplitCost >= NoSplitCost) return;
-#endif
 
     int i=Node.LeftChildOrFirst;
     int j = i + Node.TriangleCount -1;
@@ -640,8 +570,8 @@ void tlas::Intersect(ray Ray, rayPayload &RayPayload)
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
-float GAMMA = 2.2;
-float INV_GAMMA = 1.0 / GAMMA;
+float GAMMA = 2.2f;
+float INV_GAMMA = 1.0f / GAMMA;
 
 // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
 glm::mat3 ACESInputMat = glm::mat3
@@ -878,7 +808,7 @@ void pathTraceCPURenderer::Render()
 void pathTraceCPURenderer::PreviewTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, uint32_t RenderWidth, uint32_t RenderHeight, std::vector<rgba8>* ImageToWrite)
 {
     float StartRatio = App->Scene->ViewportStart / App->Width;
-    uint32_t StartPreview = (StartRatio * (float)previewWidth);
+    uint32_t StartPreview = (uint32_t)(StartRatio * (float)previewWidth);
     
     glm::vec4 Origin = App->Scene->Camera.GetModelMatrix() * glm::vec4(0,0,0,1);
     ray Ray = {}; 
@@ -964,8 +894,7 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
     uint32_t RayBounces=4;
     ray Ray = {}; 
     glm::vec2 InverseImageSize = 1.0f / glm::vec2(ImageWidth, ImageHeight);
-    float imageAspectRatio = ImageWidth / (float)ImageHeight;
-
+    
     rayPayload RayPayload = {};
                  
 
@@ -1156,7 +1085,7 @@ void pathTraceCPURenderer::PathTrace()
     CurrentSampleCount += SamplesPerFrame;
     for(uint32_t y=0; y<App->Height; y+=TileSize)
     {
-        for(uint32_t x=App->Scene->ViewportStart; x<App->Width; x+=TileSize)
+        for(uint32_t x=(uint32_t)App->Scene->ViewportStart; x<App->Width; x+=TileSize)
         {
             ThreadPool.AddJob([x, y, this]()
             {
@@ -1171,7 +1100,7 @@ void pathTraceCPURenderer::PathTrace()
 void pathTraceCPURenderer::Preview()
 {
     float StartRatio = App->Scene->ViewportStart / App->Width;
-    uint32_t StartPreview = (StartRatio * (float)previewWidth);
+    uint32_t StartPreview = (uint32_t)((float)StartRatio * (float)previewWidth);
     
     uint32_t RenderWidth = previewWidth - StartPreview;
     uint32_t RenderHeight = previewHeight;
