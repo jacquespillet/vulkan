@@ -2,13 +2,16 @@
 #include "App.h"
 #include "imgui.h"
 
+#include "../Swapchain.h"
+#include "../Scene.h"
+#include "../ImGuiHelper.h"
 forwardRenderer::forwardRenderer(vulkanApp *App) : renderer(App) {}
 
 void forwardRenderer::Render()
 {
     BuildCommandBuffers();
     
-    VK_CALL(App->VulkanObjects.Swapchain.AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
+    VK_CALL(App->VulkanObjects.Swapchain->AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
     
     VulkanObjects.SubmitInfo = vulkanTools::BuildSubmitInfo();
     VulkanObjects.SubmitInfo.pWaitDstStageMask = &App->VulkanObjects.SubmitPipelineStages;
@@ -20,7 +23,7 @@ void forwardRenderer::Render()
     VulkanObjects.SubmitInfo.pCommandBuffers = &VulkanObjects.DrawCommandBuffers[App->VulkanObjects.CurrentBuffer];
     VK_CALL(vkQueueSubmit(App->VulkanObjects.Queue, 1, &VulkanObjects.SubmitInfo, VK_NULL_HANDLE));
 
-    VK_CALL(App->VulkanObjects.Swapchain.QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete));
+    VK_CALL(App->VulkanObjects.Swapchain->QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete));
     VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 }
 
@@ -39,7 +42,7 @@ void forwardRenderer::Setup()
 
 void forwardRenderer::CreateCommandBuffers()
 {
-    VulkanObjects.DrawCommandBuffers.resize(App->VulkanObjects.Swapchain.ImageCount);
+    VulkanObjects.DrawCommandBuffers.resize(App->VulkanObjects.Swapchain->ImageCount);
     VkCommandBufferAllocateInfo CommandBufferAllocateInfo = vulkanTools::BuildCommandBufferAllocateInfo(App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(VulkanObjects.DrawCommandBuffers.size()));
     VK_CALL(vkAllocateCommandBuffers(Device, &CommandBufferAllocateInfo, VulkanObjects.DrawCommandBuffers.data()));
 }

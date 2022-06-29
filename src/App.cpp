@@ -1,4 +1,7 @@
 #include "App.h"
+
+
+
 #include "Renderers/ForwardRenderer.h"
 #include "Renderers/DeferredRenderer.h"
 #include "Renderers/PathTraceRTXRenderer.h"
@@ -7,6 +10,15 @@
 #include "Renderers/RasterizerRenderer.h"
 #include "imgui.h"
 #include "ImGuizmo.h"
+
+#include "Debug.h"
+#include "Swapchain.h"
+#include "ImguiHelper.h"
+#include "ObjectPicker.h"
+
+#include <GLFW/glfw3.h>
+
+
 void vulkanApp::InitVulkan()
 {
     VulkanObjects.Instance = vulkanTools::CreateInstance(EnableValidation);
@@ -47,7 +59,8 @@ void vulkanApp::InitVulkan()
     VK_CALL(vkCreateSemaphore(VulkanObjects.Device, &SemaphoreCreateInfo, nullptr, &VulkanObjects.Semaphores.PresentComplete));
     VK_CALL(vkCreateSemaphore(VulkanObjects.Device, &SemaphoreCreateInfo, nullptr, &VulkanObjects.Semaphores.RenderComplete));
       
-    VulkanObjects.Swapchain.Initialize(VulkanObjects.Instance, VulkanObjects.PhysicalDevice, VulkanObjects.Device);
+    VulkanObjects.Swapchain = new swapchain();
+    VulkanObjects.Swapchain->Initialize(VulkanObjects.Instance, VulkanObjects.PhysicalDevice, VulkanObjects.Device);
 }
 
 void vulkanApp::SetupDepthStencil()
@@ -107,7 +120,7 @@ void vulkanApp::SetupRenderPass()
 {
     std::array<VkAttachmentDescription, 2> Attachments = {};
 
-    Attachments[0].format = VulkanObjects.Swapchain.ColorFormat;
+    Attachments[0].format = VulkanObjects.Swapchain->ColorFormat;
     Attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
     Attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     Attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -194,10 +207,10 @@ void vulkanApp::SetupFramebuffer()
     FramebufferCreateInfo.height=Height;
     FramebufferCreateInfo.layers=1;
 
-    VulkanObjects.AppFramebuffers.resize(VulkanObjects.Swapchain.ImageCount);
+    VulkanObjects.AppFramebuffers.resize(VulkanObjects.Swapchain->ImageCount);
     for(uint32_t i=0; i<VulkanObjects.AppFramebuffers.size(); i++)
     {
-        Attachments[0] = VulkanObjects.Swapchain.Buffers[i].View;
+        Attachments[0] = VulkanObjects.Swapchain->Buffers[i].View;
         VK_CALL(vkCreateFramebuffer(VulkanObjects.Device, &FramebufferCreateInfo, nullptr, &VulkanObjects.AppFramebuffers[i]));
     }
 }
@@ -209,9 +222,9 @@ void vulkanApp::BuildScene()
     //  Scene->Load("resources/models/sponza/sponza.dae", CopyCommand);
     // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
-    Scene->Load("D:/Boulot/Models/Duck/glTF/Duck.gltf", CopyCommand);
+    // Scene->Load("D:/Boulot/Models/Duck/glTF/Duck.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/Cube/glTF/Cube.gltf", CopyCommand);
-    // Scene->Load("D:/Boulot/Models/Pica pica/scene.gltf", CopyCommand);
+    Scene->Load("D:/Boulot/Models/Pica pica/scene.gltf", CopyCommand);
     // Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
     // Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
@@ -243,8 +256,8 @@ void vulkanApp::BuildVertexDescriptions()
 
 void vulkanApp::CreateGeneralResources()
 {
-    VulkanObjects.CommandPool = vulkanTools::CreateCommandPool(VulkanObjects.Device, VulkanObjects.Swapchain.QueueNodeIndex); //Shared
-    VulkanObjects.Swapchain.Create(&Width, &Height, EnableVSync); //Shared
+    VulkanObjects.CommandPool = vulkanTools::CreateCommandPool(VulkanObjects.Device, VulkanObjects.Swapchain->QueueNodeIndex); //Shared
+    VulkanObjects.Swapchain->Create(&Width, &Height, EnableVSync); //Shared
     
     SetupDepthStencil(); //Shared
     
@@ -284,10 +297,11 @@ void vulkanApp::Initialize(HWND Window)
     Width = 1920;
     Height = 1080;
     InitVulkan();
-    VulkanObjects.Swapchain.InitSurface(Window);
+    VulkanObjects.Swapchain->InitSurface(Window);
     CreateGeneralResources();
     
-    ObjectPicker.Initialize(VulkanObjects.VulkanDevice, this);
+    ObjectPicker = new objectPicker();
+    ObjectPicker->Initialize(VulkanObjects.VulkanDevice, this);
 }
 
 void vulkanApp::SetSelectedItem(uint32_t Index, bool UnselectIfAlreadySelected)
@@ -628,7 +642,7 @@ void vulkanApp::MouseAction(int Button, int Action, int Mods)
         
 		if (Mouse.PosX > Scene->ViewportStart && !ImGuizmo::IsUsing() && !ImGuizmo::IsOver())
 		{
-			if(MousePressDelta < 5) ObjectPicker.Pick((int)Mouse.PosX, (int)Mouse.PosY);
+			if(MousePressDelta < 5) ObjectPicker->Pick((int)Mouse.PosX, (int)Mouse.PosY);
 		}
         
         if(Button==0) Mouse.Left=false;
@@ -771,7 +785,7 @@ void vulkanApp::Resize(uint32_t NewWidth, uint32_t NewHeight)
     Width = NewWidth;
     Height = NewHeight;
 
-    VulkanObjects.Swapchain.Create(&Width, &Height, true);
+    VulkanObjects.Swapchain->Create(&Width, &Height, true);
     vkDestroyImageView(VulkanObjects.Device, VulkanObjects.DepthStencil.View, nullptr);
     vkDestroyImage(VulkanObjects.Device, VulkanObjects.DepthStencil.Image, nullptr);
     vkFreeMemory(VulkanObjects.Device, VulkanObjects.DepthStencil.Memory, nullptr);
@@ -783,7 +797,7 @@ void vulkanApp::Resize(uint32_t NewWidth, uint32_t NewHeight)
     }
     SetupFramebuffer();
 
-    ObjectPicker.Resize(NewWidth, NewHeight);
+    ObjectPicker->Resize(NewWidth, NewHeight);
     for(uint32_t i=0; i<Renderers.size(); i++)
     {
         Renderers[i]->Resize(NewWidth, NewHeight);
@@ -799,7 +813,8 @@ void vulkanApp::Resize(uint32_t NewWidth, uint32_t NewHeight)
 
 void vulkanApp::DestroyGeneralResources()
 {
-    ObjectPicker.Destroy();
+    ObjectPicker->Destroy();
+    delete ObjectPicker;
     
     for(size_t i=0; i<Renderers.size(); i++)
     {
@@ -809,7 +824,7 @@ void vulkanApp::DestroyGeneralResources()
     Scene->Destroy();
     
     delete ImGuiHelper;
-
+    
     VulkanObjects.TextureLoader->Destroy();
     
     for(int i=0; i<VulkanObjects.AppFramebuffers.size(); i++)
@@ -823,8 +838,9 @@ void vulkanApp::DestroyGeneralResources()
     vkDestroyImage(VulkanObjects.Device, VulkanObjects.DepthStencil.Image, nullptr);
     vkFreeMemory(VulkanObjects.Device, VulkanObjects.DepthStencil.Memory, nullptr);
     
-    VulkanObjects.Swapchain.Destroy();
-    
+    VulkanObjects.Swapchain->Destroy();
+    delete VulkanObjects.Swapchain;
+
     vkDestroyCommandPool(VulkanObjects.Device, VulkanObjects.CommandPool, nullptr);
     
 

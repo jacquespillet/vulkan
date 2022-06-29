@@ -1,4 +1,5 @@
 #include "Buffer.h"
+#include <assert.h>
 
 VkResult buffer::Map(VkDeviceSize _Size, VkDeviceSize Offset)
 {

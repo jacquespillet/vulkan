@@ -3,6 +3,9 @@
 #include "imgui.h"
 #include "OpenImageDenoise/oidn.hpp"
 
+#include "../Swapchain.h"
+#include "../ImguiHelper.h"
+
 pathTraceRTXRenderer::pathTraceRTXRenderer(vulkanApp *App) : renderer(App) {
     App->VulkanObjects.VulkanDevice->LoadRayTracingFuncs();
 }
@@ -45,7 +48,7 @@ void pathTraceRTXRenderer::Render()
         UniformData.CurrentSampleCount += UniformData.SamplersPerFrame;
     }
 
-    VkResult Result = App->VulkanObjects.Swapchain.AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer);
+    VkResult Result = App->VulkanObjects.Swapchain->AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer);
     VK_CALL(Result);
 
 
@@ -60,7 +63,7 @@ void pathTraceRTXRenderer::Render()
     
 
     VK_CALL(vkQueueSubmit(App->VulkanObjects.Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
-    Result = App->VulkanObjects.Swapchain.QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete);
+    Result = App->VulkanObjects.Swapchain->QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete);
     VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 
     if(ShouldDenoise)
@@ -413,7 +416,7 @@ void pathTraceRTXRenderer::CreateTopLevelAccelerationStructure()
 void pathTraceRTXRenderer::CreateImages()
 {
     //Contains the final image
-    StorageImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, App->VulkanObjects.Swapchain.ColorFormat, {App->Width, App->Height, 1});
+    StorageImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, App->VulkanObjects.Swapchain->ColorFormat, {App->Width, App->Height, 1});
     
     //Contains the accumulated colors, not divided by the sample count
     AccumulationImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, VK_FORMAT_R32G32B32A32_SFLOAT, {App->Width, App->Height, 1});
@@ -741,7 +744,7 @@ void pathTraceRTXRenderer::Setup()
 
 void pathTraceRTXRenderer::CreateCommandBuffers()
 {
-    DrawCommandBuffers.resize(App->VulkanObjects.Swapchain.ImageCount);
+    DrawCommandBuffers.resize(App->VulkanObjects.Swapchain->ImageCount);
     VkCommandBufferAllocateInfo CommandBufferAllocateInfo = vulkanTools::BuildCommandBufferAllocateInfo(App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(DrawCommandBuffers.size()));
     VK_CALL(vkAllocateCommandBuffers(Device, &CommandBufferAllocateInfo, DrawCommandBuffers.data()));
 }
@@ -817,7 +820,7 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
             App->Width - (int)App->Scene->ViewportStart, App->Height, 1
         );
 
-        vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->VulkanObjects.Swapchain.Images[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
+        vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->VulkanObjects.Swapchain->Images[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
         vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, SubresourceRange);
         
         //Copy accumulation texture to swapchain image
@@ -827,7 +830,7 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
         CopyRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
         CopyRegion.dstOffset = {(int)App->Scene->ViewportStart,0,0};
         CopyRegion.extent = {App->Width - (int)App->Scene->ViewportStart, App->Height, 1};
-        vkCmdCopyImage(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, App->VulkanObjects.Swapchain.Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &CopyRegion);
+        vkCmdCopyImage(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, App->VulkanObjects.Swapchain->Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &CopyRegion);
 
         if(ShouldDenoise)
         {
@@ -852,7 +855,7 @@ void pathTraceRTXRenderer::BuildCommandBuffers()
             vkCmdCopyImageToBuffer(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, DenoiseBuffer.VulkanObjects.Buffer,1,  &BufferImageCopy);
         }
 
-        vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->VulkanObjects.Swapchain.Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, SubresourceRange);
+        vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], App->VulkanObjects.Swapchain->Images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, SubresourceRange);
         vulkanTools::TransitionImageLayout(DrawCommandBuffers[i], StorageImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, SubresourceRange);
         
         //Imgui

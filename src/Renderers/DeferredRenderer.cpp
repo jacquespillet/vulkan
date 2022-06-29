@@ -1,6 +1,14 @@
 #include "DeferredRenderer.h"
 #include "App.h"
 
+#define SSAO_KERNEL_SIZE 32
+#define SSAO_RADIUS 2.0f
+#define SSAO_NOISE_DIM 4
+
+#include "../Swapchain.h"
+#include "../ImguiHelper.h"
+#include <random>
+
 renderer::renderer(vulkanApp *App) : App(App), Device(App->VulkanObjects.Device), VulkanDevice(App->VulkanObjects.VulkanDevice)
 {
 
@@ -14,7 +22,7 @@ void deferredRenderer::Render()
     BuildDeferredCommandBuffers();
     UpdateCamera();
 
-    VK_CALL(App->VulkanObjects.Swapchain.AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
+    VK_CALL(App->VulkanObjects.Swapchain->AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
     
     //Before color output stage, wait for present semaphore to be complete, and signal Render semaphore to be completed
     
@@ -33,7 +41,7 @@ void deferredRenderer::Render()
     VulkanObjects.SubmitInfo.pCommandBuffers = &VulkanObjects.DrawCommandBuffers[App->VulkanObjects.CurrentBuffer];
     VK_CALL(vkQueueSubmit(App->VulkanObjects.Queue, 1, &VulkanObjects.SubmitInfo, VK_NULL_HANDLE));
 
-    VK_CALL(App->VulkanObjects.Swapchain.QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete));
+    VK_CALL(App->VulkanObjects.Swapchain->QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete));
     VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 }
 
@@ -60,7 +68,7 @@ void deferredRenderer::Setup()
 
 void deferredRenderer::CreateCommandBuffers()
 {
-    VulkanObjects.DrawCommandBuffers.resize(App->VulkanObjects.Swapchain.ImageCount);
+    VulkanObjects.DrawCommandBuffers.resize(App->VulkanObjects.Swapchain->ImageCount);
     VkCommandBufferAllocateInfo CommandBufferAllocateInfo = vulkanTools::BuildCommandBufferAllocateInfo(App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(VulkanObjects.DrawCommandBuffers.size()));
     VK_CALL(vkAllocateCommandBuffers(Device, &CommandBufferAllocateInfo, VulkanObjects.DrawCommandBuffers.data()));
 

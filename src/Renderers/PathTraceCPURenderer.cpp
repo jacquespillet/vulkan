@@ -5,6 +5,10 @@
 
 #include <chrono>
 
+#include "../Swapchain.h"
+#include "../ImGuiHelper.h"
+#include <iostream>
+
 #define BINS 8
 
 #define DIFFUSE_TYPE 1
@@ -666,7 +670,7 @@ void pathTraceCPURenderer::Render()
         Preview();    
     }
 
-    VK_CALL(App->VulkanObjects.Swapchain.AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
+    VK_CALL(App->VulkanObjects.Swapchain->AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
     
     if(ProcessingPathTrace || PathTraceFinished)
     {
@@ -713,7 +717,7 @@ void pathTraceCPURenderer::Render()
         VK_CALL(vkBeginCommandBuffer(VulkanObjects.DrawCommandBuffer, &CommandBufferInfo));
 
         VkImageSubresourceRange SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, App->VulkanObjects.Swapchain.Images[App->VulkanObjects.CurrentBuffer], 
+        vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, App->VulkanObjects.Swapchain->Images[App->VulkanObjects.CurrentBuffer], 
                                            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
 
         if(ProcessingPathTrace)
@@ -731,7 +735,7 @@ void pathTraceCPURenderer::Render()
             Region.bufferRowLength=0;
 
             vkCmdCopyBufferToImage(VulkanObjects.DrawCommandBuffer, VulkanObjects.ImageStagingBuffer.VulkanObjects.Buffer, 
-                                    App->VulkanObjects.Swapchain.Images[App->VulkanObjects.CurrentBuffer], 
+                                    App->VulkanObjects.Swapchain->Images[App->VulkanObjects.CurrentBuffer], 
                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &Region);
         }        
 
@@ -771,7 +775,7 @@ void pathTraceCPURenderer::Render()
             BlitRegion.dstSubresource.layerCount=1;
             
             vkCmdBlitImage(VulkanObjects.DrawCommandBuffer, VulkanObjects.previewImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
-                            App->VulkanObjects.Swapchain.Images[App->VulkanObjects.CurrentBuffer], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+                            App->VulkanObjects.Swapchain->Images[App->VulkanObjects.CurrentBuffer], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
                             1, &BlitRegion, VK_FILTER_NEAREST);
 
 
@@ -779,7 +783,7 @@ void pathTraceCPURenderer::Render()
 				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
         }
 
-        vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, App->VulkanObjects.Swapchain.Images[App->VulkanObjects.CurrentBuffer], 
+        vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, App->VulkanObjects.Swapchain->Images[App->VulkanObjects.CurrentBuffer], 
                                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, SubresourceRange);
 
 
@@ -801,7 +805,7 @@ void pathTraceCPURenderer::Render()
     VulkanObjects.SubmitInfo.pCommandBuffers = &VulkanObjects.DrawCommandBuffer;
     VK_CALL(vkQueueSubmit(App->VulkanObjects.Queue, 1, &VulkanObjects.SubmitInfo, VK_NULL_HANDLE));
 
-    VK_CALL(App->VulkanObjects.Swapchain.QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete));
+    VK_CALL(App->VulkanObjects.Swapchain->QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete));
     VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 }
 

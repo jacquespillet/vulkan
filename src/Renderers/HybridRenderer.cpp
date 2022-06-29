@@ -1,6 +1,8 @@
 #include "HybridRenderer.h"
 #include "App.h"
 
+#include "../Swapchain.h"
+#include "ImguiHelper.h"
 
 deferredHybridRenderer::deferredHybridRenderer(vulkanApp *App) : renderer(App) {}
 
@@ -17,7 +19,7 @@ void deferredHybridRenderer::Render()
     ShadowPass.UniformBuffer.Unmap();
     
 
-    VK_CALL(App->VulkanObjects.Swapchain.AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
+    VK_CALL(App->VulkanObjects.Swapchain->AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
     //GBuffer Pass
     {
         SubmitInfo = vulkanTools::BuildSubmitInfo();
@@ -59,7 +61,7 @@ void deferredHybridRenderer::Render()
         SubmitInfo.pCommandBuffers = &DrawCommandBuffers[App->VulkanObjects.CurrentBuffer];
         VK_CALL(vkQueueSubmit(App->VulkanObjects.Queue, 1, &SubmitInfo, VK_NULL_HANDLE));
 
-        VK_CALL(App->VulkanObjects.Swapchain.QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete));
+        VK_CALL(App->VulkanObjects.Swapchain->QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete));
         VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
     }
 }
@@ -335,7 +337,7 @@ void deferredHybridRenderer::FillBLASInstances()
 
 void deferredHybridRenderer::CreateCommandBuffers()
 {
-    DrawCommandBuffers.resize(App->VulkanObjects.Swapchain.ImageCount);
+    DrawCommandBuffers.resize(App->VulkanObjects.Swapchain->ImageCount);
     VkCommandBufferAllocateInfo CommandBufferAllocateInfo = vulkanTools::BuildCommandBufferAllocateInfo(App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, static_cast<uint32_t>(DrawCommandBuffers.size()));
     VK_CALL(vkAllocateCommandBuffers(Device, &CommandBufferAllocateInfo, DrawCommandBuffers.data()));
 

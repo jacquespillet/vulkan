@@ -4,6 +4,8 @@
 #include "App.h"
 
 #include "imgui.h"
+#include "Tools.h"
+#include <algorithm>
 
 ImGUI::ImGUI(vulkanApp *App) : App(App)
 {
@@ -357,8 +359,8 @@ void ImGUI::DrawFrame(VkCommandBuffer CommandBuffer)
             {
                 const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[j];
                 VkRect2D scissorRect;
-                scissorRect.offset.x = std::max((int32_t)(pcmd->ClipRect.x), 0);
-                scissorRect.offset.y = std::max((int32_t)(pcmd->ClipRect.y), 0);
+                scissorRect.offset.x = (std::max)((int32_t)(pcmd->ClipRect.x), 0);
+                scissorRect.offset.y = (std::max)((int32_t)(pcmd->ClipRect.y), 0);
                 scissorRect.extent.width = (uint32_t)(pcmd->ClipRect.z - pcmd->ClipRect.x);
                 scissorRect.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y);
                 vkCmdSetScissor(CommandBuffer, 0, 1, &scissorRect);

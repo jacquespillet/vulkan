@@ -1,7 +1,10 @@
 #pragma once
 
+#define VERTEX_BUFFER_BIND_ID 0
+
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
+#include <vector>
 
 #define VK_CALL(f)\
 {\
@@ -13,48 +16,14 @@
 } \
 
 
-#define SizeOfArray(array) \
-    sizeof(array) / sizeof(array[0]) \
-
-#define VERTEX_BUFFER_BIND_ID 0
-#define SSAO_KERNEL_SIZE 32
-#define SSAO_RADIUS 2.0f
-#define SSAO_NOISE_DIM 4
-
-
-#include <assert.h>
-#include <vector>
-#include <array>
-#include <string>
-#include <iostream>
-#include <random>
-
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
-
-#include <glm/ext.hpp>
-
-#include "Debug.h"
-#include "Tools.h"
-#include "Device.h"
-#include "Swapchain.h"
-#include "TextureLoader.h"
-
-#include "Resources.h"
-#include "Framebuffer.h"
-#include "Buffer.h"
-#include "Shader.h"
-
-#include "Scene.h"
-
-#include "Camera.h"
-#include "ImguiHelper.h"
-
-#include "ObjectPicker.h"
-
 class renderer;
+class scene;
+class ImGUI;
+class objectPicker;
+class vulkanDevice;
+struct swapchain;
+class textureLoader;
+
 class vulkanApp
 {
 public:
@@ -86,7 +55,7 @@ public:
         VkPhysicalDeviceFeatures EnabledFeatures = {};
         VkQueue Queue;
         VkFormat DepthFormat;
-        swapchain Swapchain;
+        swapchain *Swapchain;
         
         struct {
             VkSemaphore PresentComplete;
@@ -123,7 +92,7 @@ public:
 
     ImGUI *ImGuiHelper;
 
-    objectPicker ObjectPicker;
+    objectPicker *ObjectPicker;
 
     float GuiWidth=200;
 
