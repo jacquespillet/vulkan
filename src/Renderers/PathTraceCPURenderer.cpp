@@ -638,6 +638,67 @@ void tlas::Intersect(ray Ray, rayPayload &RayPayload)
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////////////////////
+
+float GAMMA = 2.2;
+float INV_GAMMA = 1.0 / GAMMA;
+
+// sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
+glm::mat3 ACESInputMat = glm::mat3
+(
+    0.59719, 0.07600, 0.02840,
+    0.35458, 0.90834, 0.13383,
+    0.04823, 0.01566, 0.83777
+);
+
+// ACES filmic tone map approximation
+// see https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
+glm::vec3 RRTAndODTFit(glm::vec3 color)
+{
+    glm::vec3 a = color * (color + 0.0245786f) - 0.000090537f;
+    glm::vec3 b = color * (0.983729f * color + 0.4329510f) + 0.238081f;
+    return a / b;
+}
+
+// ODT_SAT => XYZ => D60_2_D65 => sRGB
+glm::mat3 ACESOutputMat = glm::mat3
+(
+    1.60475, -0.10208, -0.00327,
+    -0.53108,  1.10813, -0.07276,
+    -0.07367, -0.00605,  1.07602
+);
+// tone mapping 
+glm::vec3 toneMapACES_Hill(glm::vec3 color)
+{
+    color = ACESInputMat * color;
+
+    // Apply RRT and ODT
+    color = RRTAndODTFit(color);
+
+    color = ACESOutputMat * color;
+
+    // Clamp to [0, 1]
+    color = clamp(color, 0.0f, 1.0f);
+
+    return color;
+}
+
+glm::vec3 linearTosRGB(glm::vec3 color)
+{
+    return pow(color, glm::vec3(INV_GAMMA));
+}
+
+glm::vec3 toneMap(glm::vec3 color, float Exposure)
+{
+    color *= Exposure;
+    color /= 0.6;
+    color = toneMapACES_Hill(color);
+    return linearTosRGB(color);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////
+
 pathTraceCPURenderer::pathTraceCPURenderer(vulkanApp *App) : renderer(App) {
     this->UseGizmo=false;
 }
@@ -897,7 +958,7 @@ float RandomBilateral(uint32_t &State)
 
 void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint32_t TileWidth, uint32_t TileHeight, uint32_t ImageWidth, uint32_t ImageHeight, std::vector<rgba8>* ImageToWrite)
 {
-    uint32_t RayBounces=2;
+    uint32_t RayBounces=4;
     ray Ray = {}; 
     glm::vec2 InverseImageSize = 1.0f / glm::vec2(ImageWidth, ImageHeight);
     float imageAspectRatio = ImageWidth / (float)ImageHeight;
@@ -1072,8 +1133,9 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
 
 			glm::vec3 Color = AccumulationImage[yy * ImageWidth + xx] / CurrentSampleCount;
 
-			Color *= glm::pow(Color, glm::vec3(1.0f / 2.2f));
+            toneMap(Color, App->Scene->UBOSceneMatrices.Exposure);
 			Color = glm::clamp(Color, glm::vec3(0), glm::vec3(1));
+			// Color *= glm::pow(Color, glm::vec3(1.0f / 2.2f));
 
             uint8_t r = (uint8_t)(Color.r * 255.0f);
             uint8_t g = (uint8_t)(Color.g * 255.0f);
