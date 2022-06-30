@@ -7,7 +7,7 @@
 #include "Scene.h"
 
 
-#define NUM_THREADS 8
+#define NUM_THREADS 12
 
     
 struct rgba8
@@ -49,7 +49,7 @@ struct vertexOut
 struct shader
 {
     virtual vertexOutData VertexShader(uint32_t Index, uint8_t TriVert)=0;
-    virtual bool FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut)=0;
+    virtual bool FragmentShader(glm::vec3 Barycentric, vertexOut VertexOut, rgba8 &ColorOut)=0;
 
     std::vector<vertexOut> VertexOut;
     uint32_t NumVertexOut;
@@ -58,10 +58,6 @@ struct shader
 
 struct gouraudShader : public shader
 {
-    struct
-    {
-        float Intensity;
-    } Varyings[3];
     struct
     {
         glm::mat4 *ViewProjectionMatrix;
@@ -74,7 +70,7 @@ struct gouraudShader : public shader
     } Buffers;
 
     vertexOutData VertexShader(uint32_t Index, uint8_t TriVert) override;
-    bool FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut) override;
+    bool FragmentShader(glm::vec3 Barycentric, vertexOut VertexOut, rgba8 &ColorOut) override;
 };
 
 class rasterizerRenderer : public renderer    
@@ -104,6 +100,9 @@ public:
 
     // std::vector<vertexOut> VertexOutData;
     std::array<std::vector<vertexOut>, NUM_THREADS> ThreadVertexOutData;
+    std::vector<vertexOut> VertexOutData;
+
+    bool Multithreaded=true;
 
     void UpdateCamera();
 private:
@@ -112,5 +111,5 @@ private:
     void CreateCommandBuffers();
 
     glm::vec3  CalculateBarycentric(glm::vec3 A, glm::vec3 B,glm::vec3 C, glm::vec3 P);
-    void DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, shader &Shader);
+    void DrawTriangle(vertexOut VertexOut, shader &Shader);
 };

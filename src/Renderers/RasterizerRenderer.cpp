@@ -8,6 +8,7 @@
 #include "../ImGuiHelper.h"
 #include <random> 
 #include <omp.h>
+#include <iostream>
 
 vertexOutData gouraudShader::VertexShader(uint32_t Index, uint8_t TriVert) 
 {
@@ -32,10 +33,11 @@ vertexOutData gouraudShader::VertexShader(uint32_t Index, uint8_t TriVert)
     };
 }
 
-bool gouraudShader::FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut) 
+bool gouraudShader::FragmentShader(glm::vec3 Barycentric, vertexOut VOut, rgba8 &ColorOut) 
 {
-    glm::vec3 VaryingIntensity(Varyings[0].Intensity, Varyings[1].Intensity, Varyings[2].Intensity);
+    glm::vec3 VaryingIntensity(VOut.Data[0].Intensity, VOut.Data[1].Intensity, VOut.Data[2].Intensity);
     float Intensity = glm::dot(VaryingIntensity, Barycentric);
+    
     ColorOut = {(uint8_t)(Intensity * 255.0f), (uint8_t)(Intensity * 255.0f), (uint8_t)(Intensity * 255.0f), 255};
     return false;
 }
@@ -86,8 +88,12 @@ void renderTarget::SetPixel(int x, int y, rgba8 ColorValue)
     (*Color)[y * Width + x] = ColorValue;
 }
 
-void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, shader &RenderShader)
+void rasterizerRenderer::DrawTriangle(vertexOut VertexOut, shader &RenderShader)
 {
+    glm::vec3 p0 = VertexOut.Data[0].Coord;
+    glm::vec3 p1 = VertexOut.Data[1].Coord;
+    glm::vec3 p2 = VertexOut.Data[2].Coord;
+    
 	p0.x = std::floor(p0.x); p0.y = std::floor(p0.y);
 	p1.x = std::floor(p1.x); p1.y = std::floor(p1.y);
 	p2.x = std::floor(p2.x); p2.y = std::floor(p2.y);
@@ -109,7 +115,7 @@ void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, s
             float z = p0.z * BaryCentric.x + p1.z * BaryCentric.y + p2.z * BaryCentric.z;
             float CurrentDepth = RenderShader.Framebuffer.SampleDepth((int)P.x, (int)P.y);
             rgba8 Color = {};
-            RenderShader.FragmentShader(BaryCentric, Color);
+            RenderShader.FragmentShader(BaryCentric, VertexOut, Color);
             if(z < CurrentDepth)
             {
                 RenderShader.Framebuffer.SetDepthPixel((int)P.x, (int)P.y, z);
@@ -122,7 +128,7 @@ void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, s
 
 void rasterizerRenderer::Rasterize()
 {
-
+    std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
 
     glm::mat4 ViewProjectionMatrix = App->Scene->Camera.GetProjectionMatrix() * App->Scene->Camera.GetViewMatrix();
     glm::mat4 ModelMatrix = glm::scale(glm::mat4(1), glm::vec3(0.01f));
@@ -135,37 +141,123 @@ void rasterizerRenderer::Rasterize()
     Shader.Buffers.Vertices = &App->Scene->Meshes[0].Vertices;
     
     //Viewport
-    Shader.Framebuffer.ViewportStartX = App->Scene->ViewportStart;
-    Shader.Framebuffer.ViewportWidth = App->Width - App->Scene->ViewportStart;
+    Shader.Framebuffer.ViewportStartX =(uint32_t) App->Scene->ViewportStart;
+    Shader.Framebuffer.ViewportWidth = (uint32_t)(App->Width - App->Scene->ViewportStart);
     Shader.Framebuffer.ViewportHeight = App->Height;
     Shader.Framebuffer.Width = App->Width;
     Shader.Framebuffer.Height = App->Height;
     Shader.Framebuffer.Color = &Image;
     Shader.Framebuffer.Depth = &DepthBuffer;
-    
-    #pragma omp parallel for num_threads(8)
-    for(int i=0; i<Image.size(); i++)
-    {
-        Image[i] = {0, 0, 0, 255};
-        DepthBuffer[i] = 1e30f;
-    }
-    
-    uint32_t TrianglesPerThread = (Shader.Buffers.Indices->size()/3) / NUM_THREADS;
-    std::array<int, NUM_THREADS> ThreadCounters;
-    for(int i=0; i<NUM_THREADS; i++)
-    {
-        ThreadVertexOutData[i].resize(TrianglesPerThread);
-        ThreadCounters[i]=0;
-    }
 
-    #pragma omp parallel num_threads(NUM_THREADS)
+    if(Multithreaded)
     {
-        int LocalIndex;
-        #pragma omp for
+
+        #pragma omp parallel for num_threads(NUM_THREADS)
+        for(int i=0; i<Image.size(); i++)
+        {
+            Image[i] = {0, 0, 0, 255};
+            DepthBuffer[i] = 1e30f;
+        }
+        
+        uint32_t TrianglesPerThread = (uint32_t)((Shader.Buffers.Indices->size()/3) / NUM_THREADS);
+        std::array<uint32_t, NUM_THREADS> ThreadCounters;
+        for(int i=0; i<NUM_THREADS; i++)
+        {
+            ThreadVertexOutData[i].resize(TrianglesPerThread);
+            ThreadCounters[i]=0;
+        }
+
+        #pragma omp parallel num_threads(NUM_THREADS)
+        {
+            #pragma omp for
+            for(int j=0; j<Shader.Buffers.Indices->size()/3; j++)
+            {
+                int ThreadID = omp_get_thread_num();
+                
+                int i = j * 3;
+                glm::vec3 v0 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 0)).Position;
+                glm::vec3 v1 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 1)).Position;
+                glm::vec3 v2 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 2)).Position;
+                glm::vec3 Normal = glm::normalize(glm::cross(glm::vec3(v2 - v0), glm::vec3(v1 - v0)));
+                float BackFace = glm::dot(Normal, -ViewDir);
+
+                if(BackFace > 0)
+                {        
+                    vertexOut VOut = {};
+                    VOut.Data[0] = Shader.VertexShader(i+0, 0); 
+                    VOut.Data[1] =  Shader.VertexShader(i+1, 1); 
+                    VOut.Data[2] =  Shader.VertexShader(i+2, 2);
+                    
+                    ThreadVertexOutData[ThreadID][ThreadCounters[ThreadID]] = VOut;
+                    
+                    ThreadCounters[ThreadID]++;
+                }
+            }
+        }
+        
+
+        for(int j=0; j<NUM_THREADS; j++)
+        {
+            for(uint32_t i=0; i<ThreadCounters[j]; i++)
+            {
+                vertexOut VertexOut = ThreadVertexOutData[j][i];
+
+                glm::vec3 p0 = VertexOut.Data[0].Coord;
+                glm::vec3 p1 = VertexOut.Data[1].Coord;
+                glm::vec3 p2 = VertexOut.Data[2].Coord;
+                
+                p0.x = std::floor(p0.x); p0.y = std::floor(p0.y);
+                p1.x = std::floor(p1.x); p1.y = std::floor(p1.y);
+                p2.x = std::floor(p2.x); p2.y = std::floor(p2.y);
+
+                glm::vec3 BBMin(Shader.Framebuffer.ViewportWidth-1, Shader.Framebuffer.ViewportHeight-1,0 );
+                glm::vec3 BBMax(0, 0,0 );
+                BBMin = glm::min(BBMin, p0); BBMin = glm::min(BBMin, p1); BBMin = glm::min(BBMin, p2);
+                BBMax = glm::max(BBMax, p0); BBMax = glm::max(BBMax, p1); BBMax = glm::max(BBMax, p2);
+                
+                // glm::vec3 P;
+                
+
+                int Width = (int)(BBMax.x - BBMin.x);
+                int Height = (int)(BBMax.y - BBMin.y);
+
+                #pragma omp parallel for num_threads(NUM_THREADS)
+                for(int k=0; k<Width * Height; k++)
+                {
+                        int xx = k % Width;
+                        int yy = k / Width;
+                        int x = xx + (int)BBMin.x;
+                        int y = yy + (int)BBMin.y;
+
+                        glm::vec3 P((float)x, (float)y, 0);
+                        glm::vec3 BaryCentric = CalculateBarycentric(p0, p1, p2, P);
+                        if(BaryCentric.x < 0 || BaryCentric.y < 0 || BaryCentric.z < 0) continue;
+
+                        float z = p0.z * BaryCentric.x + p1.z * BaryCentric.y + p2.z * BaryCentric.z;
+                        float CurrentDepth = Shader.Framebuffer.SampleDepth((int)x, (int)y);
+                        rgba8 Color = {};
+                        Shader.FragmentShader(BaryCentric, VertexOut, Color);
+                        if(z < CurrentDepth)
+                        {
+                            Shader.Framebuffer.SetDepthPixel((int)x, (int)y, z);
+                            Shader.Framebuffer.SetPixel((int)x, (int)y, Color);
+                        }
+                }     
+            }
+        }
+    }
+    else
+    {
+        for(int i=0; i<Image.size(); i++)
+        {
+            Image[i] = {0, 0, 0, 255};
+            DepthBuffer[i] = 1e30f;
+        }
+        
+        VertexOutData.resize(Shader.Buffers.Indices->size()/3);
+        uint32_t Counter=0;
         for(int j=0; j<Shader.Buffers.Indices->size()/3; j++)
         {
-            int ThreadID = omp_get_thread_num();
-            
             int i = j * 3;
             glm::vec3 v0 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 0)).Position;
             glm::vec3 v1 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 1)).Position;
@@ -180,27 +272,66 @@ void rasterizerRenderer::Rasterize()
                 VOut.Data[1] =  Shader.VertexShader(i+1, 1); 
                 VOut.Data[2] =  Shader.VertexShader(i+2, 2);
                 
-                ThreadVertexOutData[ThreadID][ThreadCounters[ThreadID]] = VOut;
-                
-                ThreadCounters[ThreadID]++;
+                VertexOutData[Counter++] = VOut;
             }
         }
-    }
     
+
     
-    for(int j=0; j<NUM_THREADS; j++)
-    {
-        for(uint32_t i=0; i<ThreadCounters[j]; i++)
+        for(uint32_t i=0; i<Counter; i++)
         {
-            glm::vec4 Coord0 = ThreadVertexOutData[j][i].Data[0].Coord;
-            Shader.Varyings[0].Intensity = ThreadVertexOutData[j][i].Data[0].Intensity;
-            glm::vec4 Coord1 = ThreadVertexOutData[j][i].Data[1].Coord;
-            Shader.Varyings[1].Intensity = ThreadVertexOutData[j][i].Data[1].Intensity;
-            glm::vec4 Coord2 = ThreadVertexOutData[j][i].Data[2].Coord;
-            Shader.Varyings[2].Intensity = ThreadVertexOutData[j][i].Data[2].Intensity;
-            DrawTriangle(Coord0, Coord1, Coord2, Shader);        
+            vertexOut VertexOut = VertexOutData[i];
+
+            glm::vec3 p0 = VertexOut.Data[0].Coord;
+            glm::vec3 p1 = VertexOut.Data[1].Coord;
+            glm::vec3 p2 = VertexOut.Data[2].Coord;
+            
+            p0.x = std::floor(p0.x); p0.y = std::floor(p0.y);
+            p1.x = std::floor(p1.x); p1.y = std::floor(p1.y);
+            p2.x = std::floor(p2.x); p2.y = std::floor(p2.y);
+
+            glm::vec3 BBMin(Shader.Framebuffer.ViewportWidth-1, Shader.Framebuffer.ViewportHeight-1,0 );
+            glm::vec3 BBMax(0, 0,0 );
+            BBMin = glm::min(BBMin, p0); BBMin = glm::min(BBMin, p1); BBMin = glm::min(BBMin, p2);
+            BBMax = glm::max(BBMax, p0); BBMax = glm::max(BBMax, p1); BBMax = glm::max(BBMax, p2);
+            
+            // glm::vec3 P;
+            
+
+            int Width = (int)(BBMax.x - BBMin.x);
+            int Height = (int)(BBMax.y - BBMin.y);
+
+            #pragma omp parallel for num_threads(NUM_THREADS)
+            for(int k=0; k<Width * Height; k++)
+            {
+                    int xx = k % Width;
+                    int yy = k / Width;
+                    int x = xx + (int)BBMin.x;
+                    int y = yy + (int)BBMin.y;
+
+                    glm::vec3 P((float)x, (float)y, 0);
+                    glm::vec3 BaryCentric = CalculateBarycentric(p0, p1, p2, P);
+                    if(BaryCentric.x < 0 || BaryCentric.y < 0 || BaryCentric.z < 0) continue;
+
+                    float z = p0.z * BaryCentric.x + p1.z * BaryCentric.y + p2.z * BaryCentric.z;
+                    float CurrentDepth = Shader.Framebuffer.SampleDepth((int)x, (int)y);
+                    rgba8 Color = {};
+                    Shader.FragmentShader(BaryCentric, VertexOut, Color);
+                    if(z < CurrentDepth)
+                    {
+                        Shader.Framebuffer.SetDepthPixel((int)x, (int)y, z);
+                        Shader.Framebuffer.SetPixel((int)x, (int)y, Color);
+                    }
+            }     
         }
     }
+    
+
+    std::chrono::steady_clock::time_point stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    float seconds = (float)duration.count() / 1000.0f;
+    std::cout << seconds << std::endl;  
+
 
 }
 
@@ -310,6 +441,7 @@ void rasterizerRenderer::CreateCommandBuffers()
 
 void rasterizerRenderer::RenderGUI()
 {
+    ImGui::Checkbox("Multithreaded", &Multithreaded);
 }
 
 void rasterizerRenderer::Resize(uint32_t Width, uint32_t Height) 
