@@ -7,16 +7,33 @@
 #include "../Swapchain.h"
 #include "../ImGuiHelper.h"
 #include <random> 
-glm::vec3 rasterizerRenderer::CalculateBarycentric(glm::ivec2 p0, glm::ivec2 p1,glm::ivec2 p2, int x, int y)
+
+float rasterizerRenderer::SampleDepth(int x, int y)
 {
-    glm::vec3 u = glm::cross(
-        glm::vec3(p2[0]-p0[0], p1[0]-p0[0], p0[0]-x),
-        glm::vec3(p2[1]-p0[1], p1[1]-p0[1], p0[1]-y));
-    /* `pts` and `P` has integer value as coordinates
-        so `abs(u[2])` < 1 means `u[2]` is 0, that means
-        triangle is degenerate, in this case return something with negative coordinates */
-    if (std::abs(u.z)<1) return glm::vec3(-1,1,1);
-    return glm::vec3(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
+	if (x > (int)(App->Width - 1) || y > (int)(App->Height - 1) || x < 0 || y < 0)return 0;
+    return DepthBuffer[y * App->Width + x];
+}
+
+void rasterizerRenderer::SetDepthPixel(int x, int y, float Depth)
+{
+	if (x > (int)(App->Width - 1) || y > (int)(App->Height - 1) || x < 0 || y < 0)return;
+    DepthBuffer[y * App->Width + x] = Depth;    
+}
+glm::vec3 rasterizerRenderer::CalculateBarycentric(glm::vec3 A, glm::vec3 B,glm::vec3 C, glm::vec3 P)
+{
+    glm::vec3 s[2];
+    s[0][0] = C[0]-A[0];
+    s[0][1] = B[0]-A[0];
+    s[0][2] = A[0]-P[0];
+    
+    s[1][0] = C[1]-A[1];
+    s[1][1] = B[1]-A[1];
+    s[1][2] = A[1]-P[1];
+
+    glm::vec3 u = cross(s[0], s[1]);
+    if (std::abs(u[2])>1e-2) // dont forget that u[2] is integer. If it is zero then triangle ABC is degenerate
+        return glm::vec3(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z);
+    return glm::vec3(-1,1,1); // in this case generate negative coordinates, it will be thrown away by the rasterizator    
 }
 
 rasterizerRenderer::rasterizerRenderer(vulkanApp *App) : renderer(App) {
@@ -25,105 +42,60 @@ rasterizerRenderer::rasterizerRenderer(vulkanApp *App) : renderer(App) {
 
 void rasterizerRenderer::SetPixel(int x, int y, rgba8 Color)
 {
-    if(x > App->Width-1 || y > App->Height-1 || x < 0 || y < 0)return;
+    if(x > (int)(App->Width-1) || y > (int)(App->Height-1) || x < 0 || y < 0)return;
     Image[y * App->Width + x] = Color;
 }
 
-void rasterizerRenderer::DrawTriangle(glm::ivec2 p0, glm::ivec2 p1,glm::ivec2 p2, rgba8 Color)
+void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, rgba8 Color)
 {
-    glm::ivec2 BBMin(App->Height-1, App->Width-1);
-    glm::ivec2 BBMax(0, 0);
-    
+	p0.x = std::floor(p0.x); p0.y = std::floor(p0.y);
+	p1.x = std::floor(p1.x); p1.y = std::floor(p1.y);
+	p2.x = std::floor(p2.x); p2.y = std::floor(p2.y);
+
+    glm::vec3 BBMin(App->Height-1, App->Width-1,0 );
+    glm::vec3 BBMax(0, 0,0 );
     BBMin = glm::min(BBMin, p0); BBMin = glm::min(BBMin, p1); BBMin = glm::min(BBMin, p2);
     BBMax = glm::max(BBMax, p0); BBMax = glm::max(BBMax, p1); BBMax = glm::max(BBMax, p2);
     
-    
-    for(int x=BBMin.x; x <= BBMax.x; x++)
+
+    glm::vec3 P;
+    for(P.x=BBMin.x; P.x <= BBMax.x; P.x++)
     {
-        for(int y=BBMin.y; y <= BBMax.y; y++)
+        for(P.y=BBMin.y; P.y <= BBMax.y; P.y++)
         {
-            glm::vec3 BaryCentric = CalculateBarycentric(p0, p1, p2, x, y);
+            glm::vec3 BaryCentric = CalculateBarycentric(p0, p1, p2, P);
             if(BaryCentric.x < 0 || BaryCentric.y < 0 || BaryCentric.z < 0) continue;
-            SetPixel(x, y, Color);
+			
+            if(glm::length(glm::vec2(P) - glm::vec2(500, 500)) < 1)
+            {
+                int a=0;
+            }
+
+            float z = p0.z * BaryCentric.x + p1.z * BaryCentric.y + p2.z * BaryCentric.z;
+            float CurrentDepth = SampleDepth((int)P.x, (int)P.y);
+            if(z < CurrentDepth)
+            {
+                SetDepthPixel((int)P.x, (int)P.y, z);
+                SetPixel((int)P.x, (int)P.y, Color);
+            }
         }
     }
 
 }
 
-void rasterizerRenderer::DrawLine(glm::ivec2 p0, glm::ivec2 p1, rgba8 Color)
-{
-#if 0
-    bool Steep=false;
-    if(std::abs(p0.x - p1.x) < std::abs(p0.y - p1.y))
-    {
-        std::swap(p0, p1);
-        Steep=true;
-    }
-    if(p0.x > p1.x)
-    {
-        std::swap(p0, p1);
-    }
-
-    int dx = p1.x - p0.x;
-    int dy = p1.y - p0.y;
-    
-    int DError = std::abs(dy) * 2;
-    int Error=0;
-    int y=p0.y;
-    
-    for(int x=p0.x; x <= p1.x; x++)
-    {
-        if(Steep)SetPixel(y, x, Color);
-        else     SetPixel(x, y, Color);
-
-        Error += DError;
-        if(Error > dx)
-        {
-            y += (p1.y > p0.y) ? 1 : -1;
-            Error -= dx * 2;
-        }
-    }
-#else
-    bool steep = false; 
-    if (std::abs(p0.x-p1.x)<std::abs(p0.y-p1.y)) { 
-        std::swap(p0.x, p0.y); 
-        std::swap(p1.x, p1.y); 
-        steep = true; 
-    } 
-    if (p0.x>p1.x) { 
-        std::swap(p0, p1);
-    } 
-    glm::ivec2 d = p1 - p0;
-
-    int derror2 = std::abs(d.y)*2; 
-    int error2 = 0; 
-    int y = p0.y; 
-    for (int x=p0.x; x<=p1.x; x++) { 
-        if (steep) { 
-            SetPixel(y, x, Color); 
-        } else { 
-            SetPixel(x, y, Color); 
-        } 
-        error2 += derror2; 
-        if (error2 > d.x) { 
-            y += (p1.y>p0.y?1:-1); 
-            error2 -= d.x*2; 
-        } 
-    } 
-
-#endif
-}
 
 void rasterizerRenderer::Rasterize()
 {
     for(uint32_t i=0; i<Image.size(); i++)
     {
         Image[i] = {0, 0, 0, 255};
+        DepthBuffer[i] = 1e30f;
     }
     glm::vec3 LightDir = glm::normalize(glm::vec3(1,1,1));
     std::vector<vertex> *Vertices = &App->Scene->Meshes[0].Vertices;
     std::vector<uint32_t> *Indices = &App->Scene->Meshes[0].Indices;
     glm::mat4 ViewProjectionMatrix = App->Scene->Camera.GetProjectionMatrix() * App->Scene->Camera.GetViewMatrix();
+	glm::vec3 ViewDir = App->Scene->Camera.GetModelMatrix()[2];
     for(size_t i=0; i<Indices->size(); i+=3)
     {
         uint32_t i0 = Indices->at(i+0);
@@ -141,20 +113,20 @@ void rasterizerRenderer::Rasterize()
         glm::vec4 pv2 = ViewProjectionMatrix * v2;
         pv2 /= pv2.w; pv2 = (pv2 + 1.0f) / 2.0f;
         
-        glm::ivec2 p0 = pv0 * App->Width;        
-        glm::ivec2 p1 = pv1 * App->Width;        
-        glm::ivec2 p2 = pv2 * App->Width;        
+        pv0 *= glm::vec4(App->Width, App->Height, 1, 0);
+        pv1 *= glm::vec4(App->Width, App->Height, 1, 0);
+        pv2 *= glm::vec4(App->Width, App->Height, 1, 0);
         
         glm::vec3 Normal = glm::normalize(glm::cross(glm::vec3(v2 - v0), glm::vec3(v1 - v0)));
         float Intensity = glm::dot(Normal, LightDir);
-        if(Intensity > 0)
+        float Culling = glm::dot(Normal, -ViewDir);
+        if(Culling > 0)
         {
-            DrawTriangle(p0, p1, p2, {(uint8_t)(Intensity * 255.0f), (uint8_t)(Intensity * 255.0f), (uint8_t)(Intensity * 255.0f), 255});
+            DrawTriangle(pv0, pv1, pv2, {(uint8_t)(Intensity * 255.0f), (uint8_t)(Intensity * 255.0f), (uint8_t)(Intensity * 255.0f), 255});
         }
         // DrawTriangle(p0, p1, p2, {(uint8_t)(std::rand()%255), (uint8_t)(std::rand()%255), (uint8_t)(std::rand()%255), 255});
 
     }
-    DrawLine(glm::ivec2(600, 500), glm::ivec2(650, 1000), {0, 255, 0, 255});
 }
 
 
@@ -241,23 +213,15 @@ void rasterizerRenderer::Render()
 
 void rasterizerRenderer::Setup()
 {
-    previewWidth = App->Width / 10;
-    previewHeight = App->Height / 10;
-
     CreateCommandBuffers();
 
     Image.resize(App->Width * App->Height, {0, 0, 0, 255});
-    PreviewImage.resize(previewWidth * previewHeight);
+    DepthBuffer.resize(App->Width * App->Height);
     
 
     vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 
                               &VulkanObjects.ImageStagingBuffer, Image.size() * sizeof(rgba8), Image.data());
-    
-    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 
-                              &VulkanObjects.previewBuffer, PreviewImage.size() * sizeof(rgba8), PreviewImage.data());    
-    VulkanObjects.previewImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, VK_FORMAT_B8G8R8A8_UNORM, {previewWidth, previewHeight, 1});
 }
 
 //

@@ -25,11 +25,7 @@ public:
     {
         VkCommandBuffer DrawCommandBuffer;
         VkSubmitInfo SubmitInfo;
-
         buffer ImageStagingBuffer;
-
-        storageImage previewImage;
-        buffer previewBuffer;
     } VulkanObjects;
 
     
@@ -38,18 +34,17 @@ public:
         uint8_t b, g, r, a;
     };
     std::vector<rgba8> Image; 
-    std::vector<rgba8> PreviewImage; 
+    std::vector<float> DepthBuffer;
     
-    uint32_t previewWidth = 128;
-    uint32_t previewHeight = 128;
-
     void UpdateCamera();
 private:
     void CreateCommandBuffers();
 
-    glm::vec3 CalculateBarycentric(glm::ivec2 p0, glm::ivec2 p1,glm::ivec2 p2, int x, int y);
+    glm::vec3  CalculateBarycentric(glm::vec3 A, glm::vec3 B,glm::vec3 C, glm::vec3 P);
+    void DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, rgba8 Color);
 
-    void DrawLine(glm::ivec2 p0, glm::ivec2 p1, rgba8 Color);
-    void DrawTriangle(glm::ivec2 p0, glm::ivec2 p1,glm::ivec2 p2, rgba8 Color);
     void SetPixel(int x, int y, rgba8 Color);
+    
+    float SampleDepth(int x, int y);
+    void SetDepthPixel(int x, int y, float Depth);
 };
