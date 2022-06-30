@@ -6,6 +6,9 @@
 #include "../Image.h"
 #include "Scene.h"
 
+
+#define NUM_THREADS 8
+
     
 struct rgba8
 {
@@ -31,18 +34,25 @@ struct renderTarget
     void SetDepthPixel(int x, int y, float Depth);
 };
 
+struct vertexOutData
+{
+    glm::vec4 Coord;
+    float Intensity;
+};
+
 struct vertexOut
 {
-    glm::vec4 Coord0;
+    vertexOutData Data[3];
 };
 
 
 struct shader
 {
-    virtual glm::vec4 VertexShader(uint32_t Index, uint8_t TriVert)=0;
+    virtual vertexOutData VertexShader(uint32_t Index, uint8_t TriVert)=0;
     virtual bool FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut)=0;
 
     std::vector<vertexOut> VertexOut;
+    uint32_t NumVertexOut;
     renderTarget Framebuffer;
 };
 
@@ -63,7 +73,7 @@ struct gouraudShader : public shader
         std::vector<uint32_t> *Indices;
     } Buffers;
 
-    glm::vec4 VertexShader(uint32_t Index, uint8_t TriVert) override;
+    vertexOutData VertexShader(uint32_t Index, uint8_t TriVert) override;
     bool FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut) override;
 };
 
@@ -91,6 +101,9 @@ public:
 
     std::vector<rgba8> Image; 
     std::vector<float> DepthBuffer;
+
+    // std::vector<vertexOut> VertexOutData;
+    std::array<std::vector<vertexOut>, NUM_THREADS> ThreadVertexOutData;
 
     void UpdateCamera();
 private:

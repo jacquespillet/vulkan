@@ -7,9 +7,9 @@
 #include "../Swapchain.h"
 #include "../ImGuiHelper.h"
 #include <random> 
+#include <omp.h>
 
-
-glm::vec4 gouraudShader::VertexShader(uint32_t Index, uint8_t TriVert) 
+vertexOutData gouraudShader::VertexShader(uint32_t Index, uint8_t TriVert) 
 {
     uint32_t VertexIndex = Buffers.Indices->at(Index);
     vertex *Vertex = &Buffers.Vertices->at(VertexIndex);
@@ -22,13 +22,14 @@ glm::vec4 gouraudShader::VertexShader(uint32_t Index, uint8_t TriVert)
     OutPosition.x += Framebuffer.ViewportStartX;
     OutPosition.y += Framebuffer.ViewportStartY;
 
-    Varyings[TriVert].Intensity = std::max(0.0f, 
-                                           glm::dot(
-                                                glm::vec3(Vertex->Normal), glm::normalize(glm::vec3(1,1,1))
-                                           )
-                                           );
-
-    return OutPosition;
+    return {
+        OutPosition,
+        std::max(0.0f, 
+                glm::dot(
+                    glm::vec3(Vertex->Normal), glm::normalize(glm::vec3(1,1,1))
+                )
+        )
+    };
 }
 
 bool gouraudShader::FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut) 
@@ -121,6 +122,8 @@ void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, s
 
 void rasterizerRenderer::Rasterize()
 {
+
+
     glm::mat4 ViewProjectionMatrix = App->Scene->Camera.GetProjectionMatrix() * App->Scene->Camera.GetViewMatrix();
     glm::mat4 ModelMatrix = glm::scale(glm::mat4(1), glm::vec3(0.01f));
 	glm::vec3 ViewDir = App->Scene->Camera.GetModelMatrix()[2];
@@ -140,32 +143,65 @@ void rasterizerRenderer::Rasterize()
     Shader.Framebuffer.Color = &Image;
     Shader.Framebuffer.Depth = &DepthBuffer;
     
-    for(uint32_t i=0; i<Image.size(); i++)
+    #pragma omp parallel for num_threads(8)
+    for(int i=0; i<Image.size(); i++)
     {
         Image[i] = {0, 0, 0, 255};
         DepthBuffer[i] = 1e30f;
     }
     
-    
-    for(uint32_t i=0; i<Shader.Buffers.Indices->size(); i+=3)
+    uint32_t TrianglesPerThread = (Shader.Buffers.Indices->size()/3) / NUM_THREADS;
+    std::array<int, NUM_THREADS> ThreadCounters;
+    for(int i=0; i<NUM_THREADS; i++)
     {
-        glm::vec3 v0 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 0)).Position;
-        glm::vec3 v1 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 1)).Position;
-        glm::vec3 v2 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 2)).Position;
-        glm::vec3 Normal = glm::normalize(glm::cross(glm::vec3(v2 - v0), glm::vec3(v1 - v0)));
-        float BackFace = glm::dot(Normal, -ViewDir);
+        ThreadVertexOutData[i].resize(TrianglesPerThread);
+        ThreadCounters[i]=0;
+    }
 
-        if(BackFace > 0)
-        {        
-            glm::vec4 Coord0 = Shader.VertexShader(i+0, 0); 
-            glm::vec4 Coord1 = Shader.VertexShader(i+1, 1); 
-            glm::vec4 Coord2 = Shader.VertexShader(i+2, 2);
+    #pragma omp parallel num_threads(NUM_THREADS)
+    {
+        int LocalIndex;
+        #pragma omp for
+        for(int j=0; j<Shader.Buffers.Indices->size()/3; j++)
+        {
+            int ThreadID = omp_get_thread_num();
             
-            {
-                DrawTriangle(Coord0, Coord1, Coord2, Shader);
+            int i = j * 3;
+            glm::vec3 v0 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 0)).Position;
+            glm::vec3 v1 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 1)).Position;
+            glm::vec3 v2 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 2)).Position;
+            glm::vec3 Normal = glm::normalize(glm::cross(glm::vec3(v2 - v0), glm::vec3(v1 - v0)));
+            float BackFace = glm::dot(Normal, -ViewDir);
+
+            if(BackFace > 0)
+            {        
+                vertexOut VOut = {};
+                VOut.Data[0] = Shader.VertexShader(i+0, 0); 
+                VOut.Data[1] =  Shader.VertexShader(i+1, 1); 
+                VOut.Data[2] =  Shader.VertexShader(i+2, 2);
+                
+                ThreadVertexOutData[ThreadID][ThreadCounters[ThreadID]] = VOut;
+                
+                ThreadCounters[ThreadID]++;
             }
         }
     }
+    
+    
+    for(int j=0; j<NUM_THREADS; j++)
+    {
+        for(uint32_t i=0; i<ThreadCounters[j]; i++)
+        {
+            glm::vec4 Coord0 = ThreadVertexOutData[j][i].Data[0].Coord;
+            Shader.Varyings[0].Intensity = ThreadVertexOutData[j][i].Data[0].Intensity;
+            glm::vec4 Coord1 = ThreadVertexOutData[j][i].Data[1].Coord;
+            Shader.Varyings[1].Intensity = ThreadVertexOutData[j][i].Data[1].Intensity;
+            glm::vec4 Coord2 = ThreadVertexOutData[j][i].Data[2].Coord;
+            Shader.Varyings[2].Intensity = ThreadVertexOutData[j][i].Data[2].Intensity;
+            DrawTriangle(Coord0, Coord1, Coord2, Shader);        
+        }
+    }
+
 }
 
 
