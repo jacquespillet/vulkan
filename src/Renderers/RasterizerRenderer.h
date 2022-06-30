@@ -6,6 +6,44 @@
 #include "../Image.h"
 #include "Scene.h"
 
+    
+struct rgba8
+{
+    uint8_t b, g, r, a;
+};
+
+struct shader
+{
+    virtual glm::vec4 VertexShader(uint32_t Index, uint8_t TriVert)=0;
+    virtual bool FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut)=0;
+};
+
+struct gouraudShader : public shader
+{
+    struct
+    {
+        float Intensity;
+    } Varyings[3];
+    struct
+    {
+        glm::mat4 *ViewProjectionMatrix;
+        glm::mat4 *ModelMatrix;
+    } Uniforms;
+    struct
+    {
+        std::vector<vertex> *Vertices;
+        std::vector<uint32_t> *Indices;
+    } Buffers;
+    struct 
+    {
+        uint32_t Width;
+        uint32_t Height;
+        std::vector<rgba8> *Color;
+        std::vector<float> *Depth;
+    } Framebuffer;
+    glm::vec4 VertexShader(uint32_t Index, uint8_t TriVert) override;
+    bool FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut) override;
+};
 
 class rasterizerRenderer : public renderer    
 {
@@ -28,20 +66,17 @@ public:
         buffer ImageStagingBuffer;
     } VulkanObjects;
 
-    
-    struct rgba8
-    {
-        uint8_t b, g, r, a;
-    };
     std::vector<rgba8> Image; 
     std::vector<float> DepthBuffer;
     
     void UpdateCamera();
 private:
+    gouraudShader Shader;
+
     void CreateCommandBuffers();
 
     glm::vec3  CalculateBarycentric(glm::vec3 A, glm::vec3 B,glm::vec3 C, glm::vec3 P);
-    void DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, rgba8 Color);
+    void DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, shader &Shader);
 
     void SetPixel(int x, int y, rgba8 Color);
     

@@ -8,6 +8,36 @@
 #include "../ImGuiHelper.h"
 #include <random> 
 
+
+glm::vec4 gouraudShader::VertexShader(uint32_t Index, uint8_t TriVert) 
+{
+    uint32_t VertexIndex = Buffers.Indices->at(Index);
+    vertex *Vertex = &Buffers.Vertices->at(VertexIndex);
+    glm::vec4 Position = glm::vec4(Vertex->Position.x,Vertex->Position.y, Vertex->Position.z, 1.0f);
+
+    glm::vec4 OutPosition = (*Uniforms.ViewProjectionMatrix) * (*Uniforms.ModelMatrix) * Position;
+    OutPosition /= OutPosition.w; 
+    OutPosition = (OutPosition + 1.0f) / 2.0f;
+    OutPosition *= glm::vec4(Framebuffer.Width, Framebuffer.Height, 1, 0);
+
+    Varyings[TriVert].Intensity = std::max(0.0f, 
+                                           glm::dot(
+                                                glm::vec3(Vertex->Normal), glm::normalize(glm::vec3(1,1,1))
+                                           )
+                                           );
+
+    return OutPosition;
+}
+
+bool gouraudShader::FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut) 
+{
+    glm::vec3 VaryingIntensity(Varyings[0].Intensity, Varyings[1].Intensity, Varyings[2].Intensity);
+    float Intensity = glm::dot(VaryingIntensity, Barycentric);
+    ColorOut = {(uint8_t)(Intensity * 255.0f), (uint8_t)(Intensity * 255.0f), (uint8_t)(Intensity * 255.0f), 255};
+    return false;
+}
+
+
 float rasterizerRenderer::SampleDepth(int x, int y)
 {
 	if (x > (int)(App->Width - 1) || y > (int)(App->Height - 1) || x < 0 || y < 0)return 0;
@@ -46,7 +76,7 @@ void rasterizerRenderer::SetPixel(int x, int y, rgba8 Color)
     Image[y * App->Width + x] = Color;
 }
 
-void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, rgba8 Color)
+void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, shader &RenderShader)
 {
 	p0.x = std::floor(p0.x); p0.y = std::floor(p0.y);
 	p1.x = std::floor(p1.x); p1.y = std::floor(p1.y);
@@ -65,14 +95,11 @@ void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, r
         {
             glm::vec3 BaryCentric = CalculateBarycentric(p0, p1, p2, P);
             if(BaryCentric.x < 0 || BaryCentric.y < 0 || BaryCentric.z < 0) continue;
-			
-            if(glm::length(glm::vec2(P) - glm::vec2(500, 500)) < 1)
-            {
-                int a=0;
-            }
 
             float z = p0.z * BaryCentric.x + p1.z * BaryCentric.y + p2.z * BaryCentric.z;
             float CurrentDepth = SampleDepth((int)P.x, (int)P.y);
+            rgba8 Color = {};
+            RenderShader.FragmentShader(BaryCentric, Color);
             if(z < CurrentDepth)
             {
                 SetDepthPixel((int)P.x, (int)P.y, z);
@@ -86,43 +113,32 @@ void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, r
 
 void rasterizerRenderer::Rasterize()
 {
+    glm::mat4 ViewProjectionMatrix = App->Scene->Camera.GetProjectionMatrix() * App->Scene->Camera.GetViewMatrix();
+    glm::mat4 ModelMatrix = glm::scale(glm::mat4(1), glm::vec3(0.01f));
+	glm::vec3 ViewDir = App->Scene->Camera.GetModelMatrix()[2];
+    
+
+    Shader.Uniforms.ViewProjectionMatrix = &ViewProjectionMatrix;
+    Shader.Uniforms.ModelMatrix = &ModelMatrix;
+    Shader.Buffers.Indices = &App->Scene->Meshes[0].Indices;
+    Shader.Buffers.Vertices = &App->Scene->Meshes[0].Vertices;
+    Shader.Framebuffer.Width = App->Width;
+    Shader.Framebuffer.Height = App->Height;
+    
     for(uint32_t i=0; i<Image.size(); i++)
     {
         Image[i] = {0, 0, 0, 255};
         DepthBuffer[i] = 1e30f;
     }
-    glm::vec3 LightDir = glm::normalize(glm::vec3(1,1,1));
-    std::vector<vertex> *Vertices = &App->Scene->Meshes[0].Vertices;
-    std::vector<uint32_t> *Indices = &App->Scene->Meshes[0].Indices;
-    glm::mat4 ViewProjectionMatrix = App->Scene->Camera.GetProjectionMatrix() * App->Scene->Camera.GetViewMatrix();
-	glm::vec3 ViewDir = App->Scene->Camera.GetModelMatrix()[2];
-    for(size_t i=0; i<Indices->size(); i+=3)
+    
+    for(uint32_t i=0; i<Shader.Buffers.Indices->size(); i+=3)
     {
-        uint32_t i0 = Indices->at(i+0);
-        uint32_t i1 = Indices->at(i+1);
-        uint32_t i2 = Indices->at(i+2);
-        glm::vec4 v0 = Vertices->at(i0).Position * 0.005;
-        glm::vec4 v1 = Vertices->at(i1).Position * 0.005;
-        glm::vec4 v2 = Vertices->at(i2).Position * 0.005;
-        v0.w=1; v1.w = 1; v2.w=1;
-
-        glm::vec4 pv0 = ViewProjectionMatrix * v0;
-        pv0 /= pv0.w; pv0 = (pv0 + 1.0f) / 2.0f;
-        glm::vec4 pv1 = ViewProjectionMatrix * v1;
-        pv1 /= pv1.w; pv1 = (pv1 + 1.0f) / 2.0f;
-        glm::vec4 pv2 = ViewProjectionMatrix * v2;
-        pv2 /= pv2.w; pv2 = (pv2 + 1.0f) / 2.0f;
+        glm::vec4 Coord0 = Shader.VertexShader(i+0, 0); 
+        glm::vec4 Coord1 = Shader.VertexShader(i+1, 1); 
+        glm::vec4 Coord2 = Shader.VertexShader(i+2, 2); 
         
-        pv0 *= glm::vec4(App->Width, App->Height, 1, 0);
-        pv1 *= glm::vec4(App->Width, App->Height, 1, 0);
-        pv2 *= glm::vec4(App->Width, App->Height, 1, 0);
-        
-        glm::vec3 Normal = glm::normalize(glm::cross(glm::vec3(v2 - v0), glm::vec3(v1 - v0)));
-        float Intensity = glm::dot(Normal, LightDir);
-        float Culling = glm::dot(Normal, -ViewDir);
-        if(Culling > 0)
         {
-            DrawTriangle(pv0, pv1, pv2, {(uint8_t)(Intensity * 255.0f), (uint8_t)(Intensity * 255.0f), (uint8_t)(Intensity * 255.0f), 255});
+            DrawTriangle(Coord0, Coord1, Coord2, Shader);
         }
         // DrawTriangle(p0, p1, p2, {(uint8_t)(std::rand()%255), (uint8_t)(std::rand()%255), (uint8_t)(std::rand()%255), 255});
 
