@@ -19,6 +19,8 @@ glm::vec4 gouraudShader::VertexShader(uint32_t Index, uint8_t TriVert)
     OutPosition /= OutPosition.w; 
     OutPosition = (OutPosition + 1.0f) / 2.0f;
     OutPosition *= glm::vec4(Framebuffer.ViewportWidth, Framebuffer.ViewportHeight, 1, 0);
+    OutPosition.x += Framebuffer.ViewportStartX;
+    OutPosition.y += Framebuffer.ViewportStartY;
 
     Varyings[TriVert].Intensity = std::max(0.0f, 
                                            glm::dot(
@@ -114,7 +116,6 @@ void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, s
             }
         }
     }
-
 }
 
 
