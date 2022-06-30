@@ -12,10 +12,31 @@ struct rgba8
     uint8_t b, g, r, a;
 };
 
+struct renderTarget
+{
+    uint32_t ViewportStartX=0;
+    uint32_t ViewportStartY=0;
+    uint32_t ViewportWidth;
+    uint32_t ViewportHeight;
+
+    uint32_t Width;
+    uint32_t Height;
+
+    std::vector<rgba8> *Color;
+    std::vector<float> *Depth;
+    
+    
+    void SetPixel(int x, int y, rgba8 Color);
+    float SampleDepth(int x, int y);
+    void SetDepthPixel(int x, int y, float Depth);
+};
+
 struct shader
 {
     virtual glm::vec4 VertexShader(uint32_t Index, uint8_t TriVert)=0;
     virtual bool FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut)=0;
+
+    renderTarget Framebuffer;
 };
 
 struct gouraudShader : public shader
@@ -34,13 +55,7 @@ struct gouraudShader : public shader
         std::vector<vertex> *Vertices;
         std::vector<uint32_t> *Indices;
     } Buffers;
-    struct 
-    {
-        uint32_t Width;
-        uint32_t Height;
-        std::vector<rgba8> *Color;
-        std::vector<float> *Depth;
-    } Framebuffer;
+
     glm::vec4 VertexShader(uint32_t Index, uint8_t TriVert) override;
     bool FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut) override;
 };
@@ -77,9 +92,4 @@ private:
 
     glm::vec3  CalculateBarycentric(glm::vec3 A, glm::vec3 B,glm::vec3 C, glm::vec3 P);
     void DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, shader &Shader);
-
-    void SetPixel(int x, int y, rgba8 Color);
-    
-    float SampleDepth(int x, int y);
-    void SetDepthPixel(int x, int y, float Depth);
 };

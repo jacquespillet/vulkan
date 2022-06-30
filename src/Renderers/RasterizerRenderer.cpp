@@ -18,7 +18,7 @@ glm::vec4 gouraudShader::VertexShader(uint32_t Index, uint8_t TriVert)
     glm::vec4 OutPosition = (*Uniforms.ViewProjectionMatrix) * (*Uniforms.ModelMatrix) * Position;
     OutPosition /= OutPosition.w; 
     OutPosition = (OutPosition + 1.0f) / 2.0f;
-    OutPosition *= glm::vec4(Framebuffer.Width, Framebuffer.Height, 1, 0);
+    OutPosition *= glm::vec4(Framebuffer.ViewportWidth, Framebuffer.ViewportHeight, 1, 0);
 
     Varyings[TriVert].Intensity = std::max(0.0f, 
                                            glm::dot(
@@ -38,16 +38,20 @@ bool gouraudShader::FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut)
 }
 
 
-float rasterizerRenderer::SampleDepth(int x, int y)
+float renderTarget::SampleDepth(int x, int y)
 {
-	if (x > (int)(App->Width - 1) || y > (int)(App->Height - 1) || x < 0 || y < 0)return 0;
-    return DepthBuffer[y * App->Width + x];
+    // x -= ViewportStartX;
+    // y -= ViewportStartY;
+	if (x > (int)(Width - 1) || y > (int)(Height - 1) || x < 0 || y < 0)return 0;
+    return (*Depth)[y * Width + x];
 }
 
-void rasterizerRenderer::SetDepthPixel(int x, int y, float Depth)
+void renderTarget::SetDepthPixel(int x, int y, float DepthValue)
 {
-	if (x > (int)(App->Width - 1) || y > (int)(App->Height - 1) || x < 0 || y < 0)return;
-    DepthBuffer[y * App->Width + x] = Depth;    
+    // x -= ViewportStartX;
+    // y -= ViewportStartY;
+	if (x > (int)(Width - 1) || y > (int)(Height - 1) || x < 0 || y < 0)return;
+    (*Depth)[y * Width + x] = DepthValue;
 }
 glm::vec3 rasterizerRenderer::CalculateBarycentric(glm::vec3 A, glm::vec3 B,glm::vec3 C, glm::vec3 P)
 {
@@ -70,10 +74,13 @@ rasterizerRenderer::rasterizerRenderer(vulkanApp *App) : renderer(App) {
     this->UseGizmo=false;
 }
 
-void rasterizerRenderer::SetPixel(int x, int y, rgba8 Color)
+void renderTarget::SetPixel(int x, int y, rgba8 ColorValue)
 {
-    if(x > (int)(App->Width-1) || y > (int)(App->Height-1) || x < 0 || y < 0)return;
-    Image[y * App->Width + x] = Color;
+    // x += ViewportStartX;
+    // y += ViewportStartY;
+    
+    if(x > (int)(Width-1) || y > (int)(Height-1) || x < 0 || y < 0)return;
+    (*Color)[y * Width + x] = ColorValue;
 }
 
 void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, shader &RenderShader)
@@ -82,7 +89,7 @@ void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, s
 	p1.x = std::floor(p1.x); p1.y = std::floor(p1.y);
 	p2.x = std::floor(p2.x); p2.y = std::floor(p2.y);
 
-    glm::vec3 BBMin(App->Height-1, App->Width-1,0 );
+    glm::vec3 BBMin(RenderShader.Framebuffer.ViewportWidth-1, RenderShader.Framebuffer.ViewportHeight-1,0 );
     glm::vec3 BBMax(0, 0,0 );
     BBMin = glm::min(BBMin, p0); BBMin = glm::min(BBMin, p1); BBMin = glm::min(BBMin, p2);
     BBMax = glm::max(BBMax, p0); BBMax = glm::max(BBMax, p1); BBMax = glm::max(BBMax, p2);
@@ -97,13 +104,13 @@ void rasterizerRenderer::DrawTriangle(glm::vec3 p0, glm::vec3 p1,glm::vec3 p2, s
             if(BaryCentric.x < 0 || BaryCentric.y < 0 || BaryCentric.z < 0) continue;
 
             float z = p0.z * BaryCentric.x + p1.z * BaryCentric.y + p2.z * BaryCentric.z;
-            float CurrentDepth = SampleDepth((int)P.x, (int)P.y);
+            float CurrentDepth = RenderShader.Framebuffer.SampleDepth((int)P.x, (int)P.y);
             rgba8 Color = {};
             RenderShader.FragmentShader(BaryCentric, Color);
             if(z < CurrentDepth)
             {
-                SetDepthPixel((int)P.x, (int)P.y, z);
-                SetPixel((int)P.x, (int)P.y, Color);
+                RenderShader.Framebuffer.SetDepthPixel((int)P.x, (int)P.y, z);
+                RenderShader.Framebuffer.SetPixel((int)P.x, (int)P.y, Color);
             }
         }
     }
@@ -122,8 +129,15 @@ void rasterizerRenderer::Rasterize()
     Shader.Uniforms.ModelMatrix = &ModelMatrix;
     Shader.Buffers.Indices = &App->Scene->Meshes[0].Indices;
     Shader.Buffers.Vertices = &App->Scene->Meshes[0].Vertices;
+    
+    //Viewport
+    Shader.Framebuffer.ViewportStartX = App->Scene->ViewportStart;
+    Shader.Framebuffer.ViewportWidth = App->Width - App->Scene->ViewportStart;
+    Shader.Framebuffer.ViewportHeight = App->Height;
     Shader.Framebuffer.Width = App->Width;
     Shader.Framebuffer.Height = App->Height;
+    Shader.Framebuffer.Color = &Image;
+    Shader.Framebuffer.Depth = &DepthBuffer;
     
     for(uint32_t i=0; i<Image.size(); i++)
     {
