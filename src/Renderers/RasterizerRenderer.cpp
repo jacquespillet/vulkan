@@ -147,18 +147,24 @@ void rasterizerRenderer::Rasterize()
     }
     
     
-    
     for(uint32_t i=0; i<Shader.Buffers.Indices->size(); i+=3)
     {
-        glm::vec4 Coord0 = Shader.VertexShader(i+0, 0); 
-        glm::vec4 Coord1 = Shader.VertexShader(i+1, 1); 
-        glm::vec4 Coord2 = Shader.VertexShader(i+2, 2); 
-        
-        {
-            DrawTriangle(Coord0, Coord1, Coord2, Shader);
-        }
-        // DrawTriangle(p0, p1, p2, {(uint8_t)(std::rand()%255), (uint8_t)(std::rand()%255), (uint8_t)(std::rand()%255), 255});
+        glm::vec3 v0 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 0)).Position;
+        glm::vec3 v1 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 1)).Position;
+        glm::vec3 v2 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 2)).Position;
+        glm::vec3 Normal = glm::normalize(glm::cross(glm::vec3(v2 - v0), glm::vec3(v1 - v0)));
+        float BackFace = glm::dot(Normal, -ViewDir);
 
+        if(BackFace > 0)
+        {        
+            glm::vec4 Coord0 = Shader.VertexShader(i+0, 0); 
+            glm::vec4 Coord1 = Shader.VertexShader(i+1, 1); 
+            glm::vec4 Coord2 = Shader.VertexShader(i+2, 2);
+            
+            {
+                DrawTriangle(Coord0, Coord1, Coord2, Shader);
+            }
+        }
     }
 }
 

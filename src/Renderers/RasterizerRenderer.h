@@ -31,11 +31,18 @@ struct renderTarget
     void SetDepthPixel(int x, int y, float Depth);
 };
 
+struct vertexOut
+{
+    glm::vec4 Coord0;
+};
+
+
 struct shader
 {
     virtual glm::vec4 VertexShader(uint32_t Index, uint8_t TriVert)=0;
     virtual bool FragmentShader(glm::vec3 Barycentric, rgba8 &ColorOut)=0;
 
+    std::vector<vertexOut> VertexOut;
     renderTarget Framebuffer;
 };
 
@@ -74,6 +81,7 @@ public:
 
     void Rasterize();
 
+
     struct
     {
         VkCommandBuffer DrawCommandBuffer;
@@ -83,7 +91,7 @@ public:
 
     std::vector<rgba8> Image; 
     std::vector<float> DepthBuffer;
-    
+
     void UpdateCamera();
 private:
     gouraudShader Shader;
