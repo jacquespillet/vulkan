@@ -146,6 +146,8 @@ void rasterizerRenderer::Rasterize()
         DepthBuffer[i] = 1e30f;
     }
     
+    
+    
     for(uint32_t i=0; i<Shader.Buffers.Indices->size(); i+=3)
     {
         glm::vec4 Coord0 = Shader.VertexShader(i+0, 0); 

@@ -1,32 +1,11 @@
 #pragma once
 #include "../Renderer.h"
-#include <functional>
-#include <thread>
-#include <mutex>
 #include "../Image.h"
 #include "Scene.h"
 
 #include "../bvh.h"
 
-struct threadPool
-{
-    void Start();
-    void AddJob(const std::function<void()>& Job);
-    void Stop();
-    bool Busy();
-
-    bool ShouldTerminate=false;
-    std::mutex QueueMutex;
-    
-    //Mutex for access of the jobs queue
-    std::condition_variable MutexCondition;
-
-    std::vector<std::thread> Threads;
-    std::queue<std::function<void()>> Jobs;  
-    std::vector<bool> Finished;
-};
-
-
+#include "ThreadPool.h"
 
 class pathTraceCPURenderer : public renderer    
 {
