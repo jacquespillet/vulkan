@@ -1,6 +1,6 @@
 @echo off
 
-set debug=0
+set debug=1
 
 REM GLFW
 set glfwInclude= ..\ext\glfw\include
@@ -30,7 +30,8 @@ REM --------------------
 
 REM IMGUI
 set imguiInclude=..\ext\imgui
-set imguiSrc=%imguiInclude%\imgui_impl_vulkan.cpp %imguiInclude%\imgui_impl_glfw.cpp %imguiInclude%\imgui.cpp %imguiInclude%\imgui_demo.cpp %imguiInclude%\imgui_draw.cpp %imguiInclude%\imgui_widgets.cpp %imguiInclude%\imgui_tables.cpp  %imguiInclude%\ImGuizmo.cpp
+@REM set imguiSrc=%imguiInclude%\imgui_impl_vulkan.cpp %imguiInclude%\imgui_impl_glfw.cpp %imguiInclude%\imgui.cpp %imguiInclude%\imgui_demo.cpp %imguiInclude%\imgui_draw.cpp %imguiInclude%\imgui_widgets.cpp %imguiInclude%\imgui_tables.cpp  %imguiInclude%\ImGuizmo.cpp
+set imguiObj=%imguiInclude%\build\imgui_impl_vulkan.obj %imguiInclude%\build\imgui_impl_glfw.obj %imguiInclude%\build\imgui.obj %imguiInclude%\build\imgui_demo.obj %imguiInclude%\build\imgui_draw.obj %imguiInclude%\build\imgui_widgets.obj %imguiInclude%\build\imgui_tables.obj  %imguiInclude%\build\ImGuizmo.obj
 REM --------------------
 
 REM ASSIMP
@@ -89,14 +90,15 @@ if %debug%==1 (
 )
 
 set compilerFlags=  -MP -MT -nologo -EHa- %debugFlag% -Oi -W4 -Z7 -EHsc -wd4201 -wd4310 -wd4100  /I ../src /I ..\ext\glm /I ..\ext\gli  /I %glfwInclude% /I %vulkanInclude% /I %assimpIncludes% /I %imguiInclude% /I %stbInclude%  /I %tinygltfInclude% /I %oidnIncludes% 
-set linkerFlags=  -opt:ref Gdi32.lib Shell32.lib User32.lib opengl32.lib %glfwLib%  %vulkanLib% %assimpLib% %oidnLib%
+set linkerFlags=  -opt:ref Gdi32.lib Shell32.lib User32.lib opengl32.lib %glfwLib%  %vulkanLib% %assimpLib% %oidnLib% %imguiObj%
 
 set srcFiles= ..\src\App.cpp ..\src\Resources.cpp ..\src\Device.cpp ..\src\Tools.cpp 
 set srcFiles= %srcFiles%  ..\src\Scene.cpp ..\src\Debug.cpp ..\src\Buffer.cpp ..\src\Shader.cpp  ..\src\Image.cpp 
 set srcFiles= %srcFiles%  ..\src\Camera.cpp ..\src\Renderer.cpp  ..\src\Renderers\DeferredRenderer.cpp  ..\src\Renderers\ForwardRenderer.cpp ..\src\Renderers\PathTraceRTXRenderer.cpp 
-set srcFiles= %srcFiles%  %imguiSrc% ..\src\ImGuiHelper.cpp ..\src\AssimpImporter.cpp ..\src\GLTFImporter.cpp  ..\src\ObjectPicker.cpp  ..\src\Framebuffer.cpp 
+set srcFiles= %srcFiles%   ..\src\ImGuiHelper.cpp ..\src\AssimpImporter.cpp ..\src\GLTFImporter.cpp  ..\src\ObjectPicker.cpp  ..\src\Framebuffer.cpp 
 set srcFiles= %srcFiles%  ..\src\TextureLoader.cpp ..\src\RayTracingHelper.cpp ..\src\Renderers\HybridRenderer.cpp  ..\src\Renderers\PathTraceCPURenderer.cpp  ..\src\Renderers\brdf.cpp  
 set srcFiles= %srcFiles%  ..\src\Renderers/RasterizerRenderer.cpp 
+@REM set srcFiles= %srcFiles%  %imguiSrc%
  
 IF NOT EXIST .\build mkdir .\build
 pushd .\build

@@ -19,6 +19,8 @@ public:
 
     void StartPathTrace();
 
+    void Rasterize();
+
     struct
     {
         VkCommandBuffer DrawCommandBuffer;
@@ -30,20 +32,24 @@ public:
         buffer previewBuffer;
     } VulkanObjects;
 
-    float t=0;
-
+    
     struct rgba8
     {
         uint8_t b, g, r, a;
     };
     std::vector<rgba8> Image; 
     std::vector<rgba8> PreviewImage; 
-    std::vector<glm::vec3> AccumulationImage; 
-
+    
     uint32_t previewWidth = 128;
     uint32_t previewHeight = 128;
 
     void UpdateCamera();
 private:
     void CreateCommandBuffers();
+
+    glm::vec3 CalculateBarycentric(glm::ivec2 p0, glm::ivec2 p1,glm::ivec2 p2, int x, int y);
+
+    void DrawLine(glm::ivec2 p0, glm::ivec2 p1, rgba8 Color);
+    void DrawTriangle(glm::ivec2 p0, glm::ivec2 p1,glm::ivec2 p2, rgba8 Color);
+    void SetPixel(int x, int y, rgba8 Color);
 };
