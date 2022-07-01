@@ -25,9 +25,52 @@ layout (set=0, binding = 8) uniform UBO
 } SceneUbo;
 
 layout(location = 0) rayPayloadEXT rayPayload RayPayload;
+layout(location = 1) rayPayloadEXT rayPayload ShadowPayload;
 
 #include "BRDF.glsl"
 #include "../Common/Defines.glsl"
+
+
+struct Light {
+	vec3 position;
+	uint type;
+	vec3 intensity;
+	uint pad;
+};
+#define FLT_MAX 3.402823466e+38F
+// Samples a random light from the pool of all lights using simplest uniform distirbution
+
+// Samples a random light from the pool of all lights using RIS (Resampled Importance Sampling)
+// bool sampleLightRIS(inout uint State, vec3 hitPosition, vec3 surfaceNormal, inout Light selectedSample, inout float lightSampleWeight) 
+// {
+// 	float candidateWeight = 1;	
+
+// 	vec3	lightVector = SceneUbo.Data.LightDirection;
+// 	float lightDistance = FLT_MAX;
+
+// 	// Ignore backfacing light
+// 	vec3 L = normalize(lightVector);
+// 	if (dot(surfaceNormal, L) < 0.00001f) return false;
+
+// 	float candidatePdfG = Luminance(SceneUbo.Data.BackgroundColor * SceneUbo.Data.BackgroundIntensity);
+// 	const float candidateRISWeight = candidatePdfG * candidateWeight;
+
+// 	totalWeights += candidateRISWeight;
+// 	if (rand(rngState) < (candidateRISWeight / totalWeights)) {
+// 		selectedSample = candidate;
+// 		samplePdfG = candidatePdfG;
+// 	}
+
+
+
+// 	if (totalWeights == 0.0f) {
+// 		return false;
+// 	} else {
+// 		lightSampleWeight = (totalWeights / float(RIS_CANDIDATES_LIGHTS)) / samplePdfG;
+// 		return true;
+// 	}
+// }
+
 void main() 
 {
 	bool debug=false;
@@ -79,8 +122,17 @@ void main()
 						Radiance += Attenuation * RayPayload.Emission;
 
 						//Sample lights
+						if(SceneUbo.Data.BackgroundType ==BACKGROUND_TYPE_DIRLIGHT)
 						{
-							
+							// Prepare data needed to evaluate the light
+							vec3 L = normalize(-SceneUbo.Data.LightDirection);
+							vec4 shadowRayOrigin = Origin + RayPayload.Distance * Direction;
+							traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT, 0xff, 0, 0, 0, shadowRayOrigin.xyz, 0.001, L, FLT_MAX, 1);
+							if(ShadowPayload.Distance == -1)
+							{
+								// Radiance += Attenuation * EvalCombinedBRDF(shadingNormal, L, V, material) * SceneUbo.Data.BackgroundIntensity;
+								Radiance += Attenuation * SceneUbo.Data.BackgroundColor * SceneUbo.Data.BackgroundIntensity;
+							}
 						}
 
 

@@ -147,7 +147,8 @@ void rasterizerRenderer::Rasterize()
 
     if(Multithreaded)
     {
-
+        
+        //Clear framebuffer
         #pragma omp parallel for num_threads(NUM_THREADS)
         for(int i=0; i<Image.size(); i++)
         {
@@ -162,7 +163,6 @@ void rasterizerRenderer::Rasterize()
 
             glm::mat4 ModelMatrix = App->Scene->InstancesPointers[Instance]->InstanceData.Transform;
             Shader.Uniforms.ModelMatrix = &ModelMatrix;
-
             
             uint32_t TrianglesPerThread = (uint32_t)((Shader.Buffers.Indices->size()/3) / NUM_THREADS);
             std::array<uint32_t, NUM_THREADS> ThreadCounters;

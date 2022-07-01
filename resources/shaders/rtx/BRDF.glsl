@@ -166,3 +166,15 @@ float GetBrdfProbability(rayPayload RayPayload, vec3 V, vec3 ShadingNormal) {
 	// Clamp probability to avoid undersampling of less prominent BRDF
 	return clamp(p, 0.1f, 0.9f);
 }
+
+// This is an entry point for evaluation of all other BRDFs based on selected configuration (for direct light)
+// vec3 EvalCombinedBRDF(vec3 N, vec3 L, vec3 V, vec3 Color, float Metallic) {
+// 	// Eval specular and diffuse BRDFs
+// 	// vec3 specular = SampleSpecularBRDF(vec2 u, vec3 N, vec3 V, inout vec3 RayDirection, inout vec3 SampleWeight);
+// 	// vec3 diffuse = SampleDiffuseBRDF(vec2 u, vec3 N, vec3 V, inout vec3 RayDirection, inout vec3 SampleWeight) {
+// 	vec3 diffuse = BaseColorToDiffuseReflectance(Color, Metallic);
+
+
+// 	// Combine specular and diffuse layers
+// 	return (vec3(1.0f, 1.0f, 1.0f) - data.F) * diffuse + specular;
+// }
