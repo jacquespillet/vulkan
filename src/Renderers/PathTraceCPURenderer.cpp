@@ -12,6 +12,10 @@
 #define DIFFUSE_TYPE 1
 #define SPECULAR_TYPE 2
 
+#define BACKGROUND_TYPE_CUBEMAP 0
+#define BACKGROUND_TYPE_COLOR 1
+#define BACKGROUND_TYPE_DIRLIGHT 2
+
 
 float GAMMA = 2.2f;
 float INV_GAMMA = 1.0f / GAMMA;
@@ -73,7 +77,7 @@ glm::vec3 toneMap(glm::vec3 color, float Exposure)
 ////////////////////////////////////////////////////////////////////////////////////////
 
 pathTraceCPURenderer::pathTraceCPURenderer(vulkanApp *App) : renderer(App) {
-    this->UseGizmo=false;
+    this->UseGizmo=true;
 }
 
 void pathTraceCPURenderer::StartPathTrace()
@@ -102,7 +106,7 @@ void pathTraceCPURenderer::Render()
         ProcessingPathTrace=false;
     }
 
-    if(App->Scene->Camera.Changed)
+    if(App->Scene->Camera.Changed || App->Scene->Changed)
     {
         ShouldPathTrace=false;
         ProcessingPathTrace=false;
@@ -390,10 +394,10 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                             //     SkyDirection.y *=-1;
                             //     Radiance += Attenuation * SceneUbo.Data.BackgroundIntensity * texture(IrradianceMap, SkyDirection).rgb;
                             // }
-                            // else if(SceneUbo.Data.BackgroundType ==BACKGROUND_TYPE_COLOR)
-                            // {
+                            if(App->Scene->UBOSceneMatrices.BackgroundType == BACKGROUND_TYPE_COLOR)
+                            {
                                 Radiance += Attenuation * App->Scene->UBOSceneMatrices.BackgroundIntensity * App->Scene->UBOSceneMatrices.BackgroundColor;
-                            // }
+                            }
                             break;
                         }
                     }
@@ -403,6 +407,7 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                     materialData *MatData = &Material->MaterialData;
                     vulkanTexture *DiffuseTexture = &Material->Diffuse;
                     vulkanTexture *MetallicRoughnessTexture = &Material->Specular;
+                    vulkanTexture *EmissionTexture = &Material->Emission;                 
                     
                     glm::vec2 UV = 
                         Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV1 * RayPayload.U + 
@@ -414,6 +419,14 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                         Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].Normal2 * RayPayload.V +
                         Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].Normal0 * (1 - RayPayload.U - RayPayload.V);
                     
+                    // Emission
+                    glm::vec3 Emission = MatData->Emission * MatData->EmissiveStrength;
+                    if(MatData->EmissionMapTextureID >=0 && MatData->UseEmissionMap>0)
+                    {
+                        glm::vec4 TextureEmission = EmissionTexture->Sample(UV);
+                        Emission *= glm::vec3(TextureEmission);
+                    }
+
                     glm::vec3 BaseColor = MatData->BaseColor;
                     if(MatData->BaseColorTextureID >=0 && MatData->UseBaseColor>0)
                     {
@@ -433,12 +446,27 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                     }    
 
                     
-                    Radiance += Attenuation * RayPayload.Emission;
+                    // Radiance += Attenuation * Emission;
 
-                    //Sample lights
-                    {
+                    // if(App->Scene->UBOSceneMatrices.BackgroundType == BACKGROUND_TYPE_DIRLIGHT)
+                    // {
+                    //     glm::vec3 L = normalize(-App->Scene->UBOSceneMatrices.LightDirection);
+                    //     glm::vec3 shadowRayOrigin = glm::vec4(Ray.Origin + RayPayload.Distance * Ray.Direction, 1);
+                    //     ray ShadowRay = {
+                    //         shadowRayOrigin,
+                    //         L,
+                    //         1.0f / L
+                    //     };
+                    //     rayPayload ShadowRayPayLoad {};
+                    //     ShadowRayPayLoad.Distance = 1e30f;
+                    //     TLAS.Intersect(ShadowRay, ShadowRayPayLoad);
                         
-                    }
+                    //     if(ShadowRayPayLoad.Distance == 1e30f)
+                    //     {
+                    //         // Radiance += Attenuation * EvalCombinedBRDF(shadingNormal, L, V, material) * SceneUbo.Data.BackgroundIntensity;
+                    //         Radiance += Attenuation * App->Scene->UBOSceneMatrices.BackgroundColor * App->Scene->UBOSceneMatrices.BackgroundIntensity;
+                    //     }
+                    // }
 
 
                     if(j == RayBounces-1) break;
@@ -607,6 +635,11 @@ void pathTraceCPURenderer::Setup()
 
 //
 
+void pathTraceCPURenderer::UpdateTLAS(uint32_t InstanceIndex)
+{
+    Instances[InstanceIndex].SetTransform(App->Scene->InstancesPointers[InstanceIndex]->InstanceData.Transform);
+    TLAS.Build();
+}
 
 void pathTraceCPURenderer::CreateCommandBuffers()
 {

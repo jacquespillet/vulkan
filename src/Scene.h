@@ -291,6 +291,8 @@ public:
     
     void Destroy();
     
+    bool Changed=false;
+
     buffer VertexBuffer;
     buffer IndexBuffer;
     

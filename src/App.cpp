@@ -506,14 +506,24 @@ void vulkanApp::RenderGUI()
                     {
                         for(size_t i=0; i<Renderers.size(); i++)
                         {
-                            pathTraceRTXRenderer *PathTracer = dynamic_cast<pathTraceRTXRenderer*>(Renderers[i]);
-                            if(PathTracer)
                             {
-                                PathTracer->UpdateBLASInstance(CurrentSceneItemIndex);
-                                PathTracer->ResetAccumulation=true;
+                                pathTraceRTXRenderer *PathTracer = dynamic_cast<pathTraceRTXRenderer*>(Renderers[i]);
+                                if(PathTracer)
+                                {
+                                    PathTracer->UpdateBLASInstance(CurrentSceneItemIndex);
+                                    PathTracer->ResetAccumulation=true;
+                                }
+                            }
+                            {
+                                pathTraceCPURenderer *PathTracer = dynamic_cast<pathTraceCPURenderer*>(Renderers[i]);
+                                if(PathTracer)
+                                {
+                                    PathTracer->UpdateTLAS(CurrentSceneItemIndex);
+                                }
                             }
                         }
-                    }                        
+                    }
+                    Scene->Changed=true;                        
                 }
 
                 
@@ -613,6 +623,7 @@ void vulkanApp::Render()
     Renderers[CurrentRenderer]->Render();
 
     if(Scene->Camera.Changed) Scene->Camera.Changed=false;
+    if(Scene->Changed) Scene->Changed=false;
 }
 
 void vulkanApp::MouseMove(float XPosition, float YPosition)

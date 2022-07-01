@@ -76,7 +76,6 @@ glm::vec3 rasterizerRenderer::CalculateBarycentric(glm::vec3 A, glm::vec3 B,glm:
 }
 
 rasterizerRenderer::rasterizerRenderer(vulkanApp *App) : renderer(App) {
-    this->UseGizmo=false;
 }
 
 void renderTarget::SetPixel(int x, int y, rgba8 ColorValue)
