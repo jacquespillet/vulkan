@@ -92,6 +92,7 @@ void main()
 					vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_LaunchIDEXT.xy) + jitter) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
 					vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
 					
+					vec3 V = -Direction.xyz;
 					vec3 Attenuation = vec3(1.0);
 					vec3 Radiance = vec3(0);
 					float alpha = 1.0;
@@ -130,8 +131,8 @@ void main()
 							traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT, 0xff, 0, 0, 0, shadowRayOrigin.xyz, 0.001, L, FLT_MAX, 1);
 							if(ShadowPayload.Distance == -1)
 							{
-								// Radiance += Attenuation * EvalCombinedBRDF(shadingNormal, L, V, material) * SceneUbo.Data.BackgroundIntensity;
-								Radiance += Attenuation * SceneUbo.Data.BackgroundColor * SceneUbo.Data.BackgroundIntensity;
+								Radiance += Attenuation * EvalCombinedBRDF(RayPayload.Normal, L, V, RayPayload.Color, RayPayload.Metallic) * SceneUbo.Data.BackgroundIntensity * SceneUbo.Data.BackgroundColor;
+								// Radiance += Attenuation * SceneUbo.Data.BackgroundColor * SceneUbo.Data.BackgroundIntensity;
 							}
 						}
 
@@ -152,7 +153,6 @@ void main()
 
 						//Eval brdf
 						{
-							vec3 V = -Direction.xyz;
 							int brdfType = DIFFUSE_TYPE;
 							if (RayPayload.Metallic == 1.0f && RayPayload.Roughness == 0.0f) {
 								brdfType = SPECULAR_TYPE;

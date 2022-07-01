@@ -365,11 +365,10 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
             glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
         
             for(uint32_t Sample=0; Sample<SamplesPerFrame; Sample++)
-            {
-                Ray.Origin = Origin;
-                
+            {   
                 RayPayload.Depth=0;
 
+                glm::vec3 V = -Ray.Direction;
                 //Jitter
                 glm::vec2 Jitter = (glm::vec2(RandomBilateral(RayPayload.RandomState), RandomBilateral(RayPayload.RandomState))) * InverseImageSize;
                 glm::vec3 JitteredTarget = Target + glm::vec4(Jitter,0,0);
@@ -446,27 +445,27 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                     }    
 
                     
-                    // Radiance += Attenuation * Emission;
+                    Radiance += Attenuation * Emission;
 
-                    // if(App->Scene->UBOSceneMatrices.BackgroundType == BACKGROUND_TYPE_DIRLIGHT)
-                    // {
-                    //     glm::vec3 L = normalize(-App->Scene->UBOSceneMatrices.LightDirection);
-                    //     glm::vec3 shadowRayOrigin = glm::vec4(Ray.Origin + RayPayload.Distance * Ray.Direction, 1);
-                    //     ray ShadowRay = {
-                    //         shadowRayOrigin,
-                    //         L,
-                    //         1.0f / L
-                    //     };
-                    //     rayPayload ShadowRayPayLoad {};
-                    //     ShadowRayPayLoad.Distance = 1e30f;
-                    //     TLAS.Intersect(ShadowRay, ShadowRayPayLoad);
+                    if(App->Scene->UBOSceneMatrices.BackgroundType == BACKGROUND_TYPE_DIRLIGHT)
+                    {
+                        glm::vec3 L = normalize(-App->Scene->UBOSceneMatrices.LightDirection);
+                        glm::vec3 shadowRayOrigin = glm::vec4(Ray.Origin + RayPayload.Distance * Ray.Direction, 1);
+                        ray ShadowRay = {
+                            shadowRayOrigin,
+                            L,
+                            1.0f / L
+                        };
+                        rayPayload ShadowRayPayLoad {};
+                        ShadowRayPayLoad.Distance = 1e30f;
+                        TLAS.Intersect(ShadowRay, ShadowRayPayLoad);
                         
-                    //     if(ShadowRayPayLoad.Distance == 1e30f)
-                    //     {
-                    //         // Radiance += Attenuation * EvalCombinedBRDF(shadingNormal, L, V, material) * SceneUbo.Data.BackgroundIntensity;
-                    //         Radiance += Attenuation * App->Scene->UBOSceneMatrices.BackgroundColor * App->Scene->UBOSceneMatrices.BackgroundIntensity;
-                    //     }
-                    // }
+                        if(ShadowRayPayLoad.Distance == 1e30f)
+                        {
+                            Radiance += Attenuation * EvalCombinedBRDF(Normal, L, V, BaseColor, Metallic) * App->Scene->UBOSceneMatrices.BackgroundIntensity* App->Scene->UBOSceneMatrices.BackgroundColor;
+                            // Radiance += Attenuation * App->Scene->UBOSceneMatrices.BackgroundColor * App->Scene->UBOSceneMatrices.BackgroundIntensity;
+                        }
+                    }
 
 
                     if(j == RayBounces-1) break;
@@ -485,7 +484,6 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
 
                     //Eval brdf
                     {
-                        glm::vec3 V = -Ray.Direction;
                         int brdfType = DIFFUSE_TYPE;
                         if (Metallic == 1.0f && Roughness == 0.0f) {
                             brdfType = SPECULAR_TYPE;

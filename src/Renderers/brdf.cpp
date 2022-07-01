@@ -170,3 +170,9 @@ float GetBrdfProbability(rayPayload RayPayload, glm::vec3 V, glm::vec3 ShadingNo
 	return glm::clamp(p, 0.1f, 0.9f);
 }
 
+
+// This is an entry point for evaluation of all other BRDFs based on selected configuration (for direct light)
+glm::vec3 EvalCombinedBRDF(glm::vec3 N, glm::vec3 L, glm::vec3 V, glm::vec3 Color, float Metallic) {
+	glm::vec3 diffuse = BaseColorToDiffuseReflectance(Color, Metallic);
+	return diffuse;
+}

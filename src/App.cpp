@@ -397,7 +397,7 @@ void vulkanApp::RenderGUI()
                 Scene->UBOSceneMatrices.BackgroundType = (float)BackGroundType;
                 UpdateBackground |= ImGui::DragFloat("Background Intensity", &Scene->UBOSceneMatrices.BackgroundIntensity, 0.1f, 0, 100);
 
-                if(BackGroundType == 1)
+                if(BackGroundType == 1 || BackGroundType == 2)
                 {
                     UpdateBackground |= ImGui::ColorPicker3("Background Color", &Scene->UBOSceneMatrices.BackgroundColor[0]);
                 }

@@ -30,3 +30,7 @@ glm::vec3 sampleSpecularMicrofacet(glm::vec3 Vlocal, float Alpha, float AlphaSqu
 bool SampleSpecularBRDF(glm::vec2 u, glm::vec3 N, glm::vec3 V,  glm::vec3& RayDirection,  glm::vec3& SampleWeight, glm::vec3 Color, float Roughness, float Metallic);
 bool SampleDiffuseBRDF(glm::vec2 u, glm::vec3 N, glm::vec3 V,  glm::vec3& RayDirection,  glm::vec3& SampleWeight, glm::vec3 Color, float Metallic);
 float GetBrdfProbability(rayPayload RayPayload, glm::vec3 V, glm::vec3 ShadingNormal, glm::vec3 Color, float Metallic);
+
+
+// This is an entry point for evaluation of all other BRDFs based on selected configuration (for direct light)
+glm::vec3 EvalCombinedBRDF(glm::vec3 N, glm::vec3 L, glm::vec3 V, glm::vec3 Color, float Metallic);
