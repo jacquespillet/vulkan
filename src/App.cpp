@@ -487,15 +487,16 @@ void vulkanApp::RenderGUI()
                     glm::mat4 projectionMatrix = Scene->Camera.GetProjectionMatrix();
                     projectionMatrix[1][1] *= -1;
                     
+                    glm::mat4 CorrectedTransform = glm::translate(Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Transform, Scene->InstancesPointers[CurrentSceneItemIndex]->Mesh->Centroid);
                     ImGuizmo::SetRect(Scene->ViewportStart, 0, Width - Scene->ViewportStart, (float)Height);
                     UpdateTransform |= ImGuizmo::Manipulate(glm::value_ptr(Scene->Camera.GetViewMatrix()), 
                                         glm::value_ptr(projectionMatrix), 
                                         mCurrentGizmoOperation, 
                                         mCurrentGizmoMode, 
-                                        glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Transform), 
+                                        glm::value_ptr(CorrectedTransform), 
                                         NULL, 
                                         NULL);  
-                    
+                    Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Transform = glm::translate(CorrectedTransform, -Scene->InstancesPointers[CurrentSceneItemIndex]->Mesh->Centroid);
                 }   
 
                 if(UpdateTransform) 

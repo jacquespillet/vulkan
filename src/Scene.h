@@ -196,6 +196,8 @@ struct sceneMesh
 
     sceneMaterial *Material;
 
+    glm::vec3 Centroid;
+
 
     void Destroy();
 };

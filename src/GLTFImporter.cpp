@@ -468,6 +468,8 @@ namespace GLTFImporter
                 InstanceMapping[MeshIndex][j] = BaseIndex + j;
 
                 uint32_t VertexBase = (uint32_t) GVertices.size();
+                glm::vec3 Centroid(0,0,0);
+                float OneOverVertCount = 1.0f / Indices.size();
                 for (size_t k = 0; k < Indices.size(); k++)
                 {
                     glm::vec2 UV = UVs[Indices[k]];
@@ -490,7 +492,10 @@ namespace GLTFImporter
                         Tangent,
                         MatInx
                     });
+
+                    Centroid += glm::vec3(Position) * OneOverVertCount;
                 }
+                Meshes[BaseIndex + j].Centroid = Centroid;
                 
                 Meshes[BaseIndex + j].IndexCount = (uint32_t)Indices.size();
                 for(uint32_t k=0; k<Indices.size(); k++)
