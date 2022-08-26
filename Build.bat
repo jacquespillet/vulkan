@@ -1,6 +1,6 @@
 @echo off
 
-set debug=0
+set debug=1
 
 REM GLFW
 set glfwInclude= ..\ext\glfw\include
@@ -84,6 +84,8 @@ REM --------------------
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybridComposition.frag -o resources/shaders/spv/hybridComposition.frag.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybridGBuffer.frag -o resources/shaders/spv/hybridGBuffer.frag.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/pathTracePreview.comp -o resources/shaders/spv/pathTracePreview.comp.spv
+
 set debugFlag= -O2
 if %debug%==1 (
     set debugFlag= -Od /D_DEBUG_
@@ -96,7 +98,7 @@ set srcFiles= ..\src\App.cpp ..\src\Resources.cpp ..\src\Device.cpp ..\src\Tools
 set srcFiles= %srcFiles%  ..\src\Scene.cpp ..\src\Debug.cpp ..\src\Buffer.cpp ..\src\Shader.cpp  ..\src\Image.cpp  ..\src\ThreadPool.cpp 
 set srcFiles= %srcFiles%  ..\src\Camera.cpp ..\src\Renderer.cpp  ..\src\Renderers\DeferredRenderer.cpp  ..\src\Renderers\ForwardRenderer.cpp ..\src\Renderers\PathTraceRTXRenderer.cpp 
 set srcFiles= %srcFiles%   ..\src\ImGuiHelper.cpp ..\src\AssimpImporter.cpp ..\src\GLTFImporter.cpp  ..\src\ObjectPicker.cpp  ..\src\Framebuffer.cpp  ..\src\bvh.cpp 
-set srcFiles= %srcFiles%  ..\src\TextureLoader.cpp ..\src\RayTracingHelper.cpp ..\src\Renderers\HybridRenderer.cpp  ..\src\Renderers\PathTraceCPURenderer.cpp  ..\src\Renderers\brdf.cpp  
+set srcFiles= %srcFiles%  ..\src\TextureLoader.cpp ..\src\RayTracingHelper.cpp ..\src\Renderers\HybridRenderer.cpp  ..\src\Renderers\PathTraceCPURenderer.cpp  ..\src\Renderers\PathTraceComputeRenderer.cpp  ..\src\Renderers\brdf.cpp  
 set srcFiles= %srcFiles%  ..\src\Renderers/RasterizerRenderer.cpp 
 @REM set srcFiles= %srcFiles%  %imguiSrc%
  

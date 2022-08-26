@@ -557,9 +557,10 @@ void pathTraceCPURenderer::PathTrace()
         for(uint32_t x=(uint32_t)App->Scene->ViewportStart; x<App->Width; x+=TileSize)
         {
             ThreadPool.EnqueueJob([x, y, this]()
-            {
-               PathTraceTile(x, y, TileSize, TileSize, App->Width, App->Height, &Image); 
-            });
+                {
+                PathTraceTile(x, y, TileSize, TileSize, App->Width, App->Height, &Image); 
+                }
+            );
         }
     }
 

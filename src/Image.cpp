@@ -56,6 +56,8 @@ void storageImage::Create(vulkanDevice *_VulkanDevice, VkCommandPool CommandPool
     );
     vulkanTools::FlushCommandBuffer(VulkanDevice->Device, CommandPool, CommandBuffer, Queue, true);
 
+    Descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    Descriptor.imageView = ImageView;
 }
 
 void storageImage::Destroy()

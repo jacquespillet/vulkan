@@ -9,6 +9,7 @@ struct storageImage
     VkImage Image = VK_NULL_HANDLE;
     VkImageView ImageView = VK_NULL_HANDLE;
     VkFormat Format;
+    VkDescriptorImageInfo Descriptor;
     vulkanDevice *VulkanDevice=nullptr;
     void Create(vulkanDevice *VulkanDevice, VkCommandPool CommandPool, VkQueue Queue, VkFormat Format, VkExtent3D Extent);
     void Destroy();

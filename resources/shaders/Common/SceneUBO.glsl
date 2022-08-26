@@ -18,5 +18,5 @@ struct sceneUbo
 	vec2 RenderSize;
 
 	vec3 LightDirection;
-	float Padding1;
+	float LightRadius;
 };

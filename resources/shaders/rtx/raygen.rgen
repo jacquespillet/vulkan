@@ -126,7 +126,17 @@ void main()
 						if(SceneUbo.Data.BackgroundType ==BACKGROUND_TYPE_DIRLIGHT)
 						{
 							// Prepare data needed to evaluate the light
-							vec3 L = normalize(-SceneUbo.Data.LightDirection);
+							vec3 LightDir= normalize(-SceneUbo.Data.LightDirection);;
+							vec3 LightTangent   = normalize(cross(LightDir, vec3(0.0f, 1.0f, 0.0f)));
+							vec3 LightBitangent = normalize(cross(LightTangent, LightDir));
+							float Random1 = RandomUnilateral(RayPayload.RandomState);
+							float Random2 = RandomUnilateral(RayPayload.RandomState);
+
+							float PointRadius = SceneUbo.Data.LightRadius * Random1;
+							float PointAngle  = Random2 * 2.0f * PI;
+							vec2  DiskPoint   = vec2(PointRadius * cos(PointAngle), PointRadius * sin(PointAngle));    
+							vec3 L = normalize(LightDir + DiskPoint.x * LightTangent + DiskPoint.y * LightBitangent);
+
 							vec4 shadowRayOrigin = Origin + RayPayload.Distance * Direction;
 							traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT, 0xff, 0, 0, 0, shadowRayOrigin.xyz, 0.001, L, FLT_MAX, 1);
 							if(ShadowPayload.Distance == -1)
@@ -200,17 +210,19 @@ void main()
 				}
 			}
 
+			//Load previous frame
 			vec3 LastFrameColor = vec3(0);
 			if(ubo.samplesPerFrame != ubo.currentSamplesCount)
 			{
 				LastFrameColor = imageLoad(accumulationImage, ivec2(gl_LaunchIDEXT.xy)).rgb;
 			}
 
+			//Add new color to previous color, and add to accumulation buffer
 			vec3 AccumulatedColor = LastFrameColor + SamplesColor;
 			imageStore(accumulationImage, ivec2(gl_LaunchIDEXT.xy), vec4(AccumulatedColor, 0));
 
+			//Average, tonemap and set output color
 			vec3 Color = AccumulatedColor / ubo.currentSamplesCount;
-
 			Color = toneMap(Color, SceneUbo.Data.Exposure);
 			Color = clamp(Color, 0, 1);
 			imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(Color, 0));

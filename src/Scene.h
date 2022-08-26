@@ -330,7 +330,7 @@ public:
         glm::vec2 RenderSize;
         
         glm::vec3 LightDirection = glm::vec3(-1,-1,-1);
-        float Padding1;
+        float LightRadius;
     } UBOSceneMatrices;    
     
     camera Camera;

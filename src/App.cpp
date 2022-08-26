@@ -8,6 +8,7 @@
 #include "Renderers/HybridRenderer.h"
 #include "Renderers/PathTraceCPURenderer.h"
 #include "Renderers/RasterizerRenderer.h"
+#include "Renderers/PathTraceComputeRenderer.h"
 #include "imgui.h"
 #include "ImGuizmo.h"
 
@@ -285,6 +286,7 @@ void vulkanApp::CreateGeneralResources()
     }
     Renderers.push_back(new pathTraceCPURenderer(this));
     Renderers.push_back(new rasterizerRenderer(this));
+    Renderers.push_back(new pathTraceComputeRenderer(this));
     for(int i=0; i<Renderers.size(); i++)
     {
         Renderers[i]->Setup();
@@ -406,6 +408,8 @@ void vulkanApp::RenderGUI()
                     static glm::vec3 LightDirection = Scene->UBOSceneMatrices.LightDirection;
                     UpdateBackground |= ImGui::SliderFloat3("Direction", &LightDirection[0], -1, 1);
                     Scene->UBOSceneMatrices.LightDirection = glm::normalize(LightDirection);
+
+                    UpdateBackground |= ImGui::SliderFloat("Radius", &Scene->UBOSceneMatrices.LightRadius, 0.01f, 1);
                 }
 
                 if(UpdateBackground && RayTracing)
@@ -425,7 +429,7 @@ void vulkanApp::RenderGUI()
             if (ImGui::BeginTabItem("Renderer"))
             {
                 static int RendererInx = 0;
-                ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0PathTraceRTX\0PathTraceCPU\0Rasterizer\0\0");
+                ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0PathTraceRTX\0PathTraceCPU\0Rasterizer\0PathTraceCompute\0\0");
                 CurrentRenderer = RendererInx;   
 
                 ImGui::DragFloat("Exposure", &Scene->UBOSceneMatrices.Exposure, 0.01f);
