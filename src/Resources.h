@@ -262,6 +262,7 @@ struct descriptor
     {
         Image,
         Uniform,
+        Storage,
         accelerationStructure
     } Type;
     VkImageView ImageView;
@@ -284,12 +285,21 @@ struct descriptor
         Type = Image;
     }
     
-    descriptor(VkShaderStageFlags Stage, VkDescriptorBufferInfo DescriptorBufferInfo) : 
+    descriptor(VkShaderStageFlags Stage, VkDescriptorBufferInfo DescriptorBufferInfo, bool storageBuffer=false) : 
                 Stage(Stage), DescriptorBufferInfo(DescriptorBufferInfo)
     {
-        Type = Uniform;
-        DescriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        if(storageBuffer)
+        {
+            Type = Storage;
+            DescriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        }
+        else
+        {
+            Type = Uniform;
+            DescriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        }
     }    
+    
 
     descriptor(VkShaderStageFlags Stage, VkWriteDescriptorSetAccelerationStructureKHR DescriptorASInfo) : 
                 Stage(Stage), DescriptorASInfo(DescriptorASInfo)

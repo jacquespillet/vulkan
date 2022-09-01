@@ -217,6 +217,24 @@ void pathTraceComputeRenderer::Setup()
     TLAS.Build();
 
 
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.TriangleBuffer, Meshes[0]->Triangles.size() * sizeof(triangle), Meshes[0]->Triangles.data());
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.TriangleExBuffer, Meshes[0]->TrianglesExtraData.size() * sizeof(triangleExtraData), Meshes[0]->TrianglesExtraData.data());
+    // vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    //                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+    //                           &VulkanObjects.InstanceBuffer, Meshes[0]->TrianglesExtraData.size() * sizeof(triangleExtraData), Meshes[0]->TrianglesExtraData.data());
+    // buffer TLASBuffer;
+    
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.BVHBuffer, Meshes[0]->BVH->NodesUsed * sizeof(bvhNode), Meshes[0]->BVH->BVHNodes.data());
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.IndicesBuffer, Meshes[0]->BVH->TriangleIndices.size() * sizeof(uint32_t), Meshes[0]->BVH->TriangleIndices.data());
+
     VkDeviceQueueCreateInfo queueCreateInfo = {};
     queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queueCreateInfo.pNext = NULL;
@@ -229,10 +247,13 @@ void pathTraceComputeRenderer::Setup()
 
 	//Preview descriptor set
 	{
-
 		std::vector<descriptor> Descriptors =
 		{
 			descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.previewImage.Descriptor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.TriangleBuffer.VulkanObjects.Descriptor, true),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.TriangleExBuffer.VulkanObjects.Descriptor, true),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.BVHBuffer.VulkanObjects.Descriptor, true),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.IndicesBuffer.VulkanObjects.Descriptor, true)
 		};
 
 		std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts =
@@ -250,9 +271,6 @@ void pathTraceComputeRenderer::Setup()
 		VK_CALL(vkCreateComputePipelines(VulkanDevice->Device, nullptr, 1, &ComputePipelineCreateInfo, nullptr, &VulkanObjects.previewPipeline));
     }
 
-
-
-    FillCommandBuffer();
 }
 
 void pathTraceComputeRenderer::FillCommandBuffer()
@@ -264,18 +282,17 @@ void pathTraceComputeRenderer::FillCommandBuffer()
     {
         VkDescriptorSet RendererDescriptorSet = App->Scene->Resources.DescriptorSets->Get("Scene");
 
-        // vulkanTools::TransitionImageLayout(Compute.CommandBuffer,
-        // VulkanObjects.previewImage.Image, 
-        // VK_IMAGE_ASPECT_COLOR_BIT,
-        // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        // VK_IMAGE_LAYOUT_GENERAL);
-
         vkCmdBindPipeline(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, VulkanObjects.previewPipeline);
         vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 0, 1, Resources.DescriptorSets->GetPtr("Shadows"), 0, 0);
         vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 1, 1, &RendererDescriptorSet, 0, nullptr);			
         
         vkCmdDispatch(Compute.CommandBuffer, App->Width / 16, App->Height / 16, 1);
 
+        VkImageSubresourceRange SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, App->VulkanObjects.Swapchain->Images[App->VulkanObjects.CurrentBuffer],
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
+        vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, VulkanObjects.previewImage.Image,
+            VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, SubresourceRange);
 
         VkImageBlit BlitRegion = {};
         BlitRegion.srcOffsets[0] = {0,0,0};
@@ -294,7 +311,10 @@ void pathTraceComputeRenderer::FillCommandBuffer()
         vkCmdBlitImage(VulkanObjects.DrawCommandBuffer, VulkanObjects.previewImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
                         App->VulkanObjects.Swapchain->Images[App->VulkanObjects.CurrentBuffer], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
                         1, &BlitRegion, VK_FILTER_NEAREST);
-
+        vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, App->VulkanObjects.Swapchain->Images[App->VulkanObjects.CurrentBuffer],
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, SubresourceRange);
+        vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, VulkanObjects.previewImage.Image,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, SubresourceRange);
     }
     VK_CALL(vkEndCommandBuffer(Compute.CommandBuffer));
 }

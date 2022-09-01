@@ -429,7 +429,14 @@ void vulkanApp::RenderGUI()
             if (ImGui::BeginTabItem("Renderer"))
             {
                 static int RendererInx = 0;
-                ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0PathTraceRTX\0PathTraceCPU\0Rasterizer\0PathTraceCompute\0\0");
+                if(RayTracing)
+                {
+                    ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0PathTraceRTX\0PathTraceCPU\0Rasterizer\0PathTraceCompute\0\0");
+                }
+                else
+                {
+                    ImGui::Combo("Render Mode", &RendererInx, "Forward\0Deferred\0PathTraceCPU\0Rasterizer\0PathTraceCompute\0\0");
+                }
                 CurrentRenderer = RendererInx;   
 
                 ImGui::DragFloat("Exposure", &Scene->UBOSceneMatrices.Exposure, 0.01f);

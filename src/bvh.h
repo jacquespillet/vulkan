@@ -15,21 +15,37 @@ struct ray
 
 struct triangle
 {
-    glm::vec3 v0, v1, v2; 
+    glm::vec3 v0;
+    float padding0;
+    glm::vec3 v1;
+    float padding1;
+    glm::vec3 v2;
+    float padding2; 
     glm::vec3 Centroid;
+    float padding3; 
 };
 
 struct triangleExtraData
 {
-    glm::vec3 Normal0, Normal1, Normal2; 
+    glm::vec3 Normal0; 
+    float padding0;
+    glm::vec3 Normal1; 
+    float padding1;
+    glm::vec3 Normal2; 
+    float padding2;
     glm::vec2 UV0, UV1, UV2; 
+    glm::vec2 padding3;
 };
 
 struct bvhNode
 {
-    glm::vec3 AABBMin, AABBMax;
+    glm::vec3 AABBMin;
+    float padding0;
+    glm::vec3 AABBMax;
+    float padding1;
     uint32_t LeftChildOrFirst;
     uint32_t TriangleCount;
+    glm::uvec2 padding2;
     bool IsLeaf();
 };
 struct aabb

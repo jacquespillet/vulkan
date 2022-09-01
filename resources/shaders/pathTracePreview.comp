@@ -2,13 +2,207 @@
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout (binding = 0, rgba8) uniform  image2D shadowImage;
+
+struct triangle
+{
+    vec3 v0;
+    float padding0;
+    vec3 v1;
+    float padding1;
+    vec3 v2;
+    float padding2; 
+    vec3 Centroid;
+    float padding3;     
+};
+
+struct triangleExtraData
+{
+    vec3 Normal0; 
+    float padding0;
+    vec3 Normal1; 
+    float padding1;
+    vec3 Normal2; 
+    float padding2;
+    vec2 UV0, UV1, UV2; 
+    vec2 padding3;    
+};
+struct bvhNode
+{
+    vec3 AABBMin;
+    float padding0;
+    vec3 AABBMax;
+    float padding1;
+    uint LeftChildOrFirst;
+    uint TriangleCount;
+    uvec2 padding2;    
+};
+
+layout (set=0, binding = 0, rgba8) uniform  image2D shadowImage;
+layout (set=0, binding = 1) readonly buffer triangleBuffer
+{
+    triangle Triangles[];
+} TriangleBuffer;
+
+layout (set=0, binding = 2) readonly buffer triangleExBuffer
+{
+    triangleExtraData TrianglesEx[];
+} TriangleExBuffer;
+
+layout (set=0, binding = 3) readonly buffer bvhBuffer
+{
+    bvhNode Nodes[];
+} BVHBuffer;
+
+layout (set=0, binding = 4) readonly buffer indicesBuffer
+{
+    uint Indices[];
+} IndicesBuffer;
+
+#include "Common/SceneUBO.glsl"
+layout (set=1, binding = 0) uniform UBO 
+{
+    sceneUbo Data;
+} SceneUbo;
+
+
+
+struct ray
+{
+    vec3 Origin;
+    vec3 Direction;
+    vec3 InverseDirection;
+};
+
+
+struct rayPayload
+{
+    float Distance;
+    uint InstanceIndex;
+    uint PrimitiveIndex;
+    float U, V;
+    // vec3 Emission;
+    // uint RandomState;
+};
+
+
+float RayAABBIntersection(ray Ray, vec3 AABBMin, vec3 AABBMax, inout  rayPayload RayPayload)
+{
+    float tx1 = (AABBMin.x - Ray.Origin.x) * Ray.InverseDirection.x, tx2 = (AABBMax.x - Ray.Origin.x) * Ray.InverseDirection.x;
+    float tmin = min( tx1, tx2 ), tmax = max( tx1, tx2 );
+    float ty1 = (AABBMin.y - Ray.Origin.y) * Ray.InverseDirection.y, ty2 = (AABBMax.y - Ray.Origin.y) * Ray.InverseDirection.y;
+    tmin = max( tmin, min( ty1, ty2 ) ), tmax = min( tmax, max( ty1, ty2 ) );
+    float tz1 = (AABBMin.z - Ray.Origin.z) * Ray.InverseDirection.z, tz2 = (AABBMax.z - Ray.Origin.z) * Ray.InverseDirection.z;
+    tmin = max( tmin, min( tz1, tz2 ) ), tmax = min( tmax, max( tz1, tz2 ) );
+    if(tmax >= tmin && tmin < RayPayload.Distance && tmax > 0) return tmin;
+    else return 1e30f;    
+}
+
+void RayTriangleInteresection(ray Ray, triangle Triangle, inout rayPayload RayPayload, uint InstanceIndex, uint PrimitiveIndex)
+{
+    vec3 Edge1 = Triangle.v1 - Triangle.v0;
+    vec3 Edge2 = Triangle.v2 - Triangle.v0;
+
+    vec3 h = cross(Ray.Direction, Edge2);
+    float a = dot(Edge1, h);
+    if(a > -0.0001f && a < 0.0001f) return; //Ray is parallel to the triangle
+    
+    float f = 1 / a;
+    vec3 s = Ray.Origin - Triangle.v0;
+    float u = f * dot(s, h);
+    if(u < 0 || u > 1) return;
+
+    vec3 q = cross(s, Edge1);
+    float v = f * dot(Ray.Direction, q);
+    if(v < 0 || u + v > 1) return;
+    
+    float t = f * dot(Edge2, q);
+    if(t > 0.0001f && t < RayPayload.Distance) {
+        
+
+
+
+        RayPayload.U = u;
+        RayPayload.V = v;
+        RayPayload.InstanceIndex = InstanceIndex;
+        RayPayload.Distance = t;
+        RayPayload.PrimitiveIndex = PrimitiveIndex;
+    }
+}
+
+void IntersectBVH(ray Ray, inout rayPayload RayPayload, uint InstanceIndex)
+{
+    uint NodeInx = 0;
+    uint Stack[64];
+    uint StackPointer=0;
+    bool t=true;
+    while(t)
+    {
+        if(BVHBuffer.Nodes[NodeInx].TriangleCount>0)
+        {
+            for(uint i=0; i<BVHBuffer.Nodes[NodeInx].TriangleCount; i++)
+            {
+                RayTriangleInteresection(Ray, 
+                                         TriangleBuffer.Triangles[IndicesBuffer.Indices[BVHBuffer.Nodes[NodeInx].LeftChildOrFirst + i]], 
+                                         RayPayload, 
+                                         InstanceIndex, 
+                                         IndicesBuffer.Indices[BVHBuffer.Nodes[NodeInx].LeftChildOrFirst + i]);
+            }
+            if(StackPointer==0) break;
+            else NodeInx = Stack[--StackPointer];
+            continue;
+        }
+
+        uint Child1 = BVHBuffer.Nodes[NodeInx].LeftChildOrFirst;
+        uint Child2 = BVHBuffer.Nodes[NodeInx].LeftChildOrFirst+1;
+
+        float Dist1 = RayAABBIntersection(Ray, BVHBuffer.Nodes[Child1].AABBMin, BVHBuffer.Nodes[Child1].AABBMax, RayPayload);
+        float Dist2 = RayAABBIntersection(Ray, BVHBuffer.Nodes[Child2].AABBMin, BVHBuffer.Nodes[Child2].AABBMax, RayPayload);
+        if(Dist1 > Dist2) {
+            float tmpDist = Dist2;
+            Dist2 = Dist1;
+            Dist1 = tmpDist;
+
+            uint tmpChild = Child2;
+            Child2 = Child1;
+            Child1 = tmpChild;
+        }
+
+        if(Dist1 == 1e30f)
+        {
+            if(StackPointer==0) break;
+            else NodeInx = Stack[--StackPointer];
+        }
+        else
+        {
+            NodeInx = Child1;
+            if(Dist2 != 1e30f)
+            {
+                Stack[StackPointer++] = Child2;
+            }   
+        }
+    }
+}
 
 void main() 
 {	  
     ivec2 dim = imageSize(shadowImage);
     vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
     
+    ray Ray;
+    Ray.Origin = (SceneUbo.Data.InvView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_GlobalInvocationID.xy)) / dim * 2.0 - 1.0, 0.0, 1.0);
+    Ray.Direction = (SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0)).xyz;
+    Ray.InverseDirection = 1 / Ray.Direction;
+
+    rayPayload PayLoad;
+    PayLoad.Distance = 1e30f;
+    IntersectBVH(Ray, PayLoad, 0);
+
     imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv,0,1));
+    if(PayLoad.Distance < 1e30f)
+    {
+        imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(1,0,0,1));
+    }
+
 }
 

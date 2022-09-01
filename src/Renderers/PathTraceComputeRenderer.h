@@ -27,6 +27,17 @@ public:
         VkPipeline previewPipeline;
         VkDescriptorPool DescriptorPool;
         VkSemaphore PreviewSemaphore;
+
+        buffer TriangleBuffer;
+        buffer TriangleExBuffer;
+        buffer InstanceBuffer;
+        buffer TLASBuffer;
+        buffer BVHBuffer;
+        buffer IndicesBuffer;
+        // buffer IndicesBuffer;
+        // buffer InstanceBuffer;
+        // buffer TlasBuffer;
+        // buffer bvhBuffer;
     } VulkanObjects;
 
     
