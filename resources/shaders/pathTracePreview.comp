@@ -1,4 +1,5 @@
 #version 460
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
@@ -84,6 +85,30 @@ struct rayPayload
     // uint RandomState;
 };
 
+struct aabb
+{
+    vec3 Min;
+    vec3 Max;
+};
+
+struct bvhInstance
+{
+    uint Index;
+    mat4 InverseTransform;
+    aabb Bounds;
+    uint MeshIndex;
+    uint64_t dummy;
+};
+
+struct tlasNode
+{
+    vec3 AABBMin;
+    uint LeftRight;
+    vec3 AABBMax;
+    uint BLAS;
+};
+
+
 
 float RayAABBIntersection(ray Ray, vec3 AABBMin, vec3 AABBMax, inout  rayPayload RayPayload)
 {
@@ -117,10 +142,6 @@ void RayTriangleInteresection(ray Ray, triangle Triangle, inout rayPayload RayPa
     
     float t = f * dot(Edge2, q);
     if(t > 0.0001f && t < RayPayload.Distance) {
-        
-
-
-
         RayPayload.U = u;
         RayPayload.V = v;
         RayPayload.InstanceIndex = InstanceIndex;

@@ -208,32 +208,90 @@ void pathTraceComputeRenderer::Setup()
     for(size_t i=0; i<App->Scene->InstancesPointers.size(); i++)
     {
         Instances.push_back(
-            bvhInstance(Meshes[App->Scene->InstancesPointers[i]->MeshIndex]->BVH,
+            bvhInstance(&Meshes, App->Scene->InstancesPointers[i]->MeshIndex,
                         App->Scene->InstancesPointers[i]->InstanceData.Transform, (uint32_t)i)
         );
     }
     
     TLAS = tlas(&Instances);
     TLAS.Build();
-
-
-    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.TriangleBuffer, Meshes[0]->Triangles.size() * sizeof(triangle), Meshes[0]->Triangles.data());
-    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.TriangleExBuffer, Meshes[0]->TrianglesExtraData.size() * sizeof(triangleExtraData), Meshes[0]->TrianglesExtraData.data());
-    // vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-    //                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-    //                           &VulkanObjects.InstanceBuffer, Meshes[0]->TrianglesExtraData.size() * sizeof(triangleExtraData), Meshes[0]->TrianglesExtraData.data());
-    // buffer TLASBuffer;
     
+    uint64_t TotalTriangleCount=0;
+    uint64_t TotalIndicesCount=0;
+    uint64_t TotalBVHNodes=0;
+    for(int i=0; i<Meshes.size(); i++)
+    {
+        TotalTriangleCount += Meshes[i]->Triangles.size();
+        TotalIndicesCount += Meshes[i]->BVH->TriangleIndices.size();
+        TotalBVHNodes += Meshes[i]->BVH->NodesUsed;
+    }
+    std::vector<triangle> AllTriangles(TotalTriangleCount);
+    std::vector<triangleExtraData> AllTrianglesEx(TotalTriangleCount);
+    std::vector<uint32_t> AllTriangleIndices(TotalIndicesCount);
+    std::vector<bvhNode> AllBVHNodes(TotalBVHNodes);
+    IndexData.resize(Meshes.size());
+
+    uint32_t RunningTriangleCount=0;
+    uint32_t RunningIndicesCount=0;
+    uint32_t RunningBVHNodeCount=0;
+    for(int i=0; i<Meshes.size(); i++)
+    {
+        memcpy((void*)(AllTriangles.data() + RunningTriangleCount), Meshes[i]->Triangles.data(), Meshes[i]->Triangles.size() * sizeof(triangle));
+        memcpy((void*)(AllTrianglesEx.data() + RunningTriangleCount), Meshes[i]->TrianglesExtraData.data(), Meshes[i]->TrianglesExtraData.size() * sizeof(triangleExtraData));
+        memcpy((void*)(AllTriangleIndices.data() + RunningIndicesCount), Meshes[i]->BVH->TriangleIndices.data(), Meshes[i]->BVH->TriangleIndices.size() * sizeof(uint32_t));
+        memcpy((void*)(AllBVHNodes.data() + RunningBVHNodeCount), Meshes[i]->BVH->BVHNodes.data(), Meshes[i]->BVH->NodesUsed * sizeof(bvhNode));
+
+        IndexData[i] = 
+        {
+            RunningTriangleCount,
+            (uint32_t)Meshes[i]->Triangles.size(),
+            RunningIndicesCount,
+            (uint32_t)Meshes[i]->BVH->TriangleIndices.size(),
+            RunningBVHNodeCount,
+            (uint32_t)Meshes[i]->BVH->BVHNodes.size()
+        };
+
+        RunningTriangleCount += (uint32_t)Meshes[i]->Triangles.size();
+        RunningIndicesCount += (uint32_t)Meshes[i]->BVH->TriangleIndices.size();
+        RunningBVHNodeCount += (uint32_t)Meshes[i]->BVH->NodesUsed;
+    }
+
+    
+
+    //Build a big buffer with all the meshes triangle data
+    //Build another buffer with info, for each mesh :
+    //  Struct indexData:
+    //      triangleDataStartInx
+    //      TriangleDataCount
+    //      IndicesDataStartInx
+    //      IndicesDataCount
+    //      BVHNodeDataStartInx
+    //      BVHNodeDataCount
+
     vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.BVHBuffer, Meshes[0]->BVH->NodesUsed * sizeof(bvhNode), Meshes[0]->BVH->BVHNodes.data());
+                              &VulkanObjects.IndexDataBuffer, IndexData.size() * sizeof(indexData), IndexData.data());
+
     vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.IndicesBuffer, Meshes[0]->BVH->TriangleIndices.size() * sizeof(uint32_t), Meshes[0]->BVH->TriangleIndices.data());
+                              &VulkanObjects.TriangleBuffer, AllTriangles.size() * sizeof(triangle), AllTriangles.data());
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.TriangleExBuffer, AllTrianglesEx.size() * sizeof(triangleExtraData), AllTrianglesEx.data());
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.BVHBuffer, AllBVHNodes.size() * sizeof(bvhNode), AllBVHNodes.data());
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.IndicesBuffer, AllTriangleIndices.size() * sizeof(uint32_t), AllTriangleIndices.data());
+
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.TLASInstancesBuffer, TLAS.BLAS->size() * sizeof(bvhInstance), TLAS.BLAS->data());
+
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.TLASNodesBuffer, TLAS.Nodes.size() * sizeof(tlasNode), TLAS.Nodes.data());
 
     VkDeviceQueueCreateInfo queueCreateInfo = {};
     queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;

@@ -28,19 +28,32 @@ public:
         VkDescriptorPool DescriptorPool;
         VkSemaphore PreviewSemaphore;
 
+        buffer IndexDataBuffer;
+        
+        //BLAS
         buffer TriangleBuffer;
         buffer TriangleExBuffer;
         buffer InstanceBuffer;
-        buffer TLASBuffer;
         buffer BVHBuffer;
         buffer IndicesBuffer;
-        // buffer IndicesBuffer;
-        // buffer InstanceBuffer;
-        // buffer TlasBuffer;
-        // buffer bvhBuffer;
+        
+        //TLAS
+        buffer TLASInstancesBuffer;
+        buffer TLASNodesBuffer;
     } VulkanObjects;
 
     
+    struct indexData
+    {
+        uint32_t triangleDataStartInx;
+        uint32_t TriangleDataCount;
+        uint32_t IndicesDataStartInx;
+        uint32_t IndicesDataCount;
+        uint32_t BVHNodeDataStartInx;
+        uint32_t BVHNodeDataCount;
+    };
+    std::vector<indexData> IndexData;
+
     struct 
     {
         VkQueue Queue;
