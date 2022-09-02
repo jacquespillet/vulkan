@@ -51,7 +51,9 @@ struct bvhNode
 struct aabb
 {
     glm::vec3 Min =glm::vec3(1e30f);
+    float pad0;
     glm::vec3 Max =glm::vec3(-1e30f);
+    float pad1;
     float Area();
     void Grow(glm::vec3 Position);
     void Grow(aabb &AABB);
@@ -129,12 +131,15 @@ struct bvhInstance
     void Intersect(ray Ray, rayPayload &RayPayload);
 
     //Store the mesh index in the scene instead, and a pointer to the mesh array to access the bvh.
-    uint32_t Index=0;
     glm::mat4 InverseTransform;
     aabb Bounds;
 
     uint32_t MeshIndex;
+    uint32_t Index=0;
+    glm::ivec2 pad0;
     std::vector<mesh*> *Meshes;
+    glm::ivec2 pad1;
+    
 };
 
 struct tlas

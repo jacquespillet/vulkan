@@ -3,6 +3,7 @@
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
+#include "Common/random.glsl"
 
 struct triangle
 {
@@ -38,6 +39,45 @@ struct bvhNode
     uvec2 padding2;    
 };
 
+struct indexData
+{
+    uint triangleDataStartInx;
+    uint IndicesDataStartInx;
+    uint BVHNodeDataStartInx;
+    uint padding;
+};
+
+struct aabb
+{
+    vec3 Min;
+    float pad0;
+    vec3 Max;
+    float pad1;
+};
+
+struct bvhInstance
+{
+    mat4 InverseTransform;
+    aabb Bounds;
+    
+    uint MeshIndex;
+    uint Index;
+    ivec2 pad0;
+    
+    ivec4 pad1;
+};
+
+struct tlasNode
+{
+    vec3 AABBMin;
+    uint LeftRight;
+    vec3 AABBMax;
+    uint BLAS;
+};
+
+
+
+
 layout (set=0, binding = 0, rgba8) uniform  image2D shadowImage;
 layout (set=0, binding = 1) readonly buffer triangleBuffer
 {
@@ -58,6 +98,21 @@ layout (set=0, binding = 4) readonly buffer indicesBuffer
 {
     uint Indices[];
 } IndicesBuffer;
+
+layout (set=0, binding = 5) readonly buffer indexDataBuffer
+{
+    indexData IndexData[];
+} IndexDataBuffer;
+
+layout (set=0, binding = 6) readonly buffer tlasInstancesBuffer
+{
+    bvhInstance Instances[];
+} TLASInstancesBuffer;
+
+layout (set=0, binding = 7) readonly buffer tlasNodes
+{
+    tlasNode Nodes[];
+} TLASNodes;
 
 #include "Common/SceneUBO.glsl"
 layout (set=1, binding = 0) uniform UBO 
@@ -84,31 +139,6 @@ struct rayPayload
     // vec3 Emission;
     // uint RandomState;
 };
-
-struct aabb
-{
-    vec3 Min;
-    vec3 Max;
-};
-
-struct bvhInstance
-{
-    uint Index;
-    mat4 InverseTransform;
-    aabb Bounds;
-    uint MeshIndex;
-    uint64_t dummy;
-};
-
-struct tlasNode
-{
-    vec3 AABBMin;
-    uint LeftRight;
-    vec3 AABBMax;
-    uint BLAS;
-};
-
-
 
 float RayAABBIntersection(ray Ray, vec3 AABBMin, vec3 AABBMax, inout  rayPayload RayPayload)
 {
@@ -150,31 +180,43 @@ void RayTriangleInteresection(ray Ray, triangle Triangle, inout rayPayload RayPa
     }
 }
 
-void IntersectBVH(ray Ray, inout rayPayload RayPayload, uint InstanceIndex)
+void IntersectBVH(ray Ray, inout rayPayload RayPayload, uint InstanceIndex, uint MeshIndex)
 {
     uint NodeInx = 0;
     uint Stack[64];
     uint StackPointer=0;
     bool t=true;
+    
+    // int MeshIndex=5;
+    indexData IndexData = IndexDataBuffer.IndexData[MeshIndex];
+    // uint NodeStartInx = 0;
+    // uint TriangleStartInx = 0;
+    // uint IndexStartInx = 0;
+    uint NodeStartInx = IndexData.BVHNodeDataStartInx;
+    uint TriangleStartInx = IndexData.triangleDataStartInx;
+    uint IndexStartInx = IndexData.IndicesDataStartInx;
+        
+
     while(t)
     {
-        if(BVHBuffer.Nodes[NodeInx].TriangleCount>0)
+        if(BVHBuffer.Nodes[NodeStartInx + NodeInx].TriangleCount>0)
         {
-            for(uint i=0; i<BVHBuffer.Nodes[NodeInx].TriangleCount; i++)
+            for(uint i=0; i<BVHBuffer.Nodes[NodeStartInx + NodeInx].TriangleCount; i++)
             {
+                uint Index = TriangleStartInx + IndicesBuffer.Indices[IndexStartInx + BVHBuffer.Nodes[NodeStartInx + NodeInx].LeftChildOrFirst] + i;
                 RayTriangleInteresection(Ray, 
-                                         TriangleBuffer.Triangles[IndicesBuffer.Indices[BVHBuffer.Nodes[NodeInx].LeftChildOrFirst + i]], 
+                                         TriangleBuffer.Triangles[Index], 
                                          RayPayload, 
                                          InstanceIndex, 
-                                         IndicesBuffer.Indices[BVHBuffer.Nodes[NodeInx].LeftChildOrFirst + i]);
+                                         Index);
             }
             if(StackPointer==0) break;
             else NodeInx = Stack[--StackPointer];
             continue;
         }
 
-        uint Child1 = BVHBuffer.Nodes[NodeInx].LeftChildOrFirst;
-        uint Child2 = BVHBuffer.Nodes[NodeInx].LeftChildOrFirst+1;
+        uint Child1 = BVHBuffer.Nodes[NodeStartInx + NodeInx].LeftChildOrFirst;
+        uint Child2 = BVHBuffer.Nodes[NodeStartInx + NodeInx].LeftChildOrFirst+1;
 
         float Dist1 = RayAABBIntersection(Ray, BVHBuffer.Nodes[Child1].AABBMin, BVHBuffer.Nodes[Child1].AABBMax, RayPayload);
         float Dist2 = RayAABBIntersection(Ray, BVHBuffer.Nodes[Child2].AABBMin, BVHBuffer.Nodes[Child2].AABBMax, RayPayload);
@@ -204,6 +246,67 @@ void IntersectBVH(ray Ray, inout rayPayload RayPayload, uint InstanceIndex)
     }
 }
 
+void IntersectInstance(ray Ray, inout rayPayload RayPayload, uint InstanceIndex)
+{
+    mat4 InverseTransform = TLASInstancesBuffer.Instances[InstanceIndex].InverseTransform;
+    Ray.Origin = (InverseTransform * vec4(Ray.Origin, 1)).xyz;
+    Ray.Direction = (InverseTransform * vec4(Ray.Direction, 0)).xyz;
+    Ray.InverseDirection = 1.0f / Ray.Direction;
+
+    IntersectBVH(Ray, RayPayload, TLASInstancesBuffer.Instances[InstanceIndex].Index, TLASInstancesBuffer.Instances[InstanceIndex].MeshIndex);
+}
+
+void IntersectTLAS(ray Ray, inout rayPayload RayPayload)
+{
+    Ray.InverseDirection = 1.0f / Ray.Direction;
+    uint NodeInx = 0;
+    uint Stack[64];
+    uint StackPtr=0;
+    while(true)
+    {
+        //If we hit the leaf, check intersection with the bvhs
+        if(TLASNodes.Nodes[NodeInx].LeftRight==0)
+        {
+            // bvhInstance Instance = TLASInstancesBuffer.Instances[0];
+            IntersectInstance(Ray, RayPayload, TLASNodes.Nodes[NodeInx].BLAS);
+            // (*BLAS)[Node->BLAS].Intersect(Ray, RayPayload);
+
+            if(StackPtr == 0) break;
+            else NodeInx = Stack[--StackPtr];
+            continue;
+        }
+
+        //Check if hit any of the children
+        uint Child1 = TLASNodes.Nodes[NodeInx].LeftRight & 0xffff;
+        uint Child2 = TLASNodes.Nodes[NodeInx].LeftRight >> 16;
+        
+        float Dist1 = RayAABBIntersection(Ray, TLASNodes.Nodes[Child1].AABBMin, TLASNodes.Nodes[Child1].AABBMax, RayPayload);
+        float Dist2 = RayAABBIntersection(Ray, TLASNodes.Nodes[Child2].AABBMin, TLASNodes.Nodes[Child2].AABBMax, RayPayload);
+        if(Dist1 > Dist2) { //Swap if dist 2 is closer
+            float tmpDist = Dist2;
+            Dist2 = Dist1;
+            Dist1 = tmpDist;
+
+            uint tmpChild = Child2;
+            Child2 = Child1;
+            Child1 = tmpChild;            
+        }
+        
+        if(Dist1 == 1e30f) //We didn't hit a child
+        {
+            if(StackPtr == 0) break; //There's no node left to explore
+            else NodeInx = Stack[--StackPtr]; //Go to the next node in the stack
+        }
+        else //We hit a child
+        {
+            NodeInx = Child1; //Set the current node to the first child
+            if(Dist2 != 1e30f) Stack[StackPtr++] = Child2; //If we also hit the other node, add it in the stack
+        }
+
+    }
+}
+
+
 void main() 
 {	  
     ivec2 dim = imageSize(shadowImage);
@@ -217,12 +320,15 @@ void main()
 
     rayPayload PayLoad;
     PayLoad.Distance = 1e30f;
-    IntersectBVH(Ray, PayLoad, 0);
-
+    // IntersectInstance(Ray, PayLoad, 0);
+    IntersectBVH(Ray, PayLoad, 0,0);
+    // IntersectTLAS(Ray,PayLoad);
     imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv,0,1));
     if(PayLoad.Distance < 1e30f)
     {
-        imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(1,0,0,1));
+        // float c = RandomUnilateral(PayLoad.InstanceIndex);
+        float c=1;
+        imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(c,c,c,1));
     }
 
 }

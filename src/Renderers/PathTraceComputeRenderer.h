@@ -46,11 +46,9 @@ public:
     struct indexData
     {
         uint32_t triangleDataStartInx;
-        uint32_t TriangleDataCount;
         uint32_t IndicesDataStartInx;
-        uint32_t IndicesDataCount;
         uint32_t BVHNodeDataStartInx;
-        uint32_t BVHNodeDataCount;
+        uint32_t padding;
     };
     std::vector<indexData> IndexData;
 

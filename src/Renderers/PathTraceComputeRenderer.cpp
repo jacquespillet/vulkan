@@ -215,7 +215,7 @@ void pathTraceComputeRenderer::Setup()
     
     TLAS = tlas(&Instances);
     TLAS.Build();
-    
+
     uint64_t TotalTriangleCount=0;
     uint64_t TotalIndicesCount=0;
     uint64_t TotalBVHNodes=0;
@@ -244,34 +244,18 @@ void pathTraceComputeRenderer::Setup()
         IndexData[i] = 
         {
             RunningTriangleCount,
-            (uint32_t)Meshes[i]->Triangles.size(),
             RunningIndicesCount,
-            (uint32_t)Meshes[i]->BVH->TriangleIndices.size(),
             RunningBVHNodeCount,
-            (uint32_t)Meshes[i]->BVH->BVHNodes.size()
+            0
         };
 
         RunningTriangleCount += (uint32_t)Meshes[i]->Triangles.size();
         RunningIndicesCount += (uint32_t)Meshes[i]->BVH->TriangleIndices.size();
         RunningBVHNodeCount += (uint32_t)Meshes[i]->BVH->NodesUsed;
     }
-
     
-
-    //Build a big buffer with all the meshes triangle data
-    //Build another buffer with info, for each mesh :
-    //  Struct indexData:
-    //      triangleDataStartInx
-    //      TriangleDataCount
-    //      IndicesDataStartInx
-    //      IndicesDataCount
-    //      BVHNodeDataStartInx
-    //      BVHNodeDataCount
-
-    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.IndexDataBuffer, IndexData.size() * sizeof(indexData), IndexData.data());
-
+#if 0    
+    
     vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
                               &VulkanObjects.TriangleBuffer, AllTriangles.size() * sizeof(triangle), AllTriangles.data());
@@ -284,6 +268,32 @@ void pathTraceComputeRenderer::Setup()
     vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
                               &VulkanObjects.IndicesBuffer, AllTriangleIndices.size() * sizeof(uint32_t), AllTriangleIndices.data());
+
+#else
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.TriangleBuffer, Meshes[0]->Triangles.size() * sizeof(triangle), Meshes[0]->Triangles.data());
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.TriangleExBuffer, Meshes[0]->TrianglesExtraData.size() * sizeof(triangleExtraData), Meshes[0]->TrianglesExtraData.data());
+    // vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    //                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+    //                           &VulkanObjects.InstanceBuffer, Meshes[0]->TrianglesExtraData.size() * sizeof(triangleExtraData), Meshes[0]->TrianglesExtraData.data());
+    // buffer TLASBuffer;
+    
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.BVHBuffer, Meshes[0]->BVH->NodesUsed * sizeof(bvhNode), Meshes[0]->BVH->BVHNodes.data());
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.IndicesBuffer, Meshes[0]->BVH->TriangleIndices.size() * sizeof(uint32_t), Meshes[0]->BVH->TriangleIndices.data());
+
+#endif
+      
+    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+                              &VulkanObjects.IndexDataBuffer, IndexData.size() * sizeof(indexData), IndexData.data());
+
 
     vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
@@ -311,7 +321,10 @@ void pathTraceComputeRenderer::Setup()
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.TriangleBuffer.VulkanObjects.Descriptor, true),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.TriangleExBuffer.VulkanObjects.Descriptor, true),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.BVHBuffer.VulkanObjects.Descriptor, true),
-            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.IndicesBuffer.VulkanObjects.Descriptor, true)
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.IndicesBuffer.VulkanObjects.Descriptor, true),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.IndexDataBuffer.VulkanObjects.Descriptor, true),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.TLASInstancesBuffer.VulkanObjects.Descriptor, true),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.TLASNodesBuffer.VulkanObjects.Descriptor, true)
 		};
 
 		std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts =
