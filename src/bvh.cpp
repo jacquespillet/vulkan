@@ -317,6 +317,7 @@ void bvh::UpdateNodeBounds(uint32_t NodeIndex)
 
 void bvhInstance::SetTransform(glm::mat4 &Transform)
 {
+    bvh *BVH = Meshes->at(MeshIndex)->BVH;
     this->InverseTransform = glm::inverse(Transform);
     
     glm::vec3 Min = BVH->BVHNodes[0].AABBMin;
@@ -338,6 +339,7 @@ void bvhInstance::Intersect(ray Ray, rayPayload &RayPayload)
     Ray.Direction = InverseTransform * glm::vec4(Ray.Direction, 0);
     Ray.InverseDirection = 1.0f / Ray.Direction;
 
+    bvh *BVH = Meshes->at(MeshIndex)->BVH;
     BVH->Intersect(Ray, RayPayload, Index);
 }
 

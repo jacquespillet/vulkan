@@ -285,11 +285,12 @@ void pathTraceCPURenderer::PreviewTile(uint32_t StartX, uint32_t StartY, uint32_
                 materialData *MatData = &Material->MaterialData;
                 vulkanTexture *DiffuseTexture = &Material->Diffuse;
                 
+                bvh *BVH =  Instances[RayPayload.InstanceIndex].Meshes->at(Instances[RayPayload.InstanceIndex].MeshIndex)->BVH;
+
                 glm::vec2 UV = 
-                    Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV1 * RayPayload.U + 
-                    Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV2 * RayPayload.V +
-                    Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV0 * (1 - RayPayload.U - RayPayload.V);
-                
+                    BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV1 * RayPayload.U + 
+                    BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV2 * RayPayload.V +
+                    BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV0 * (1 - RayPayload.U - RayPayload.V);
 
                 glm::vec3 FinalColor(0);
 
@@ -408,15 +409,17 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                     vulkanTexture *MetallicRoughnessTexture = &Material->Specular;
                     vulkanTexture *EmissionTexture = &Material->Emission;                 
                     
+                    bvh *BVH =  Instances[RayPayload.InstanceIndex].Meshes->at(Instances[RayPayload.InstanceIndex].MeshIndex)->BVH;
+                    
                     glm::vec2 UV = 
-                        Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV1 * RayPayload.U + 
-                        Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV2 * RayPayload.V +
-                        Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV0 * (1 - RayPayload.U - RayPayload.V);
+                        BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV1 * RayPayload.U + 
+                        BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV2 * RayPayload.V +
+                        BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV0 * (1 - RayPayload.U - RayPayload.V);
                     
                     glm::vec3 Normal = 
-                        Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].Normal1 * RayPayload.U + 
-                        Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].Normal2 * RayPayload.V +
-                        Instances[RayPayload.InstanceIndex].BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].Normal0 * (1 - RayPayload.U - RayPayload.V);
+                        BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].Normal1 * RayPayload.U + 
+                        BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].Normal2 * RayPayload.V +
+                        BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].Normal0 * (1 - RayPayload.U - RayPayload.V);
                     
                     // Emission
                     glm::vec3 Emission = MatData->Emission * MatData->EmissiveStrength;
@@ -623,7 +626,7 @@ void pathTraceCPURenderer::Setup()
     for(size_t i=0; i<App->Scene->InstancesPointers.size(); i++)
     {
         Instances.push_back(
-            bvhInstance(Meshes[App->Scene->InstancesPointers[i]->MeshIndex]->BVH,
+            bvhInstance(&Meshes, App->Scene->InstancesPointers[i]->MeshIndex,
                         App->Scene->InstancesPointers[i]->InstanceData.Transform, (uint32_t)i)
         );
     }

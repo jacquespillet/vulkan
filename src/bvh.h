@@ -121,17 +121,20 @@ struct tlasNode
 
 struct bvhInstance
 {
-    bvhInstance(bvh *Blas, glm::mat4 Transform, uint32_t Index) : BVH(Blas), Index(Index)
+    bvhInstance(std::vector<mesh*> *Meshes, uint32_t MeshIndex, glm::mat4 Transform, uint32_t Index) : Meshes(Meshes), MeshIndex(MeshIndex), Index(Index)
     {
         SetTransform(Transform);
     }
     void SetTransform(glm::mat4 &Transform);
     void Intersect(ray Ray, rayPayload &RayPayload);
 
+    //Store the mesh index in the scene instead, and a pointer to the mesh array to access the bvh.
     uint32_t Index=0;
-    bvh *BVH;
     glm::mat4 InverseTransform;
     aabb Bounds;
+
+    uint32_t MeshIndex;
+    std::vector<mesh*> *Meshes;
 };
 
 struct tlas

@@ -27,7 +27,7 @@ layout(buffer_reference, scalar) buffer Materials {material m[]; }; // Array of 
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
 layout(binding = 3, set = 0) uniform UniformData { Ubo ubo; };
-layout(binding = 4, set = 0) buffer _scene_desc { ObjBuffers i[]; } scene_desc;
+layout(binding = 4, set = 0) buffer _scene_desc { ObjBuffers i[]; } scene_desc; //This contains buffer addresses for scene description
 layout(binding = 5, set = 0) uniform sampler2D[] textures;
 layout(binding = 9, set = 0) buffer transformMatrices { mat4 Buffer[]; } TransformMatrices;
 
