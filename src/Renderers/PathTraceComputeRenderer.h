@@ -16,13 +16,12 @@ public:
     void RenderGUI() override;
     void Resize(uint32_t Width, uint32_t Height) override;
 
-    void StartPathTrace();
-
     struct
     {
         VkCommandBuffer DrawCommandBuffer;
         VkSubmitInfo SubmitInfo;
-        storageImage previewImage;
+        storageImage FinalImage;
+        storageImage AccumulationImage;
 
         VkPipeline previewPipeline;
         VkDescriptorPool DescriptorPool;
@@ -42,6 +41,8 @@ public:
         buffer TLASNodesBuffer;
         
         buffer MaterialBuffer;
+
+        buffer UBO;
     } VulkanObjects;
 
     
@@ -67,9 +68,19 @@ public:
     uint32_t previewWidth = 1024;
     uint32_t previewHeight = 1024;
 
-    uint32_t SamplesPerFrame=1;
-    uint32_t TotalSamples = 16000;
-    uint32_t CurrentSampleCount=0;
+    struct uniformData
+    {
+        uint32_t VertexSize;
+        uint32_t CurrentSampleCount=0;
+        int SamplersPerFrame=4;
+        int RayBounces=5;
+
+        int MaxSamples = 8192;
+        int ShouldAccumulate=1;
+        glm::ivec2 Padding;
+    } UniformData;
+    bool ResetAccumulation=true;
+    
 
     void UpdateCamera();
     void UpdateTLAS(uint32_t InstanceIndex);
@@ -79,22 +90,9 @@ private:
     std::vector<bvhInstance> Instances;
     tlas TLAS;
 
-    bool ShouldPathTrace=false;
-    
-    bool ProcessingPreview=false;
-    bool ProcessingPathTrace=false;
-    bool PathTraceFinished=false;
-
-    int TileSize=64;
-
-    std::chrono::steady_clock::time_point start;
-    std::chrono::steady_clock::time_point stop;
-    
-
-    void PathTrace();
-    void Preview();
     void CreateCommandBuffers();
     void SetupDescriptorPool();
     void FillCommandBuffer();
+    void UpdateUniformBuffers();    
 
 };

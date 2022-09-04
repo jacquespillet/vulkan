@@ -34,17 +34,33 @@ public:
     void UpdateMaterial(size_t Index);
     void UpdateBLASInstance(uint32_t InstanceIndex);
 private:
+    //Vulkan Objects
     std::vector<accelerationStructure> BottomLevelAccelerationStructures;
     accelerationStructure TopLevelAccelerationStructure;
-    
     buffer MaterialBuffer;
     buffer UpdateMaterialStagingBuffer;
     VkCommandBuffer UpdateMaterialCommandBuffer;
-    
     buffer SceneDescriptionBuffer;
     buffer TransformMatricesBuffer;
     storageImage StorageImage;
     storageImage AccumulationImage; 
+    buffer UBO;
+    VkDescriptorSetLayout DescriptorSetLayout;
+    VkPipelineLayout PipelineLayout;
+    std::vector<VkRayTracingShaderGroupCreateInfoKHR> ShaderGroups;
+    VkPipeline Pipeline;
+    VkDescriptorSet DescriptorSet;
+    struct shaderBindingTables
+    {
+        shaderBindingTable Raygen;
+        shaderBindingTable Miss;
+        shaderBindingTable Hit;
+    } ShaderBindingTables;
+    std::vector<VkAccelerationStructureInstanceKHR> BLASInstances{};
+    buffer InstancesBuffer;
+    
+    
+    //Ray tracing data
     struct uniformData
     {
         uint32_t VertexSize;
@@ -56,23 +72,11 @@ private:
         int ShouldAccumulate=1;
         glm::ivec2 Padding;
     } UniformData;
-    buffer UBO;
-    VkDescriptorSetLayout DescriptorSetLayout;
-    VkPipelineLayout PipelineLayout;
-    std::vector<VkRayTracingShaderGroupCreateInfoKHR> ShaderGroups;
-    VkPipeline Pipeline;
-    VkDescriptorSet DescriptorSet;
+    
 
-    struct shaderBindingTables
-    {
-        shaderBindingTable Raygen;
-        shaderBindingTable Miss;
-        shaderBindingTable Hit;
-    } ShaderBindingTables;
 
-    std::vector<VkAccelerationStructureInstanceKHR> BLASInstances{};
-    buffer InstancesBuffer;
 
+    //Denoiser
     bool ShouldDenoise=false;
     buffer DenoiseBuffer;
     std::vector<glm::vec3> DenoiserInput;

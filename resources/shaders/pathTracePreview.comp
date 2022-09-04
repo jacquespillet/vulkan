@@ -78,10 +78,20 @@ struct tlasNode
     uint BLAS;
 };
 
+struct uniformData
+{
+    uint VertexSize;
+    uint CurrentSampleCount;
+    int SamplersPerFrame;
+    int RayBounces;
+
+    int MaxSamples ;
+    int ShouldAccumulate;
+    ivec2 Padding;
+};
 
 
-
-layout (set=0, binding = 0, rgba8) uniform  image2D shadowImage;
+layout (set=0, binding = 0, rgba8) uniform  image2D FinalImage;
 layout (set=0, binding = 1) readonly buffer triangleBuffer
 {
     triangle Triangles[];
@@ -124,6 +134,10 @@ layout (set=0, binding = 8) readonly buffer materialData
 
 layout(set = 0, binding = 9) uniform sampler2D[] textures;
 
+#include "Common/ubo.glsl"
+layout(set = 0, binding = 10) uniform UniformData { Ubo ubo; };
+
+layout (set=0, binding = 11, rgba8) uniform  image2D AccumulationImage;
 
 #include "Common/SceneUBO.glsl"
 layout (set=1, binding = 0) uniform UBO 
@@ -329,7 +343,7 @@ void IntersectTLAS(ray Ray, inout rayPayload RayPayload)
 
 void main() 
 {	  
-    ivec2 dim = imageSize(shadowImage);
+    ivec2 dim = imageSize(FinalImage);
     vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
     
     ray Ray;
@@ -343,7 +357,8 @@ void main()
     // IntersectInstance(Ray, PayLoad, 0);
     // IntersectBVH(Ray, PayLoad, 0,27);
     IntersectTLAS(Ray,PayLoad);
-    imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(0,0,0,1));
+    
+    vec3 SamplesColor = vec3(0);
     if(PayLoad.Distance < 1e30f)
     {
         material Material = MaterialData.Data[PayLoad.MaterialIndex];
@@ -358,7 +373,6 @@ void main()
             ExtraData.Normal2 * PayLoad.V +
             ExtraData.Normal0 * (1 - PayLoad.U - PayLoad.V);
                     
-        vec3 FinalColor = vec3(0);
 
         vec3 BaseColor = Material.BaseColor;
         if(Material.BaseColorTextureID >=0 && Material.UseBaseColorMap>0)
@@ -369,11 +383,26 @@ void main()
         }
 
 
-        FinalColor += BaseColor;
-        FinalColor = toneMap(FinalColor, SceneUbo.Data.Exposure);
-        
-        imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(FinalColor,1));
+        SamplesColor += BaseColor;
+        SamplesColor = toneMap(SamplesColor, SceneUbo.Data.Exposure);        
     }
 
+
+    //Load previous frame
+    vec3 LastFrameColor = vec3(0);
+    if(ubo.samplesPerFrame != ubo.currentSamplesCount)
+    {
+        LastFrameColor = imageLoad(AccumulationImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
+    }
+
+    //Add new color to previous color, and add to accumulation buffer
+    vec3 AccumulatedColor = LastFrameColor + SamplesColor;
+    imageStore(AccumulationImage, ivec2(gl_GlobalInvocationID.xy), vec4(AccumulatedColor, 0));
+
+    //Average, tonemap and set output color
+    vec3 Color = AccumulatedColor / ubo.currentSamplesCount;
+    Color = toneMap(Color, SceneUbo.Data.Exposure);
+    Color = clamp(Color, 0, 1);
+    imageStore(FinalImage, ivec2(gl_GlobalInvocationID.xy), vec4(Color, 0));    
 }
 

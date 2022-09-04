@@ -16,50 +16,28 @@ pathTraceComputeRenderer::pathTraceComputeRenderer(vulkanApp *App) : renderer(Ap
     this->UseGizmo=true;
 }
 
-void pathTraceComputeRenderer::StartPathTrace()
-{
-    PathTraceFinished=true;
-    ShouldPathTrace=true;
-    CurrentSampleCount=0;
-}
-
 void pathTraceComputeRenderer::Render()
 {
-    if(ShouldPathTrace)
+
+    if(App->Scene->Camera.Changed)
     {
-        ProcessingPreview=false;
-        PathTrace();    
+        ResetAccumulation=true;
+        UniformData.ShouldAccumulate=1;
     }
 
-    if(CurrentSampleCount >= TotalSamples)
+    if(ResetAccumulation)
     {
-        ShouldPathTrace=false;
-        PathTraceFinished=true;
-        ProcessingPathTrace=false;
-    }
+        UniformData.CurrentSampleCount=0;
+        ResetAccumulation=false;
+    }  
 
-    if(App->Scene->Camera.Changed || App->Scene->Changed)
+    if(UniformData.CurrentSampleCount < (uint32_t)UniformData.MaxSamples)
     {
-        ShouldPathTrace=false;
-        ProcessingPathTrace=false;
-        Preview();    
+        UniformData.CurrentSampleCount += UniformData.SamplersPerFrame;
     }
 
     VK_CALL(App->VulkanObjects.Swapchain->AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
     
-    if(ProcessingPathTrace || PathTraceFinished)
-    {
-        if(!PathTraceFinished)
-        {
-            stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-            float seconds = (float)duration.count() / 1000.0f;
-            std::cout << seconds << std::endl;  
-
-            PathTraceFinished=true; 
-        }
-    }
-
     //Fill command buffer
     {
         VkCommandBufferBeginInfo CommandBufferInfo = vulkanTools::BuildCommandBufferBeginInfo();
@@ -78,12 +56,6 @@ void pathTraceComputeRenderer::Render()
         
         RenderPassBeginInfo.framebuffer = App->VulkanObjects.AppFramebuffers[App->VulkanObjects.CurrentBuffer];
         VK_CALL(vkBeginCommandBuffer(VulkanObjects.DrawCommandBuffer, &CommandBufferInfo));
-
-
-        if(ProcessingPathTrace)
-        {
-            //COMPUTE COMMAND HERE into swapchain image
-        }        
 
         // if(ProcessingPreview)
         {
@@ -125,52 +97,11 @@ void pathTraceComputeRenderer::Render()
 
     VK_CALL(App->VulkanObjects.Swapchain->QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete));
     VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
+
+    UpdateUniformBuffers();
 }
 
-void pathTraceComputeRenderer::PathTrace()
-{
-    start = std::chrono::high_resolution_clock::now();
-    
-    CurrentSampleCount += SamplesPerFrame;
-    for(uint32_t y=0; y<App->Height; y+=TileSize)
-    {
-        for(uint32_t x=(uint32_t)App->Scene->ViewportStart; x<App->Width; x+=TileSize)
-        {
-            // ThreadPool.EnqueueJob([x, y, this]()
-            //     {
-            //     PathTraceTile(x, y, TileSize, TileSize, App->Width, App->Height, &Image); 
-            //     }
-            // );
-        }
-    }
 
-    ProcessingPathTrace=true;
-}
-
-void pathTraceComputeRenderer::Preview()
-{
-    float StartRatio = App->Scene->ViewportStart / App->Width;
-    uint32_t StartPreview = (uint32_t)((float)StartRatio * (float)previewWidth);
-    
-    uint32_t RenderWidth = previewWidth - StartPreview;
-    uint32_t RenderHeight = previewHeight;
-    for(uint32_t y=0; y<previewHeight; y+=TileSize)
-    {
-        for(uint32_t x=StartPreview; x<previewWidth; x+=TileSize)
-        {   
-            // ThreadPool.EnqueueJob([x, y, RenderWidth, RenderHeight, this]()
-            // {
-            //    PreviewTile(x, y, 
-            //                TileSize, TileSize, 
-            //                previewWidth, previewHeight, 
-            //                RenderWidth,  RenderHeight, 
-            //                &PreviewImage); 
-            // });
-        }
-    }
-
-    ProcessingPreview=true;
-}
 
 void pathTraceComputeRenderer::SetupDescriptorPool()
 {
@@ -197,7 +128,9 @@ void pathTraceComputeRenderer::Setup()
 
     CreateCommandBuffers();
 
-    VulkanObjects.previewImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, VK_FORMAT_B8G8R8A8_UNORM, {previewWidth, previewHeight, 1});
+    
+    VulkanObjects.FinalImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, App->VulkanObjects.Swapchain->ColorFormat, {previewWidth, previewHeight, 1});    
+    VulkanObjects.AccumulationImage.Create(VulkanDevice, App->VulkanObjects.CommandPool, App->VulkanObjects.Queue, VK_FORMAT_R32G32B32A32_SFLOAT, {previewWidth, previewHeight, 1});
 
     
     for(size_t i=0; i<App->Scene->Meshes.size(); i++)
@@ -297,6 +230,17 @@ void pathTraceComputeRenderer::Setup()
 		ImageInfos[Texture.second.Index] = Texture.second.Descriptor;
     }
 
+    VK_CALL(vulkanTools::CreateBuffer(
+        VulkanDevice, 
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &VulkanObjects.UBO,
+        sizeof(uniformData),
+        &UniformData
+    ));
+    VK_CALL(VulkanObjects.UBO.Map());
+    UpdateUniformBuffers();    
+
     
     VkDeviceQueueCreateInfo queueCreateInfo = {};
     queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -308,15 +252,11 @@ void pathTraceComputeRenderer::Setup()
     VkSemaphoreCreateInfo SemaphoreCreateInfo = vulkanTools::BuildSemaphoreCreateInfo();
     VK_CALL(vkCreateSemaphore(VulkanDevice->Device, &SemaphoreCreateInfo, nullptr, &VulkanObjects.PreviewSemaphore));    
 
-    // WriteDescriptorSets.push_back(
-    //     vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, ImageInfos.data(), static_cast<uint32_t>(ImageInfos.size()))
-    // );
-
 	//Preview descriptor set
 	{
 		std::vector<descriptor> Descriptors =
 		{
-			descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.previewImage.Descriptor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+			descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.FinalImage.Descriptor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.TriangleBuffer.VulkanObjects.Descriptor, true),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.TriangleExBuffer.VulkanObjects.Descriptor, true),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.BVHBuffer.VulkanObjects.Descriptor, true),
@@ -325,7 +265,9 @@ void pathTraceComputeRenderer::Setup()
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.TLASInstancesBuffer.VulkanObjects.Descriptor, true),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.TLASNodesBuffer.VulkanObjects.Descriptor, true),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.MaterialBuffer.VulkanObjects.Descriptor, true),
-            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ImageInfos)
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ImageInfos),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.UBO.VulkanObjects.Descriptor),
+			descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.AccumulationImage.Descriptor, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
 		};
 
 		std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts =
@@ -345,6 +287,13 @@ void pathTraceComputeRenderer::Setup()
 
 }
 
+void pathTraceComputeRenderer::UpdateUniformBuffers()
+{
+    UniformData.VertexSize = sizeof(vertex);
+    memcpy(VulkanObjects.UBO.VulkanObjects.Mapped, &UniformData, sizeof(UniformData));
+}   
+
+
 void pathTraceComputeRenderer::FillCommandBuffer()
 {
     VkCommandBufferBeginInfo ComputeCommandBufferBeginInfo = vulkanTools::BuildCommandBufferBeginInfo();
@@ -363,7 +312,7 @@ void pathTraceComputeRenderer::FillCommandBuffer()
         VkImageSubresourceRange SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, App->VulkanObjects.Swapchain->Images[App->VulkanObjects.CurrentBuffer],
             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
-        vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, VulkanObjects.previewImage.Image,
+        vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, VulkanObjects.FinalImage.Image,
             VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, SubresourceRange);
 
         VkImageBlit BlitRegion = {};
@@ -380,12 +329,12 @@ void pathTraceComputeRenderer::FillCommandBuffer()
         BlitRegion.dstSubresource.baseArrayLayer = 0;
         BlitRegion.dstSubresource.layerCount=1;
         
-        vkCmdBlitImage(VulkanObjects.DrawCommandBuffer, VulkanObjects.previewImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+        vkCmdBlitImage(VulkanObjects.DrawCommandBuffer, VulkanObjects.FinalImage.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
                         App->VulkanObjects.Swapchain->Images[App->VulkanObjects.CurrentBuffer], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
                         1, &BlitRegion, VK_FILTER_NEAREST);
         vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, App->VulkanObjects.Swapchain->Images[App->VulkanObjects.CurrentBuffer],
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, SubresourceRange);
-        vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, VulkanObjects.previewImage.Image,
+        vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, VulkanObjects.FinalImage.Image,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, SubresourceRange);
     }
     VK_CALL(vkEndCommandBuffer(Compute.CommandBuffer));
@@ -425,10 +374,6 @@ void pathTraceComputeRenderer::CreateCommandBuffers()
 
 void pathTraceComputeRenderer::RenderGUI()
 {
-    if(ImGui::Button("PathTrace"))
-    {
-        StartPathTrace();
-    }
 }
 
 void pathTraceComputeRenderer::Resize(uint32_t Width, uint32_t Height) 
@@ -444,7 +389,7 @@ void pathTraceComputeRenderer::Destroy()
     }
     
     
-    VulkanObjects.previewImage.Destroy();
+    VulkanObjects.FinalImage.Destroy();
     
     vkFreeCommandBuffers(Device, App->VulkanObjects.CommandPool, 1, &VulkanObjects.DrawCommandBuffer);
 
