@@ -120,8 +120,8 @@ void pathTraceComputeRenderer::SetupDescriptorPool()
 
 void pathTraceComputeRenderer::Setup()
 {
-    previewWidth = App->Width / 2;
-    previewHeight = App->Height / 2;
+    previewWidth = App->Width;
+    previewHeight = App->Height;
 
     SetupDescriptorPool();
     Resources.Init(VulkanDevice, VulkanObjects.DescriptorPool, App->VulkanObjects.TextureLoader);
@@ -194,37 +194,25 @@ void pathTraceComputeRenderer::Setup()
     {
         AllMaterials[i] = App->Scene->Materials[i].MaterialData;
     }
+
+    VulkanObjects.CommandPool = vulkanTools::CreateCommandPool(VulkanDevice->Device, App->VulkanObjects.Swapchain->QueueNodeIndex);
+    VulkanObjects.CopyCommand = vulkanTools::CreateCommandBuffer(VulkanDevice->Device, VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
     
-    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.TriangleBuffer, AllTriangles.size() * sizeof(triangle), AllTriangles.data());
-    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.TriangleExBuffer, AllTrianglesEx.size() * sizeof(triangleExtraData), AllTrianglesEx.data());
-    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.BVHBuffer, AllBVHNodes.size() * sizeof(bvhNode), AllBVHNodes.data());
-    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.IndicesBuffer, AllTriangleIndices.size() * sizeof(uint32_t), AllTriangleIndices.data());
-  
-    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.IndexDataBuffer, IndexData.size() * sizeof(indexData), IndexData.data());
+    vulkanTools::CreateAndFillBuffer(VulkanDevice, AllTriangles.data(), AllTriangles.size() * sizeof(triangle), &VulkanObjects.TriangleBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VulkanObjects.CopyCommand, App->VulkanObjects.Queue);
+    vulkanTools::CreateAndFillBuffer(VulkanDevice, AllTrianglesEx.data(), AllTrianglesEx.size() * sizeof(triangleExtraData), &VulkanObjects.TriangleExBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VulkanObjects.CopyCommand, App->VulkanObjects.Queue);
+    vulkanTools::CreateAndFillBuffer(VulkanDevice, AllBVHNodes.data(), AllBVHNodes.size() * sizeof(bvhNode), &VulkanObjects.BVHBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VulkanObjects.CopyCommand, App->VulkanObjects.Queue);
+    vulkanTools::CreateAndFillBuffer(VulkanDevice, AllTriangleIndices.data(), AllTriangleIndices.size() * sizeof(uint32_t), &VulkanObjects.IndicesBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VulkanObjects.CopyCommand, App->VulkanObjects.Queue);
+    vulkanTools::CreateAndFillBuffer(VulkanDevice, IndexData.data(), IndexData.size() * sizeof(indexData), &VulkanObjects.IndexDataBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VulkanObjects.CopyCommand, App->VulkanObjects.Queue);
 
+    vulkanTools::CreateAndFillBuffer(VulkanDevice, TLAS.BLAS->data(), TLAS.BLAS->size() * sizeof(bvhInstance), &VulkanObjects.TLASInstancesBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VulkanObjects.CopyCommand, App->VulkanObjects.Queue);
+    VK_CALL(vulkanTools::CreateBuffer(VulkanDevice,  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &VulkanObjects.TLASInstancesStagingBuffer, TLAS.BLAS->size() * sizeof(bvhInstance), nullptr));
+    vulkanTools::CreateAndFillBuffer(VulkanDevice, TLAS.Nodes.data(), TLAS.Nodes.size() * sizeof(tlasNode), &VulkanObjects.TLASNodesBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VulkanObjects.CopyCommand, App->VulkanObjects.Queue);
+    VK_CALL(vulkanTools::CreateBuffer(VulkanDevice,  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &VulkanObjects.TLASNodesStagingBuffer, TLAS.Nodes.size() * sizeof(tlasNode), nullptr));
 
-    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.TLASInstancesBuffer, TLAS.BLAS->size() * sizeof(bvhInstance), TLAS.BLAS->data());
+    vulkanTools::CreateAndFillBuffer(VulkanDevice, AllMaterials.data(), AllMaterials.size() * sizeof(materialData), &VulkanObjects.MaterialBuffer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VulkanObjects.CopyCommand, App->VulkanObjects.Queue);
+    VK_CALL(vulkanTools::CreateBuffer(VulkanDevice,  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &VulkanObjects.MaterialStagingBuffer,AllMaterials.size() * sizeof(materialData), nullptr));
 
-    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.TLASNodesBuffer, TLAS.Nodes.size() * sizeof(tlasNode), TLAS.Nodes.data());
-
-    vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-                              &VulkanObjects.MaterialBuffer, AllMaterials.size() * sizeof(materialData), AllMaterials.data());
-
+    
     std::vector<VkDescriptorImageInfo> ImageInfos(App->Scene->Resources.Textures->Resources.size()); 
     for(auto &Texture : App->Scene->Resources.Textures->Resources)
     {
@@ -308,7 +296,11 @@ void pathTraceComputeRenderer::FillCommandBuffer()
         vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 0, 1, Resources.DescriptorSets->GetPtr("Shadows"), 0, 0);
         vkCmdBindDescriptorSets(Compute.CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Resources.PipelineLayouts->Get("Shadows"), 1, 1, &RendererDescriptorSet, 0, nullptr);			
         
-        vkCmdDispatch(Compute.CommandBuffer, App->Width / 16, App->Height / 16, 1);
+        
+        vkCmdDispatch(Compute.CommandBuffer, 
+                      (App->Width - (int)App->Scene->ViewportStart) / 16, 
+                      App->Height / 16, 
+                      1);
 
         VkImageSubresourceRange SubresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         vulkanTools::TransitionImageLayout(VulkanObjects.DrawCommandBuffer, App->VulkanObjects.Swapchain->Images[App->VulkanObjects.CurrentBuffer],
@@ -318,12 +310,12 @@ void pathTraceComputeRenderer::FillCommandBuffer()
 
         VkImageBlit BlitRegion = {};
         BlitRegion.srcOffsets[0] = {0,0,0};
-        BlitRegion.srcOffsets[1] = {(int)previewWidth, (int)previewHeight, 1};
+        BlitRegion.srcOffsets[1] = {(int)App->Width - (int)App->Scene->ViewportStart, (int)previewHeight, 1};
         BlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         BlitRegion.srcSubresource.mipLevel = 0;
         BlitRegion.srcSubresource.baseArrayLayer = 0;
         BlitRegion.srcSubresource.layerCount=1;
-        BlitRegion.dstOffsets[0] = {0,0,0};
+        BlitRegion.dstOffsets[0] = {(int)App->Scene->ViewportStart,0,0};
         BlitRegion.dstOffsets[1] = {(int)App->Width, (int)App->Height, 1};
         BlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         BlitRegion.dstSubresource.mipLevel = 0;
@@ -347,8 +339,36 @@ void pathTraceComputeRenderer::UpdateTLAS(uint32_t InstanceIndex)
 {
     Instances[InstanceIndex].SetTransform(App->Scene->InstancesPointers[InstanceIndex]->InstanceData.Transform);
     TLAS.Build();
-}
 
+    VkCommandBufferBeginInfo CommandBufferInfo = vulkanTools::BuildCommandBufferBeginInfo();
+    VK_CALL(vkBeginCommandBuffer(VulkanObjects.CopyCommand, &CommandBufferInfo));
+    {
+        VulkanObjects.TLASInstancesStagingBuffer.Map();
+        VulkanObjects.TLASInstancesStagingBuffer.CopyTo(TLAS.BLAS->data(), TLAS.BLAS->size() * sizeof(bvhInstance));
+        VulkanObjects.TLASInstancesStagingBuffer.Unmap();
+        
+        VkBufferCopy BufferCopy {};
+        BufferCopy.size = TLAS.BLAS->size() * sizeof(bvhInstance);
+
+        vkCmdCopyBuffer(VulkanObjects.CopyCommand, VulkanObjects.TLASInstancesStagingBuffer.VulkanObjects.Buffer, VulkanObjects.TLASInstancesBuffer.VulkanObjects.Buffer, 1, &BufferCopy);
+    }
+    
+    {
+        VulkanObjects.TLASNodesStagingBuffer.Map();
+        VulkanObjects.TLASNodesStagingBuffer.CopyTo(TLAS.Nodes.data(), TLAS.Nodes.size() * sizeof(tlasNode));
+        VulkanObjects.TLASNodesStagingBuffer.Unmap();
+        
+        VkBufferCopy BufferCopy {};
+        BufferCopy.size = TLAS.Nodes.size() * sizeof(tlasNode);
+
+        vkCmdCopyBuffer(VulkanObjects.CopyCommand, VulkanObjects.TLASNodesStagingBuffer.VulkanObjects.Buffer, VulkanObjects.TLASNodesBuffer.VulkanObjects.Buffer, 1, &BufferCopy);
+    }
+
+    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, VulkanObjects.CopyCommand, App->VulkanObjects.Queue, false);
+
+    ResetAccumulation=true;
+}
+   
 void pathTraceComputeRenderer::CreateCommandBuffers()
 {
     VkCommandBufferAllocateInfo CommandBufferAllocateInfo = vulkanTools::BuildCommandBufferAllocateInfo(App->VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1);
@@ -375,7 +395,23 @@ void pathTraceComputeRenderer::CreateCommandBuffers()
 
 void pathTraceComputeRenderer::RenderGUI()
 {
-    ImGui::Text("Sample Count : %d / %d", UniformData.CurrentSampleCount, UniformData.MaxSamples);
+    if(ImGui::CollapsingHeader("Path Tracing Options"))
+    {
+        bool ShouldReset=false;
+        ShouldReset |= ImGui::SliderInt("Samples Per Pixel", &UniformData.SamplersPerFrame, 1, 32);
+        ShouldReset |= ImGui::SliderInt("Ray Bounces", &UniformData.RayBounces, 1, 32);
+        ShouldReset |= ImGui::SliderInt("Max Samples", &UniformData.MaxSamples, 1, 16384);
+        ImGui::Text("Num Samples %d", UniformData.CurrentSampleCount);
+
+        // if(ImGui::Button("Denoise"))
+        // {
+        //     Denoise();
+        // }
+        if(ShouldReset)
+        {
+            ResetAccumulation=true;
+        }
+    }
 }
 
 void pathTraceComputeRenderer::Resize(uint32_t Width, uint32_t Height) 
@@ -396,5 +432,23 @@ void pathTraceComputeRenderer::Destroy()
     vkFreeCommandBuffers(Device, App->VulkanObjects.CommandPool, 1, &VulkanObjects.DrawCommandBuffer);
 
 }
+
+void pathTraceComputeRenderer::UpdateMaterial(size_t Index)
+{
+    VulkanObjects.MaterialStagingBuffer.Map();
+    VulkanObjects.MaterialStagingBuffer.CopyTo(&App->Scene->Materials[Index].MaterialData, sizeof(materialData));
+    VulkanObjects.MaterialStagingBuffer.Unmap();
+    
+    VkBufferCopy BufferCopy {};
+    BufferCopy.size = sizeof(materialData);
+    BufferCopy.dstOffset = Index * sizeof(materialData);
+
+
+    VkCommandBufferBeginInfo CommandBufferInfo = vulkanTools::BuildCommandBufferBeginInfo();
+    VK_CALL(vkBeginCommandBuffer(VulkanObjects.CopyCommand, &CommandBufferInfo));
+    vkCmdCopyBuffer(VulkanObjects.CopyCommand, VulkanObjects.MaterialStagingBuffer.VulkanObjects.Buffer, VulkanObjects.MaterialBuffer.VulkanObjects.Buffer, 1, &BufferCopy);
+    vulkanTools::FlushCommandBuffer(VulkanDevice->Device, App->VulkanObjects.CommandPool, VulkanObjects.CopyCommand, App->VulkanObjects.Queue, false);
+}
+
 
 

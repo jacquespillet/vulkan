@@ -167,7 +167,7 @@ void main()
 							if (RayPayload.Metallic == 1.0f && RayPayload.Roughness == 0.0f) {
 								brdfType = SPECULAR_TYPE;
 							} else {
-								float brdfProbability = GetBrdfProbability(RayPayload, V, RayPayload.Normal);
+								float brdfProbability = GetBRDFProbability(RayPayload, V, RayPayload.Normal);
 
 								if (RandomUnilateral(RayPayload.RandomState) < brdfProbability) {
 									brdfType = SPECULAR_TYPE;

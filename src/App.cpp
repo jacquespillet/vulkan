@@ -412,15 +412,23 @@ void vulkanApp::RenderGUI()
                     UpdateBackground |= ImGui::SliderFloat("Radius", &Scene->UBOSceneMatrices.LightRadius, 0.01f, 1);
                 }
 
-                if(UpdateBackground && RayTracing)
+                if(UpdateBackground)
                 {
                     for(size_t i=0; i<Renderers.size(); i++)
                     {
-                        pathTraceRTXRenderer *PathTracer = dynamic_cast<pathTraceRTXRenderer*>(Renderers[i]);
+                        if(RayTracing)
+                        {
+                            pathTraceRTXRenderer *PathTracer = dynamic_cast<pathTraceRTXRenderer*>(Renderers[i]);
+                            if(PathTracer)
+                            {
+                                PathTracer->ResetAccumulation=true;
+                            }
+                        }
+                        pathTraceComputeRenderer *PathTracer = dynamic_cast<pathTraceComputeRenderer*>(Renderers[i]);
                         if(PathTracer)
                         {
                             PathTracer->ResetAccumulation=true;
-                        }
+                        }                        
                     }
                 }                
                 
@@ -532,6 +540,13 @@ void vulkanApp::RenderGUI()
                                     PathTracer->UpdateTLAS(CurrentSceneItemIndex);
                                 }
                             }
+                            {
+                                pathTraceComputeRenderer *PathTracer = dynamic_cast<pathTraceComputeRenderer*>(Renderers[i]);
+                                if(PathTracer)
+                                {
+                                    PathTracer->UpdateTLAS(CurrentSceneItemIndex);
+                                }
+                            }
                         }
                     }
                     Scene->Changed=true;                        
@@ -586,9 +601,9 @@ void vulkanApp::RenderGUI()
                     if(UpdateMaterial)
                     {
                         Scene->InstancesPointers[CurrentSceneItemIndex]->Mesh->Material->Upload();
-                        if(RayTracing)
+                        for(size_t i=0; i<Renderers.size(); i++)
                         {
-                            for(size_t i=0; i<Renderers.size(); i++)
+                            if(RayTracing)
                             {
                                 pathTraceRTXRenderer *PathTracer = dynamic_cast<pathTraceRTXRenderer*>(Renderers[i]);
                                 if(PathTracer)
@@ -596,6 +611,12 @@ void vulkanApp::RenderGUI()
                                     PathTracer->UpdateMaterial(Scene->InstancesPointers[CurrentSceneItemIndex]->Mesh->Material->Index);
                                     PathTracer->ResetAccumulation=true;
                                 }
+                            }
+                            pathTraceComputeRenderer *PathTracer = dynamic_cast<pathTraceComputeRenderer*>(Renderers[i]);
+                            if(PathTracer)
+                            {
+                                PathTracer->UpdateMaterial(Scene->InstancesPointers[CurrentSceneItemIndex]->Mesh->Material->Index);
+                                PathTracer->ResetAccumulation=true;
                             }
                         }
                     }

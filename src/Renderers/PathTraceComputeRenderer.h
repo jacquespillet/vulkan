@@ -35,14 +35,21 @@ public:
         buffer InstanceBuffer;
         buffer BVHBuffer;
         buffer IndicesBuffer;
+
         
         //TLAS
         buffer TLASInstancesBuffer;
+        buffer TLASInstancesStagingBuffer;
         buffer TLASNodesBuffer;
+        buffer TLASNodesStagingBuffer;
         
         buffer MaterialBuffer;
+        buffer MaterialStagingBuffer;
+        VkCommandBuffer CopyCommand;
 
         buffer UBO;
+
+        VkCommandPool CommandPool;
     } VulkanObjects;
 
     
@@ -84,6 +91,7 @@ public:
 
     void UpdateCamera();
     void UpdateTLAS(uint32_t InstanceIndex);
+    void UpdateMaterial(size_t Index);
 private:
 
     std::vector<mesh*> Meshes;

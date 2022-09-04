@@ -149,7 +149,7 @@ bool SampleDiffuseBRDF(vec2 u, vec3 N, vec3 V, inout vec3 RayDirection, inout ve
 	return true;
 }
 
-float GetBrdfProbability(rayPayload RayPayload, vec3 V, vec3 ShadingNormal) {
+float GetBRDFProbability(rayPayload RayPayload, vec3 V, vec3 ShadingNormal) {
 	//We compute the fresnel using the shading normal as we don't have H yet.
 	float SpecularF0 = Luminance(BaseColorToSpecularF0(RayPayload.Color, RayPayload.Metallic));
 	float Fresnel = clamp(Luminance(EvalFresnelSchlick(vec3(SpecularF0), ShadowedF90(vec3(SpecularF0)), max(0.0f, dot(V, ShadingNormal)))), 0, 1);
