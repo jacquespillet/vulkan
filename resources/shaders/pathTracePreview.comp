@@ -2,6 +2,10 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_nonuniform_qualifier : enable
 
+
+#define DIFFUSE_TYPE 1
+#define SPECULAR_TYPE 2
+
 layout (local_size_x = 16, local_size_y = 16) in;
 
 #include "Common/random.glsl"
@@ -172,8 +176,14 @@ struct rayPayload
 	uint MaterialIndex;
     
     float U, V;
-    vec2 padding;
-};
+    float Metallic;
+    float padding;
+} RayPayload;
+
+
+#include "rtx/BRDF.glsl"
+#include "Common/Defines.glsl"
+
 
 float RayAABBIntersection(ray Ray, vec3 AABBMin, vec3 AABBMax, inout  rayPayload RayPayload)
 {
@@ -352,57 +362,206 @@ void main()
     Ray.Direction = (SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0)).xyz;
     Ray.InverseDirection = 1 / Ray.Direction;
 
-    rayPayload PayLoad;
-    PayLoad.Distance = 1e30f;
-    // IntersectInstance(Ray, PayLoad, 0);
-    // IntersectBVH(Ray, PayLoad, 0,27);
-    IntersectTLAS(Ray,PayLoad);
-    
-    vec3 SamplesColor = vec3(0);
-    if(PayLoad.Distance < 1e30f)
-    {
-        material Material = MaterialData.Data[PayLoad.MaterialIndex];
-        triangleExtraData ExtraData = TriangleExBuffer.TrianglesEx[PayLoad.PrimitiveIndex];
-        
-        vec2 UV = 
-            ExtraData.UV1 * PayLoad.U + 
-            ExtraData.UV2 * PayLoad.V +
-            ExtraData.UV0 * (1 - PayLoad.U - PayLoad.V);
-        vec3 Normal = 
-            ExtraData.Normal1 * PayLoad.U + 
-            ExtraData.Normal2 * PayLoad.V +
-            ExtraData.Normal0 * (1 - PayLoad.U - PayLoad.V);
-                    
+    // rayPayload RayPayload;
+    RayPayload.Distance = 1e30f;
 
-        vec3 BaseColor = Material.BaseColor;
-        if(Material.BaseColorTextureID >=0 && Material.UseBaseColorMap>0)
-        {
-            vec4 TextureColor = texture(textures[Material.BaseColorTextureID], UV);
-            TextureColor.rgb *= pow(TextureColor.rgb, vec3(2.2));
-            BaseColor *= TextureColor.rgb;
+		if(ubo.ShouldAccumulate>0)
+		{
+			RayPayload.RandomState = uint(uint(gl_GlobalInvocationID.x) * uint(1973) + uint(gl_GlobalInvocationID.y) * uint(9277) + uint(ubo.currentSamplesCount) * uint(26699)) | uint(1); 
+			RayPayload.Depth=0;
+			vec3 SamplesColor = vec3(0.0);
+			
+			if(ubo.currentSamplesCount < ubo.MaxSamples)
+			{
+                
+				for(uint i=0; i<ubo.samplesPerFrame; i++)
+				{
+					vec2 jitter = vec2(RandomUnilateral(RayPayload.RandomState), RandomUnilateral(RayPayload.RandomState)) - 0.5;
+					Ray.Origin = (SceneUbo.Data.InvView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+					vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_GlobalInvocationID.xy) + jitter) / dim * 2.0 - 1.0, 0.0, 1.0);
+					Ray.Direction = (SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0)).xyz;
+					
+					vec3 V = -Ray.Direction.xyz;
+					vec3 Attenuation = vec3(1.0);
+					vec3 Radiance = vec3(0);
+					float alpha = 1.0;
+					
+
+					for(int j=0; j<ubo.rayBounces; j++)
+					{
+						IntersectTLAS(Ray,RayPayload);
+						//Sky
+						{
+							if(RayPayload.Distance == 1e30f)
+							{
+								if(SceneUbo.Data.BackgroundType ==BACKGROUND_TYPE_CUBEMAP)
+								{
+									// vec3 SkyDirection = Direction.xyz;
+									// SkyDirection.y *=-1;
+									// Radiance += Attenuation * SceneUbo.Data.BackgroundIntensity * texture(IrradianceMap, SkyDirection).rgb;
+									Radiance += Attenuation * SceneUbo.Data.BackgroundIntensity * SceneUbo.Data.BackgroundColor;
+								}
+								else if(SceneUbo.Data.BackgroundType ==BACKGROUND_TYPE_COLOR)
+								{
+									Radiance += Attenuation * SceneUbo.Data.BackgroundIntensity * SceneUbo.Data.BackgroundColor;
+								}
+								break;
+							}
+						}
+
+                        if(RayPayload.Distance < 1e30f)
+                        {
+                            material Material = MaterialData.Data[RayPayload.MaterialIndex];
+                            triangleExtraData ExtraData = TriangleExBuffer.TrianglesEx[RayPayload.PrimitiveIndex];
+                            vec2 UV = 
+                                ExtraData.UV1 * RayPayload.U + 
+                                ExtraData.UV2 * RayPayload.V +
+                                ExtraData.UV0 * (1 - RayPayload.U - RayPayload.V);
+                            
+	                        RayPayload.Roughness = Material.Roughness;
+                            RayPayload.Metallic = Material.Metallic;
+                            
+                            RayPayload.Color = Material.BaseColor;
+                            if(Material.BaseColorTextureID >=0 && Material.UseBaseColorMap>0)
+                            {
+                                vec4 TextureColor = texture(textures[Material.BaseColorTextureID], UV);
+                                TextureColor.rgb *= pow(TextureColor.rgb, vec3(2.2));
+                                RayPayload.Color *= TextureColor.rgb;
+                            }
+
+                            // Roughness / metallic
+                            RayPayload.Roughness = Material.Roughness;
+                            RayPayload.Metallic = Material.Metallic;
+                            if(Material.MetallicRoughnessTextureID >=0 && Material.UseMetallicRoughnessMap>0)
+                            {
+                                vec2 RoughnessMetallic = texture(textures[Material.MetallicRoughnessTextureID], UV).rg;
+                                RayPayload.Metallic *= RoughnessMetallic.r;
+                                RayPayload.Roughness *= RoughnessMetallic.g;
+                            }
+                            
+                            
+                            // Emission
+                            RayPayload.Emission = Material.Emission * Material.EmissiveStrength;
+                            if(Material.EmissionMapTextureID >=0 && Material.UseEmissionMap>0)
+                            {
+                                RayPayload.Emission *= texture(textures[Material.EmissionMapTextureID], UV).rgb;
+                            }
+                                                        
+                            
+                            RayPayload.Normal = 
+                                ExtraData.Normal1 * RayPayload.U + 
+                                ExtraData.Normal2 * RayPayload.V +
+                                ExtraData.Normal0 * (1 - RayPayload.U - RayPayload.V);                           
+                        }
+
+						
+						Radiance += Attenuation * RayPayload.Emission;
+
+						//Sample lights
+						if(SceneUbo.Data.BackgroundType ==BACKGROUND_TYPE_DIRLIGHT)
+						{
+							// Prepare data needed to evaluate the light
+							vec3 LightDir= normalize(-SceneUbo.Data.LightDirection);;
+							vec3 LightTangent   = normalize(cross(LightDir, vec3(0.0f, 1.0f, 0.0f)));
+							vec3 LightBitangent = normalize(cross(LightTangent, LightDir));
+							float Random1 = RandomUnilateral(RayPayload.RandomState);
+							float Random2 = RandomUnilateral(RayPayload.RandomState);
+
+							float PointRadius = SceneUbo.Data.LightRadius * Random1;
+							float PointAngle  = Random2 * 2.0f * PI;
+							vec2  DiskPoint   = vec2(PointRadius * cos(PointAngle), PointRadius * sin(PointAngle));    
+							vec3 L = normalize(LightDir + DiskPoint.x * LightTangent + DiskPoint.y * LightBitangent);
+
+							ray ShadowRay;
+                            ShadowRay.Origin = Ray.Origin + RayPayload.Distance * Ray.Direction;
+                            ShadowRay.Direction = L;
+                            rayPayload ShadowRayPayload;
+                            ShadowRayPayload.Distance = 1e30f;
+                            IntersectTLAS(ShadowRay,ShadowRayPayload);
+
+                            if(ShadowRayPayload.Distance == 1e30f)
+							{
+								Radiance += Attenuation * EvalCombinedBRDF(RayPayload.Normal, L, V, RayPayload.Color, RayPayload.Metallic) * SceneUbo.Data.BackgroundIntensity * SceneUbo.Data.BackgroundColor;
+							}
+						}
+
+
+						if(j == ubo.rayBounces-1) break;
+						
+						// Russian roulette
+						{
+							if (j >= 3)
+							{
+								float q = min(max(Attenuation.x, max(Attenuation.y, Attenuation.z)) + 0.001, 0.95);
+								if (RandomUnilateral(RayPayload.RandomState) > q)
+									break;
+								Attenuation /= q;
+							}
+						}
+	
+						//Eval brdf
+
+                        {
+							int brdfType = DIFFUSE_TYPE;
+							if (RayPayload.Metallic == 1.0f && RayPayload.Roughness == 0.0f) {
+								brdfType = SPECULAR_TYPE;
+							} 
+                            else 
+                            {
+								float brdfProbability = GetBrdfProbability(RayPayload, V, RayPayload.Normal);
+
+								if (RandomUnilateral(RayPayload.RandomState) < brdfProbability) {
+									brdfType = SPECULAR_TYPE;
+									Attenuation /= brdfProbability;
+								} else {
+									brdfType = DIFFUSE_TYPE;
+									Attenuation /= (1.0f - brdfProbability);
+								}
+							}
+
+							vec3 brdfWeight;
+							vec2 Xi = vec2(RandomUnilateral(RayPayload.RandomState),RandomUnilateral(RayPayload.RandomState));
+							vec3 ScatterDir = vec3(0);
+							
+							if(brdfType == DIFFUSE_TYPE)
+							{
+								if (!SampleDiffuseBRDF(Xi, RayPayload.Normal, V,  ScatterDir, brdfWeight)) {
+									break;
+								}
+							}
+							else if(brdfType == SPECULAR_TYPE)
+							{
+								if (!SampleSpecularBRDF(Xi, RayPayload.Normal, V,  ScatterDir, brdfWeight)) {
+									break;
+								}
+							}
+
+							//the weights already contains color * brdf * cosine term / pdf
+							Attenuation *= brdfWeight;						
+							Ray.Origin = Ray.Origin + RayPayload.Distance * Ray.Direction;
+							Ray.Direction = ScatterDir;
+                            RayPayload.Distance = 1e30f;
+						} 
+					}
+					SamplesColor += Radiance;			
+				}
+			}
+            //Load previous frame
+            vec3 LastFrameColor = vec3(0);
+            if(ubo.samplesPerFrame != ubo.currentSamplesCount)
+            {
+                LastFrameColor = imageLoad(AccumulationImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
+            }
+
+            //Add new color to previous color, and add to accumulation buffer
+            vec3 AccumulatedColor = LastFrameColor + SamplesColor;
+            imageStore(AccumulationImage, ivec2(gl_GlobalInvocationID.xy), vec4(AccumulatedColor, 0));
+
+            //Average, tonemap and set output color
+            vec3 Color = AccumulatedColor / (ubo.currentSamplesCount);
+            Color = toneMap(Color, SceneUbo.Data.Exposure);
+            Color = clamp(Color, 0, 1);
+            imageStore(FinalImage, ivec2(gl_GlobalInvocationID.xy), vec4(Color, 0));    
         }
-
-
-        SamplesColor += BaseColor;
-        SamplesColor = toneMap(SamplesColor, SceneUbo.Data.Exposure);        
-    }
-
-
-    //Load previous frame
-    vec3 LastFrameColor = vec3(0);
-    if(ubo.samplesPerFrame != ubo.currentSamplesCount)
-    {
-        LastFrameColor = imageLoad(AccumulationImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
-    }
-
-    //Add new color to previous color, and add to accumulation buffer
-    vec3 AccumulatedColor = LastFrameColor + SamplesColor;
-    imageStore(AccumulationImage, ivec2(gl_GlobalInvocationID.xy), vec4(AccumulatedColor, 0));
-
-    //Average, tonemap and set output color
-    vec3 Color = AccumulatedColor / ubo.currentSamplesCount;
-    Color = toneMap(Color, SceneUbo.Data.Exposure);
-    Color = clamp(Color, 0, 1);
-    imageStore(FinalImage, ivec2(gl_GlobalInvocationID.xy), vec4(Color, 0));    
 }
 

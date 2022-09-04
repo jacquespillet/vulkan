@@ -35,7 +35,8 @@ void pathTraceComputeRenderer::Render()
     {
         UniformData.CurrentSampleCount += UniformData.SamplersPerFrame;
     }
-
+    UpdateUniformBuffers();
+    
     VK_CALL(App->VulkanObjects.Swapchain->AcquireNextImage(App->VulkanObjects.Semaphores.PresentComplete, &App->VulkanObjects.CurrentBuffer));
     
     //Fill command buffer
@@ -98,7 +99,7 @@ void pathTraceComputeRenderer::Render()
     VK_CALL(App->VulkanObjects.Swapchain->QueuePresent(App->VulkanObjects.Queue, App->VulkanObjects.CurrentBuffer, App->VulkanObjects.Semaphores.RenderComplete));
     VK_CALL(vkQueueWaitIdle(App->VulkanObjects.Queue));
 
-    UpdateUniformBuffers();
+    
 }
 
 
@@ -374,6 +375,7 @@ void pathTraceComputeRenderer::CreateCommandBuffers()
 
 void pathTraceComputeRenderer::RenderGUI()
 {
+    ImGui::Text("Sample Count : %d / %d", UniformData.CurrentSampleCount, UniformData.MaxSamples);
 }
 
 void pathTraceComputeRenderer::Resize(uint32_t Width, uint32_t Height) 

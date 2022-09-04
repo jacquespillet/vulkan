@@ -135,13 +135,12 @@ bool SampleDiffuseBRDF(vec2 u, vec3 N, vec3 V, inout vec3 RayDirection, inout ve
 
 	vec3 T, B;
 	ONB(N, T, B);
-	vec3 Vlocal = vec3(dot(V, T), dot(V, B), dot(V, N));
 	
 	//Sample a vector in hemisphere
 	vec3 RayDirectionLocal = SampleHemisphere(u);
 	
 	SampleWeight = BaseColorToDiffuseReflectance(RayPayload.Color, RayPayload.Metallic);
-	 
+
 	if (Luminance(SampleWeight) == 0.0f) return false;
 	
 	//Transform back

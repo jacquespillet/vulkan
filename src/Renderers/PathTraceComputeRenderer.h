@@ -72,7 +72,7 @@ public:
     {
         uint32_t VertexSize;
         uint32_t CurrentSampleCount=0;
-        int SamplersPerFrame=4;
+        int SamplersPerFrame=1;
         int RayBounces=5;
 
         int MaxSamples = 8192;
