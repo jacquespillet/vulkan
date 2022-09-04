@@ -8,7 +8,10 @@ void resources::AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, s
     std::vector<VkDescriptorSetLayoutBinding> SetLayoutBindings(Descriptors.size());
     for(uint32_t i=0; i<Descriptors.size(); i++)
     {
-        SetLayoutBindings[i] = vulkanTools::DescriptorSetLayoutBinding(Descriptors[i].DescriptorType, Descriptors[i].Stage, i);
+        if(Descriptors[i].Type == descriptor::ImageArray) 
+            SetLayoutBindings[i] = vulkanTools::DescriptorSetLayoutBinding(Descriptors[i].DescriptorType, Descriptors[i].Stage, i, Descriptors[i].DescriptorImageInfos.size());
+        else 
+            SetLayoutBindings[i] = vulkanTools::DescriptorSetLayoutBinding(Descriptors[i].DescriptorType, Descriptors[i].Stage, i);
     }  
     VkDescriptorSetLayoutCreateInfo SetLayoutCreateInfo = vulkanTools::BuildDescriptorSetLayoutCreateInfo(SetLayoutBindings.data(), static_cast<uint32_t>(SetLayoutBindings.size()));
     DescriptorSetLayouts->Add(Name, SetLayoutCreateInfo);
@@ -39,8 +42,12 @@ void resources::AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, s
     for(uint32_t i=0; i<Descriptors.size(); i++)
     {
         descriptor::type Type = Descriptors[i].Type;
-        if(Type == descriptor::Image) { WriteDescriptorSets[i] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[i].DescriptorType, i, &Descriptors[i].DescriptorImageInfo); }
-        else if(Type == descriptor::Uniform || Type == descriptor::Storage) { WriteDescriptorSets[i] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[i].DescriptorType, i, &Descriptors[i].DescriptorBufferInfo);}
+        if(Type == descriptor::Image) { 
+            WriteDescriptorSets[i] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[i].DescriptorType, i, &Descriptors[i].DescriptorImageInfo); 
+        }
+        else if(Type == descriptor::Uniform || Type == descriptor::Storage) { 
+            WriteDescriptorSets[i] = vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, Descriptors[i].DescriptorType, i, &Descriptors[i].DescriptorBufferInfo);
+        }
         else if(Type == descriptor::accelerationStructure) { 
             WriteDescriptorSets[i] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
             WriteDescriptorSets[i].pNext = &Descriptors[i].DescriptorASInfo;
@@ -48,6 +55,15 @@ void resources::AddDescriptorSet(vulkanDevice *VulkanDevice, std::string Name, s
             WriteDescriptorSets[i].dstBinding=i;
             WriteDescriptorSets[i].descriptorCount=1;
             WriteDescriptorSets[i].descriptorType=VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;            
+        }
+        else if(Type == descriptor::ImageArray)
+        {
+            WriteDescriptorSets[i] = 
+                        vulkanTools::BuildWriteDescriptorSet(TargetDescriptorSet, 
+                                                             Descriptors[i].DescriptorType, 
+                                                             i, 
+                                                             Descriptors[i].DescriptorImageInfos.data(), 
+                                                             static_cast<uint32_t>(Descriptors[i].DescriptorImageInfos.size()));
         }
     }
     vkUpdateDescriptorSets(VulkanDevice->Device, (uint32_t)WriteDescriptorSets.size(), WriteDescriptorSets.data(), 0, nullptr);        

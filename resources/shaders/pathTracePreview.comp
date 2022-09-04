@@ -1,10 +1,12 @@
 #version 460
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_nonuniform_qualifier : enable
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
 #include "Common/random.glsl"
 #include "Common/Material.glsl"
+#include "Common/Tonemapping.glsl"
 
 struct triangle
 {
@@ -120,6 +122,9 @@ layout (set=0, binding = 8) readonly buffer materialData
     material Data[];
 } MaterialData;
 
+layout(set = 0, binding = 9) uniform sampler2D[] textures;
+
+
 #include "Common/SceneUBO.glsl"
 layout (set=1, binding = 0) uniform UBO 
 {
@@ -168,7 +173,7 @@ float RayAABBIntersection(ray Ray, vec3 AABBMin, vec3 AABBMax, inout  rayPayload
     else return 1e30f;    
 }
 
-void RayTriangleInteresection(ray Ray, triangle Triangle, inout rayPayload RayPayload, uint InstanceIndex, uint PrimitiveIndex)
+void RayTriangleInteresection(ray Ray, triangle Triangle, inout rayPayload RayPayload, uint InstanceIndex, uint PrimitiveIndex, uint MaterialIndex)
 {
     vec3 Edge1 = Triangle.v1 - Triangle.v0;
     vec3 Edge2 = Triangle.v2 - Triangle.v0;
@@ -193,6 +198,7 @@ void RayTriangleInteresection(ray Ray, triangle Triangle, inout rayPayload RayPa
         RayPayload.InstanceIndex = InstanceIndex;
         RayPayload.Distance = t;
         RayPayload.PrimitiveIndex = PrimitiveIndex;
+        RayPayload.MaterialIndex = MaterialIndex;
     }
 }
 
@@ -209,6 +215,7 @@ void IntersectBVH(ray Ray, inout rayPayload RayPayload, uint InstanceIndex, uint
     uint TriangleStartInx = IndexData.triangleDataStartInx;
     uint IndexStartInx = IndexData.IndicesDataStartInx;
     uint MaterialIndex = IndexData.MaterialIndex;
+    
         
 
     while(t)
@@ -222,8 +229,8 @@ void IntersectBVH(ray Ray, inout rayPayload RayPayload, uint InstanceIndex, uint
                                          TriangleBuffer.Triangles[Index], 
                                          RayPayload, 
                                          InstanceIndex, 
-                                         Index);
-                RayPayload.MaterialIndex = MaterialIndex;
+                                         Index,
+                                         MaterialIndex);
             }
             if(StackPointer==0) break;
             else NodeInx = Stack[--StackPointer];
@@ -336,34 +343,34 @@ void main()
     // IntersectInstance(Ray, PayLoad, 0);
     // IntersectBVH(Ray, PayLoad, 0,27);
     IntersectTLAS(Ray,PayLoad);
-    imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv,0,1));
+    imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(0,0,0,1));
     if(PayLoad.Distance < 1e30f)
     {
         material Material = MaterialData.Data[PayLoad.MaterialIndex];
         triangleExtraData ExtraData = TriangleExBuffer.TrianglesEx[PayLoad.PrimitiveIndex];
         
-        // vulkanTexture *DiffuseTexture = &Material->Diffuse;
-        
-        // bvh *BVH =  Instances[RayPayload.InstanceIndex].Meshes->at(Instances[RayPayload.InstanceIndex].MeshIndex)->BVH;
-
-        // glm::vec2 UV = 
-        //     BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV1 * RayPayload.U + 
-        //     BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV2 * RayPayload.V +
-        //     BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV0 * (1 - RayPayload.U - RayPayload.V);
-
+        vec2 UV = 
+            ExtraData.UV1 * PayLoad.U + 
+            ExtraData.UV2 * PayLoad.V +
+            ExtraData.UV0 * (1 - PayLoad.U - PayLoad.V);
+        vec3 Normal = 
+            ExtraData.Normal1 * PayLoad.U + 
+            ExtraData.Normal2 * PayLoad.V +
+            ExtraData.Normal0 * (1 - PayLoad.U - PayLoad.V);
+                    
         vec3 FinalColor = vec3(0);
 
         vec3 BaseColor = Material.BaseColor;
-        // if(MatData->BaseColorTextureID >=0 && MatData->UseBaseColor>0)
-        // {
-        //     glm::vec4 TextureColor = DiffuseTexture->Sample(UV);
-            
-        //     TextureColor *= glm::pow(TextureColor, glm::vec4(2.2f));
-        //     BaseColor *= glm::vec3(TextureColor);                    
-        // }                
+        if(Material.BaseColorTextureID >=0 && Material.UseBaseColorMap>0)
+        {
+            vec4 TextureColor = texture(textures[Material.BaseColorTextureID], UV);
+            TextureColor.rgb *= pow(TextureColor.rgb, vec3(2.2));
+            BaseColor *= TextureColor.rgb;
+        }
+
 
         FinalColor += BaseColor;
-        // FinalColor = toneMap(FinalColor, App->Scene->UBOSceneMatrices.Exposure);
+        FinalColor = toneMap(FinalColor, SceneUbo.Data.Exposure);
         
         imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(FinalColor,1));
     }

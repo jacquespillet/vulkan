@@ -64,8 +64,8 @@ public:
     resources Resources;
     
 
-    uint32_t previewWidth = 128;
-    uint32_t previewHeight = 128;
+    uint32_t previewWidth = 1024;
+    uint32_t previewHeight = 1024;
 
     uint32_t SamplesPerFrame=1;
     uint32_t TotalSamples = 16000;

@@ -84,7 +84,7 @@ REM --------------------
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybridComposition.frag -o resources/shaders/spv/hybridComposition.frag.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 %VULKAN_SDK%/Bin/glslc.exe resources/shaders/hybridGBuffer.frag -o resources/shaders/spv/hybridGBuffer.frag.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 
-%VULKAN_SDK%/Bin/glslc.exe resources/shaders/pathTracePreview.comp -o resources/shaders/spv/pathTracePreview.comp.spv
+%VULKAN_SDK%/Bin/glslc.exe resources/shaders/pathTracePreview.comp -o resources/shaders/spv/pathTracePreview.comp.spv --target-spv=spv1.4  --target-env=vulkan1.2 
 
 set debugFlag= -O2
 if %debug%==1 (

@@ -261,6 +261,7 @@ struct descriptor
     enum type
     {
         Image,
+        ImageArray,
         Uniform,
         Storage,
         accelerationStructure
@@ -268,6 +269,7 @@ struct descriptor
     VkImageView ImageView;
     VkSampler Sampler;
     VkDescriptorImageInfo DescriptorImageInfo;
+    std::vector<VkDescriptorImageInfo> DescriptorImageInfos;
     VkDescriptorBufferInfo DescriptorBufferInfo;
     VkWriteDescriptorSetAccelerationStructureKHR DescriptorASInfo;
     VkDescriptorType DescriptorType;
@@ -283,6 +285,12 @@ struct descriptor
                 Stage(Stage), DescriptorImageInfo(Descriptor), DescriptorType(DescriptorType)
     {
         Type = Image;
+    }
+    
+    descriptor(VkShaderStageFlags Stage, const std::vector<VkDescriptorImageInfo>& Descriptor, VkDescriptorType DescriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) :
+                Stage(Stage), DescriptorImageInfos(Descriptor), DescriptorType(DescriptorType)
+    {
+        Type = ImageArray;
     }
     
     descriptor(VkShaderStageFlags Stage, VkDescriptorBufferInfo DescriptorBufferInfo, bool storageBuffer=false) : 

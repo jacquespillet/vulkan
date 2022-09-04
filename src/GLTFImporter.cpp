@@ -465,6 +465,7 @@ namespace GLTFImporter
 
                 Meshes[BaseIndex + j].IndexBase = GIndexBase;
                 Meshes[BaseIndex + j].Material = &Materials[GLTFPrimitive.material];
+                Meshes[BaseIndex + j].MaterialIndex = GLTFPrimitive.material;
                 InstanceMapping[MeshIndex][j] = BaseIndex + j;
 
                 uint32_t VertexBase = (uint32_t) GVertices.size();

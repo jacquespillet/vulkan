@@ -188,8 +188,8 @@ void pathTraceComputeRenderer::SetupDescriptorPool()
 
 void pathTraceComputeRenderer::Setup()
 {
-    previewWidth = App->Width / 10;
-    previewHeight = App->Height / 10;
+    previewWidth = App->Width / 2;
+    previewHeight = App->Height / 2;
 
     SetupDescriptorPool();
     Resources.Init(VulkanDevice, VulkanObjects.DescriptorPool, App->VulkanObjects.TextureLoader);
@@ -204,7 +204,7 @@ void pathTraceComputeRenderer::Setup()
     {
         Meshes.push_back(new mesh(App->Scene->Meshes[i].Indices,
                                   App->Scene->Meshes[i].Vertices,
-                                  (uint32_t)App->Scene->Meshes[i].Vertices[0].MatInx.x));
+                                  App->Scene->Meshes[i].MaterialIndex));
     }
     for(size_t i=0; i<App->Scene->InstancesPointers.size(); i++)
     {
@@ -290,6 +290,13 @@ void pathTraceComputeRenderer::Setup()
     vulkanTools::CreateBuffer(VulkanDevice, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
                               &VulkanObjects.MaterialBuffer, AllMaterials.size() * sizeof(materialData), AllMaterials.data());
+
+    std::vector<VkDescriptorImageInfo> ImageInfos(App->Scene->Resources.Textures->Resources.size()); 
+    for(auto &Texture : App->Scene->Resources.Textures->Resources)
+    {
+		ImageInfos[Texture.second.Index] = Texture.second.Descriptor;
+    }
+
     
     VkDeviceQueueCreateInfo queueCreateInfo = {};
     queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -300,6 +307,10 @@ void pathTraceComputeRenderer::Setup()
 
     VkSemaphoreCreateInfo SemaphoreCreateInfo = vulkanTools::BuildSemaphoreCreateInfo();
     VK_CALL(vkCreateSemaphore(VulkanDevice->Device, &SemaphoreCreateInfo, nullptr, &VulkanObjects.PreviewSemaphore));    
+
+    // WriteDescriptorSets.push_back(
+    //     vulkanTools::BuildWriteDescriptorSet(DescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, ImageInfos.data(), static_cast<uint32_t>(ImageInfos.size()))
+    // );
 
 	//Preview descriptor set
 	{
@@ -313,7 +324,8 @@ void pathTraceComputeRenderer::Setup()
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.IndexDataBuffer.VulkanObjects.Descriptor, true),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.TLASInstancesBuffer.VulkanObjects.Descriptor, true),
             descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.TLASNodesBuffer.VulkanObjects.Descriptor, true),
-            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.MaterialBuffer.VulkanObjects.Descriptor, true)
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, VulkanObjects.MaterialBuffer.VulkanObjects.Descriptor, true),
+            descriptor(VK_SHADER_STAGE_COMPUTE_BIT, ImageInfos)
 		};
 
 		std::vector<VkDescriptorSetLayout> AdditionalDescriptorSetLayouts =
