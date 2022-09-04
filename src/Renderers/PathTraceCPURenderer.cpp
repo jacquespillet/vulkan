@@ -621,7 +621,8 @@ void pathTraceCPURenderer::Setup()
     for(size_t i=0; i<App->Scene->Meshes.size(); i++)
     {
         Meshes.push_back(new mesh(App->Scene->Meshes[i].Indices,
-                    App->Scene->Meshes[i].Vertices));
+                                  App->Scene->Meshes[i].Vertices,
+                                  (uint32_t)App->Scene->Meshes[i].Vertices[0].MatInx.x));
     }
     for(size_t i=0; i<App->Scene->InstancesPointers.size(); i++)
     {

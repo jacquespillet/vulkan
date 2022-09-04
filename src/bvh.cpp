@@ -36,7 +36,7 @@ void aabb::Grow(aabb &AABB)
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
-mesh::mesh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices)
+mesh::mesh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices, uint32_t MaterialIndex) : MaterialIndex(MaterialIndex)
 {
     uint32_t AddedTriangles=0;
 

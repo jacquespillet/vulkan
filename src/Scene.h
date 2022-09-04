@@ -195,6 +195,7 @@ struct sceneMesh
     uint32_t IndexBase;
 
     sceneMaterial *Material;
+    uint32_t MaterialIndex;
 
     glm::vec3 Centroid;
 

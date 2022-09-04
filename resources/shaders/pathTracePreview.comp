@@ -4,6 +4,7 @@
 layout (local_size_x = 16, local_size_y = 16) in;
 
 #include "Common/random.glsl"
+#include "Common/Material.glsl"
 
 struct triangle
 {
@@ -26,7 +27,7 @@ struct triangleExtraData
     vec3 Normal2; 
     float padding2;
     vec2 UV0, UV1, UV2; 
-    vec2 padding3;    
+    vec2 padding3;
 };
 struct bvhNode
 {
@@ -44,7 +45,7 @@ struct indexData
     uint triangleDataStartInx;
     uint IndicesDataStartInx;
     uint BVHNodeDataStartInx;
-    uint padding;
+    uint MaterialIndex;
 };
 
 struct aabb
@@ -114,6 +115,11 @@ layout (set=0, binding = 7) readonly buffer tlasNodes
     tlasNode Nodes[];
 } TLASNodes;
 
+layout (set=0, binding = 8) readonly buffer materialData
+{
+    material Data[];
+} MaterialData;
+
 #include "Common/SceneUBO.glsl"
 layout (set=1, binding = 0) uniform UBO 
 {
@@ -133,11 +139,21 @@ struct ray
 struct rayPayload
 {
     float Distance;
+    vec3 Emission;
+    
+    vec3 Color;
+	float Roughness;
+    
     uint InstanceIndex;
     uint PrimitiveIndex;
+    uint RandomState;
+	uint Depth;
+    
+	vec3 Normal;
+	uint MaterialIndex;
+    
     float U, V;
-    // vec3 Emission;
-    // uint RandomState;
+    vec2 padding;
 };
 
 float RayAABBIntersection(ray Ray, vec3 AABBMin, vec3 AABBMax, inout  rayPayload RayPayload)
@@ -189,12 +205,10 @@ void IntersectBVH(ray Ray, inout rayPayload RayPayload, uint InstanceIndex, uint
     
     // int MeshIndex=5;
     indexData IndexData = IndexDataBuffer.IndexData[MeshIndex];
-    // uint NodeStartInx = 0;
-    // uint TriangleStartInx = 0;
-    // uint IndexStartInx = 0;
     uint NodeStartInx = IndexData.BVHNodeDataStartInx;
     uint TriangleStartInx = IndexData.triangleDataStartInx;
     uint IndexStartInx = IndexData.IndicesDataStartInx;
+    uint MaterialIndex = IndexData.MaterialIndex;
         
 
     while(t)
@@ -203,12 +217,13 @@ void IntersectBVH(ray Ray, inout rayPayload RayPayload, uint InstanceIndex, uint
         {
             for(uint i=0; i<BVHBuffer.Nodes[NodeStartInx + NodeInx].TriangleCount; i++)
             {
-                uint Index = TriangleStartInx + IndicesBuffer.Indices[IndexStartInx + BVHBuffer.Nodes[NodeStartInx + NodeInx].LeftChildOrFirst] + i;
+                uint Index = TriangleStartInx + IndicesBuffer.Indices[IndexStartInx + BVHBuffer.Nodes[NodeStartInx + NodeInx].LeftChildOrFirst + i] ;
                 RayTriangleInteresection(Ray, 
                                          TriangleBuffer.Triangles[Index], 
                                          RayPayload, 
                                          InstanceIndex, 
                                          Index);
+                RayPayload.MaterialIndex = MaterialIndex;
             }
             if(StackPointer==0) break;
             else NodeInx = Stack[--StackPointer];
@@ -218,8 +233,8 @@ void IntersectBVH(ray Ray, inout rayPayload RayPayload, uint InstanceIndex, uint
         uint Child1 = BVHBuffer.Nodes[NodeStartInx + NodeInx].LeftChildOrFirst;
         uint Child2 = BVHBuffer.Nodes[NodeStartInx + NodeInx].LeftChildOrFirst+1;
 
-        float Dist1 = RayAABBIntersection(Ray, BVHBuffer.Nodes[Child1].AABBMin, BVHBuffer.Nodes[Child1].AABBMax, RayPayload);
-        float Dist2 = RayAABBIntersection(Ray, BVHBuffer.Nodes[Child2].AABBMin, BVHBuffer.Nodes[Child2].AABBMax, RayPayload);
+        float Dist1 = RayAABBIntersection(Ray, BVHBuffer.Nodes[Child1 + NodeStartInx].AABBMin, BVHBuffer.Nodes[Child1 + NodeStartInx].AABBMax, RayPayload);
+        float Dist2 = RayAABBIntersection(Ray, BVHBuffer.Nodes[Child2 + NodeStartInx].AABBMin, BVHBuffer.Nodes[Child2 + NodeStartInx].AABBMax, RayPayload);
         if(Dist1 > Dist2) {
             float tmpDist = Dist2;
             Dist2 = Dist1;
@@ -267,10 +282,8 @@ void IntersectTLAS(ray Ray, inout rayPayload RayPayload)
         //If we hit the leaf, check intersection with the bvhs
         if(TLASNodes.Nodes[NodeInx].LeftRight==0)
         {
-            // bvhInstance Instance = TLASInstancesBuffer.Instances[0];
             IntersectInstance(Ray, RayPayload, TLASNodes.Nodes[NodeInx].BLAS);
-            // (*BLAS)[Node->BLAS].Intersect(Ray, RayPayload);
-
+            
             if(StackPtr == 0) break;
             else NodeInx = Stack[--StackPtr];
             continue;
@@ -321,14 +334,38 @@ void main()
     rayPayload PayLoad;
     PayLoad.Distance = 1e30f;
     // IntersectInstance(Ray, PayLoad, 0);
-    IntersectBVH(Ray, PayLoad, 0,0);
-    // IntersectTLAS(Ray,PayLoad);
+    // IntersectBVH(Ray, PayLoad, 0,27);
+    IntersectTLAS(Ray,PayLoad);
     imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv,0,1));
     if(PayLoad.Distance < 1e30f)
     {
-        // float c = RandomUnilateral(PayLoad.InstanceIndex);
-        float c=1;
-        imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(c,c,c,1));
+        material Material = MaterialData.Data[PayLoad.MaterialIndex];
+        triangleExtraData ExtraData = TriangleExBuffer.TrianglesEx[PayLoad.PrimitiveIndex];
+        
+        // vulkanTexture *DiffuseTexture = &Material->Diffuse;
+        
+        // bvh *BVH =  Instances[RayPayload.InstanceIndex].Meshes->at(Instances[RayPayload.InstanceIndex].MeshIndex)->BVH;
+
+        // glm::vec2 UV = 
+        //     BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV1 * RayPayload.U + 
+        //     BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV2 * RayPayload.V +
+        //     BVH->Mesh->TrianglesExtraData[RayPayload.PrimitiveIndex].UV0 * (1 - RayPayload.U - RayPayload.V);
+
+        vec3 FinalColor = vec3(0);
+
+        vec3 BaseColor = Material.BaseColor;
+        // if(MatData->BaseColorTextureID >=0 && MatData->UseBaseColor>0)
+        // {
+        //     glm::vec4 TextureColor = DiffuseTexture->Sample(UV);
+            
+        //     TextureColor *= glm::pow(TextureColor, glm::vec4(2.2f));
+        //     BaseColor *= glm::vec3(TextureColor);                    
+        // }                
+
+        FinalColor += BaseColor;
+        // FinalColor = toneMap(FinalColor, App->Scene->UBOSceneMatrices.Exposure);
+        
+        imageStore(shadowImage, ivec2(gl_GlobalInvocationID.xy), vec4(FinalColor,1));
     }
 
 }

@@ -40,6 +40,8 @@ public:
         //TLAS
         buffer TLASInstancesBuffer;
         buffer TLASNodesBuffer;
+        
+        buffer MaterialBuffer;
     } VulkanObjects;
 
     

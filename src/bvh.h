@@ -104,10 +104,11 @@ struct bvh
 
 struct mesh
 {
-    mesh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices);
+    mesh(std::vector<uint32_t> &Indices, std::vector<vertex> &Vertices, uint32_t MaterialIndex);
     bvh *BVH;
     std::vector<triangle> Triangles;
     std::vector<triangleExtraData> TrianglesExtraData;
+    uint32_t MaterialIndex;
 };
 
 
