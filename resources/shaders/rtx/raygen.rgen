@@ -92,7 +92,6 @@ void main()
 					vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_LaunchIDEXT.xy) + jitter) / gl_LaunchSizeEXT.xy * 2.0 - 1.0, 0.0, 1.0);
 					vec4 Direction = SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0);
 					
-					vec3 V = -Direction.xyz;
 					vec3 Attenuation = vec3(1.0);
 					vec3 Radiance = vec3(0);
 					float alpha = 1.0;
@@ -120,6 +119,9 @@ void main()
 							}
 						}
 						
+						vec3 V = -Direction.xyz;
+		            	if (dot(RayPayload.Normal, V) < 0.0f) RayPayload.Normal = -RayPayload.Normal;
+                    
 						Radiance += Attenuation * RayPayload.Emission;
 
 						//Sample lights
@@ -181,18 +183,9 @@ void main()
 							vec3 brdfWeight;
 							vec2 Xi = vec2(RandomUnilateral(RayPayload.RandomState),RandomUnilateral(RayPayload.RandomState));
 							vec3 ScatterDir = vec3(0);
-							
-							if(brdfType == DIFFUSE_TYPE)
-							{
-								if (!SampleDiffuseBRDF(Xi, RayPayload.Normal, V,  ScatterDir, brdfWeight)) {
-									break;
-								}
-							}
-							else if(brdfType == SPECULAR_TYPE)
-							{
-								if (!SampleSpecularBRDF(Xi, RayPayload.Normal, V,  ScatterDir, brdfWeight)) {
-									break;
-								}
+
+							if(!SampleIndirectCombinedBRDF(Xi, RayPayload.Normal, RayPayload.Normal, V, RayPayload, brdfType, ScatterDir, brdfWeight)) {
+								break;
 							}
 
 							//the weights already contains color * brdf * cosine term / pdf

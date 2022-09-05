@@ -11,6 +11,25 @@ void ONB(in vec3 N, inout vec3 T, inout vec3 B)
     B = cross(N, T);
 }
 
+
+vec4 getRotationToZAxis(vec3 vector) {
+
+	// Handle special case when vector is exact or near opposite of (0, 0, 1)
+	if (vector.z < -0.99999f) return vec4(1.0f, 0.0f, 0.0f, 0.0f);
+
+	return normalize(vec4(vector.y, -vector.x, 0.0f, 1.0f + vector.z));
+}
+
+vec3 rotatePoint(vec4 q, vec3 v) {
+	const vec3 qAxis = vec3(q.x, q.y, q.z);
+	return 2.0f * dot(qAxis, v) * qAxis + (q.w * q.w - dot(qAxis, qAxis)) * v + 2.0f * q.w * cross(qAxis, v);
+}
+
+vec4 invertRotation(vec4 q)
+{
+	return vec4(-q.x, -q.y, -q.z, q.w);
+}
+
 vec3 SampleHemisphere(vec2 u) {
 	float a = sqrt(u.x);
 	float b = TWO_PI * u.y;
@@ -82,6 +101,11 @@ float DistributionGGX_GeometrySmith(float Alpha, float AlphaSquared, float NdotL
 	float G1V = SmithG1GGX(Alpha, NdotV, AlphaSquared, NdotV * NdotV);
 	float G1L = SmithG1GGX(Alpha, NdotL, AlphaSquared, NdotL * NdotL);
 	return G1L / (G1V + G1L - G1V * G1L);
+}
+
+float GGX_D(float alphaSquared, float NdotH) {
+	float b = ((alphaSquared - 1.0f) * NdotH * NdotH + 1.0f);
+	return alphaSquared / (PI * b * b);
 }
 
 
@@ -166,8 +190,115 @@ float GetBRDFProbability(rayPayload RayPayload, vec3 V, vec3 ShadingNormal) {
 	return clamp(p, 0.1f, 0.9f);
 }
 
-// This is an entry point for evaluation of all other BRDFs based on selected configuration (for direct light)
+
+
+
+bool SampleIndirectCombinedBRDF(vec2 u, vec3 shadingNormal, vec3 geometryNormal, vec3 V, rayPayload RayPayload, int brdfType, inout vec3 rayDirection, inout vec3 sampleWeight) {
+
+	// Ignore incident ray coming from "below" the hemisphere
+	if (dot(shadingNormal, V) <= 0.0f) return false;
+
+	// Transform view direction into local space of our sampling routines 
+	// (local space is oriented so that its positive Z axis points along the shading normal)
+	vec4 qRotationToZ = getRotationToZAxis(shadingNormal);
+	vec3 Vlocal = rotatePoint(qRotationToZ, V);
+	const vec3 Nlocal = vec3(0.0f, 0.0f, 1.0f);
+
+	vec3 rayDirectionLocal = vec3(0.0f, 0.0f, 0.0f);
+
+	if (brdfType == DIFFUSE_TYPE) {
+
+		// Sample diffuse ray using cosine-weighted hemisphere sampling 
+		rayDirectionLocal = SampleHemisphere(u);
+		// const BrdfData data = prepareBRDFData(Nlocal, rayDirectionLocal, Vlocal, material);
+
+        vec3 DiffuseReflectance = BaseColorToDiffuseReflectance(RayPayload.Color, RayPayload.Metallic);
+        float Alpha = 	RayPayload.Roughness * RayPayload.Roughness;
+	    vec3 SpecularF0 = BaseColorToSpecularF0(RayPayload.Color, RayPayload.Metallic);
+
+		// Function 'diffuseTerm' is predivided by PDF of sampling the cosine weighted hemisphere
+		sampleWeight = DiffuseReflectance;
+	
+		// Sample a half-vector of specular BRDF. Note that we're reusing random variable 'u' here, but correctly it should be an new independent random number
+		vec3 Hspecular = SampleSpecularHalfVector(Vlocal, vec2(Alpha, Alpha), u);
+
+		// Clamp HdotL to small value to prevent numerical instability. Assume that rays incident from below the hemisphere have been filtered
+		float VdotH = max(0.00001f, min(1.0f, dot(Vlocal, Hspecular)));
+		sampleWeight *= (vec3(1.0f, 1.0f, 1.0f) - EvalFresnelSchlick(SpecularF0, ShadowedF90(SpecularF0), VdotH));
+
+	} else if (brdfType == SPECULAR_TYPE) {
+		// const BrdfData data = prepareBRDFData(Nlocal, vec3(0.0f, 0.0f, 1.0f) /* unused L vector */, Vlocal, material);
+        float Alpha = 	RayPayload.Roughness * RayPayload.Roughness;
+        float AlphaSquared = Alpha * Alpha;
+	    vec3 SpecularF0 = BaseColorToSpecularF0(RayPayload.Color, RayPayload.Metallic);
+
+        rayDirectionLocal = sampleSpecularMicrofacet(Vlocal, Alpha, AlphaSquared, SpecularF0, u, sampleWeight);
+	}
+
+	// Prevent tracing direction with no contribution
+	if (Luminance(sampleWeight) == 0.0f) return false;
+
+	// Transform sampled direction Llocal back to V vector space
+	rayDirection = normalize(rotatePoint(invertRotation(qRotationToZ), rayDirectionLocal));
+
+	// Prevent tracing direction "under" the hemisphere (behind the triangle)
+	if (dot(geometryNormal, rayDirection) <= 0.0f) return false;
+
+	return true;
+}
+
+
+
+float Smith_G2(float alphaSquared, float NdotL, float NdotV) {
+	float a = NdotV * sqrt(alphaSquared + NdotL * (NdotL - alphaSquared * NdotL));
+	float b = NdotL * sqrt(alphaSquared + NdotV * (NdotV - alphaSquared * NdotV));
+	return 0.5f / (a + b);
+}
+
+vec3 EvalMicrofacet(vec3 L, vec3 V, rayPayload RayPayload) {
+	float Alpha = RayPayload.Roughness * RayPayload.Roughness;
+	float AlphaSquared = Alpha * Alpha;
+    vec3 H = normalize(L + V);
+    float NdotH = clamp(dot(RayPayload.Normal, H), 0, 1);
+    float NdotL = dot(RayPayload.Normal, L);
+    float NdotV = dot(RayPayload.Normal, V);
+    float LdotH = clamp(dot(L, H), 0, 1);
+    vec3 SpecularF0 = BaseColorToSpecularF0(RayPayload.Color, RayPayload.Metallic);
+    vec3 F = EvalFresnelSchlick(SpecularF0, ShadowedF90(SpecularF0), LdotH);
+
+	float D = GGX_D(max(0.00001f, AlphaSquared), NdotH);
+	float G2 = Smith_G2(AlphaSquared, NdotL, NdotV);
+	//vec3 F = evalFresnel(data.specularF0, shadowedF90(data.specularF0), data.VdotH); //< Unused, F is precomputed already
+
+	return F * (G2 * D * NdotL);
+}
+
+
+vec3 EvalDiffuse(rayPayload RayPayload, float NdotL) {
+    vec3 DiffuseReflectance = BaseColorToDiffuseReflectance(RayPayload.Color, RayPayload.Metallic);
+	return DiffuseReflectance * (ONE_OVER_PI * NdotL);
+}
+
 vec3 EvalCombinedBRDF(vec3 N, vec3 L, vec3 V, vec3 Color, float Metallic) {
-	vec3 diffuse = BaseColorToDiffuseReflectance(Color, Metallic);
-	return diffuse;
+    float NdotL = dot(N, L);
+	float NdotV = dot(N, V);
+    vec3 H = normalize(L + V);
+    float LdotH = clamp(dot(L, H), 0, 1);
+    bool Vbackfacing = (NdotV <= 0.0f);
+	bool Lbackfacing = (NdotL <= 0.0f);
+    
+    vec3 SpecularF0 = BaseColorToSpecularF0(RayPayload.Color, RayPayload.Metallic);
+    vec3 F = EvalFresnelSchlick(SpecularF0, ShadowedF90(SpecularF0), LdotH);
+    
+
+    // Ignore V and L rays "below" the hemisphere
+	if (Vbackfacing || Lbackfacing) return vec3(0.0f, 0.0f, 0.0f);
+
+	// Eval specular and diffuse BRDFs
+	vec3 Specular = EvalMicrofacet(L, V, RayPayload);
+	vec3 Diffuse = EvalDiffuse(RayPayload, NdotL);
+
+	// Combine Specular and Diffuse layers
+	// Specular is already multiplied by F, just attenuate Diffuse
+	return (vec3(1.0f, 1.0f, 1.0f) - F) * Diffuse + Specular;
 }

@@ -382,7 +382,6 @@ void main()
                 vec4 Target = SceneUbo.Data.InvProjection * vec4((vec2(gl_GlobalInvocationID.xy) + jitter) / dim * 2.0 - 1.0, 0.0, 1.0);
                 Ray.Direction = (SceneUbo.Data.InvView * vec4(normalize(Target.xyz), 0.0)).xyz;
                 
-                vec3 V = -Ray.Direction.xyz;
                 vec3 Attenuation = vec3(1.0);
                 vec3 Radiance = vec3(0);
                 float alpha = 1.0;
@@ -390,7 +389,9 @@ void main()
 
                 for(int j=0; j<ubo.rayBounces; j++)
                 {
+                    //Trace ray
                     IntersectTLAS(Ray,RayPayload);
+                    
                     //Sky
                     {
                         if(RayPayload.Distance == 1e30f)
@@ -410,6 +411,7 @@ void main()
                         }
                     }
 
+                    //Load hit data
                     if(RayPayload.Distance < 1e30f)
                     {
                         material Material = MaterialData.Data[RayPayload.MaterialIndex];
@@ -452,11 +454,18 @@ void main()
                         RayPayload.Normal = 
                             ExtraData.Normal1 * RayPayload.U + 
                             ExtraData.Normal2 * RayPayload.V +
-                            ExtraData.Normal0 * (1 - RayPayload.U - RayPayload.V);                           
+                            ExtraData.Normal0 * (1 - RayPayload.U - RayPayload.V);
+                        //TODO: Normal mapping
                     }
 
+                    //View direction
+                    vec3 V = -Ray.Direction.xyz;
+		            if (dot(RayPayload.Normal, V) < 0.0f) RayPayload.Normal = -RayPayload.Normal;
                     
+                    //Add emissive surface
                     Radiance += Attenuation * RayPayload.Emission;
+
+                    //TODO: Add other types of lights
 
                     //Sample lights
                     if(SceneUbo.Data.BackgroundType ==BACKGROUND_TYPE_DIRLIGHT)
@@ -486,7 +495,7 @@ void main()
                         }
                     }
 
-
+                    //Early out if last bounce
                     if(j == ubo.rayBounces-1) break;
                     
                     // Russian roulette
@@ -525,21 +534,15 @@ void main()
                         vec2 Xi = vec2(RandomUnilateral(RayPayload.RandomState),RandomUnilateral(RayPayload.RandomState));
                         vec3 ScatterDir = vec3(0);
                         
-                        if(BRDFType == DIFFUSE_TYPE)
-                        {
-                            if (!SampleDiffuseBRDF(Xi, RayPayload.Normal, V,  ScatterDir, brdfWeight)) {
-                                break;
-                            }
-                        }
-                        else if(BRDFType == SPECULAR_TYPE)
-                        {
-                            if (!SampleSpecularBRDF(Xi, RayPayload.Normal, V,  ScatterDir, brdfWeight)) {
-                                break;
-                            }
+                        
+                        if(!SampleIndirectCombinedBRDF(Xi, RayPayload.Normal, RayPayload.Normal, V, RayPayload, BRDFType, ScatterDir, brdfWeight)) {
+                            break;
                         }
 
                         //the weights already contains color * brdf * cosine term / pdf
                         Attenuation *= brdfWeight;						
+
+                        //Create new ray
                         Ray.Origin = Ray.Origin + RayPayload.Distance * Ray.Direction;
                         Ray.Direction = ScatterDir;
                         RayPayload.Distance = 1e30f;
