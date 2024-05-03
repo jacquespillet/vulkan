@@ -96,4 +96,6 @@ Pixel perfect object selection, and ability to move objects in the scene using (
 [Vulkan Tutorial](https://vulkan-tutorial.com/)
 [Vulkan Guide](https://vkguide.dev/)
 [Niagara by Arseny Kapoulkine](https://www.youtube.com/watch?v=BR2my8OE1Sc&list=PL0JVLUVCkk-l7CWCn3-cdftR0oajugYvd&ab_channel=ArsenyKapoulkine)
-
+[glTF Sample Viewer](https://github.com/KhronosGroup/glTF-Sample-Viewer)
+[Reference Path Tracer by Jakub Boksansky](https://github.com/boksajak/referencePT)
+[pbrt](https://pbr-book.org/)
