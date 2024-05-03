@@ -98,9 +98,13 @@ Pixel perfect object selection, and ability to move objects in the scene using (
 
 ### Scene Credits
 [Sponza by Frank Meinl, from glTF Samples](https://github.com/KhronosGroup/glTF-Sample-Models/tree/main)
+
 [Damaged Helmet by theblueturtle_, from glTF Samples](https://github.com/KhronosGroup/glTF-Sample-Models/tree/main)
+
 [Isometric Office by Companion_Cube](https://sketchfab.com/3d-models/isometric-office-d31464eed8044190911b221648aca432)
+
 [Big Room by Francesco Coldesina](https://sketchfab.com/3d-models/big-room-0b5da073be88481091dbef7e55f1d180)
+
 
 ## List of dependencies
 * [Assimp]() for 3D Model loading
