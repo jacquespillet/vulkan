@@ -83,6 +83,18 @@
         "numeric": "cpp",
         "unordered_set": "cpp",
         "filesystem": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "any": "cpp",
+        "charconv": "cpp",
+        "cinttypes": "cpp",
+        "complex": "cpp",
+        "csetjmp": "cpp",
+        "csignal": "cpp",
+        "format": "cpp",
+        "future": "cpp",
+        "memory_resource": "cpp",
+        "scoped_allocator": "cpp",
+        "typeindex": "cpp",
+        "variant": "cpp"
     }
 }

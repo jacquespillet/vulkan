@@ -86,7 +86,7 @@ scene::scene(vulkanApp *App) :
 {}
 
 
-void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
+void scene::Load(std::string FileName, float Size, VkCommandBuffer CopyCommand)
 {
     Resources.Init(App->VulkanObjects.VulkanDevice, VK_NULL_HANDLE, TextureLoader);       
     Cubemap.Load("resources/belfast_farmhouse_4k.hdr", TextureLoader, App->VulkanObjects.VulkanDevice, CopyCommand, Queue);
@@ -96,11 +96,11 @@ void scene::Load(std::string FileName, VkCommandBuffer CopyCommand)
         std::string Extension = FileName.substr(FileName.find_last_of(".") + 1);
         if(Extension == "gltf" || Extension == "glb")
         {
-            GLTFImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Resources.Textures);    
+            GLTFImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Resources.Textures, Size);    
         }
         else
         {
-            assimpImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Resources.Textures);    
+            assimpImporter::Load(FileName, Instances, Meshes, Materials,GVertices, GIndices, Resources.Textures, Size);    
         }
 
 

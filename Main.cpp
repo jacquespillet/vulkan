@@ -41,10 +41,16 @@ void WindowSizeCallback(GLFWwindow* Window, int Width, int Height);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
-int main(int, char**)
+int main(int argc, char* argv[])
 {
-    int Width = 1024;
-    int Height = 1024;
+    if(argc == 1) return 0;
+    std::string ModelFile = argv[1];
+    float ModelSize = 1.0f;
+    if(argc>=3) ModelSize = std::stof(argv[2]);
+    
+
+    int Width = 1920;
+    int Height = 1080;
 
     GLFWwindow *Window;
     int rc = glfwInit();
@@ -61,7 +67,7 @@ int main(int, char**)
     glfwSetWindowSizeCallback(Window, WindowSizeCallback);
     glfwSetKeyCallback(Window, KeyCallback);
 
-    App.Initialize(glfwGetWin32Window(Window));
+    App.Initialize(glfwGetWin32Window(Window), ModelFile, ModelSize);
 
     while (!glfwWindowShouldClose(Window))
     {

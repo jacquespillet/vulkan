@@ -2,7 +2,6 @@
 
 #include <vector>
 #include "Scene.h"
-#include <glm/ext.hpp>
 #include "Resources.h"
 #include <iostream>
 
@@ -710,7 +709,9 @@ namespace GLTFImporter
         }
         else
         {
-            glm::mat4 translate, rotation, scale;
+            glm::mat4 translate(1.0f);
+            glm::mat4 rotation(1.0f); 
+            glm::mat4 scale(1.0f);
             if(GLTFNode.translation.size()>0)
             {
                 translate[3][0] = (float)GLTFNode.translation[0];
@@ -721,7 +722,7 @@ namespace GLTFImporter
             if(GLTFNode.rotation.size() > 0)
             {
                 glm::quat Quat((float)GLTFNode.rotation[3], (float)GLTFNode.rotation[0], (float)GLTFNode.rotation[1], (float)GLTFNode.rotation[2]);
-                rotation = glm::toMat4(Quat);
+                rotation = glm::mat4_cast(Quat);
 
             }
 
@@ -768,9 +769,9 @@ namespace GLTFImporter
 
     }
 
-    void LoadInstances(tinygltf::Model &GLTFModel, std::vector<sceneMesh> &Meshes, std::unordered_map<int, std::vector<instance>> &Instances,  std::vector<std::vector<uint32_t>> &InstanceMapping)
+    void LoadInstances(tinygltf::Model &GLTFModel, std::vector<sceneMesh> &Meshes, std::unordered_map<int, std::vector<instance>> &Instances,  std::vector<std::vector<uint32_t>> &InstanceMapping, float Size)
     {
-        glm::mat4 RootTransform(1.0f);
+        glm::mat4 RootTransform = glm::scale(glm::mat4(1.0f), glm::vec3(Size, Size, Size));
         const tinygltf::Scene GLTFScene = GLTFModel.scenes[GLTFModel.defaultScene];
         for (size_t i = 0; i < GLTFScene.nodes.size(); i++)
         {
@@ -779,7 +780,7 @@ namespace GLTFImporter
     }
 
     bool Load(std::string FileName,  std::unordered_map<int, std::vector<instance>> &Instances, std::vector<sceneMesh> &Meshes, std::vector<sceneMaterial> &Materials,std::vector<vertex> &GVertices, 
-            std::vector<uint32_t> &GIndices, textureList *Textures)
+            std::vector<uint32_t> &GIndices, textureList *Textures, float Size)
     {
         tinygltf::Model GLTFModel;
         tinygltf::TinyGLTF ModelLoader;
@@ -811,7 +812,7 @@ namespace GLTFImporter
         LoadTextures(GLTFModel, Textures);
         LoadMaterials(GLTFModel, Materials, Textures);
         LoadMeshes(GLTFModel, Meshes, GIndices, GVertices, Materials, InstanceMapping);
-        LoadInstances(GLTFModel, Meshes, Instances, InstanceMapping);
+        LoadInstances(GLTFModel, Meshes, Instances, InstanceMapping, Size);
 
         return true;
     }

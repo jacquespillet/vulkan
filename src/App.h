@@ -5,6 +5,7 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 #include <vector>
+#include <string>
 
 #define VK_CALL(f)\
 {\
@@ -97,6 +98,9 @@ public:
     float GuiWidth=200;
 
     bool RayTracing=true;
+
+    std::string ModelFile = "";
+    float ModelSize = 1.0f;
     
     void InitVulkan();
 
@@ -121,7 +125,7 @@ public:
     void RenderGUI();
     void SetSelectedItem(uint32_t Index, bool UnselectIfAlreadySelected=true);
 
-    void Initialize(HWND Window);
+    void Initialize(HWND Window, std::string &ModelFile, float ModelSize);
 
     void Destroy();
     void DestroyGeneralResources();

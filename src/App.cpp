@@ -18,7 +18,7 @@
 #include "ObjectPicker.h"
 
 #include <GLFW/glfw3.h>
-
+#include <glm/gtc/type_ptr.hpp>
 
 void vulkanApp::InitVulkan()
 {
@@ -220,15 +220,7 @@ void vulkanApp::BuildScene()
 {
     VkCommandBuffer CopyCommand = vulkanTools::CreateCommandBuffer(VulkanObjects.VulkanDevice->Device, VulkanObjects.CommandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, false);
     Scene = new scene(this);
-    //  Scene->Load("resources/models/sponza/sponza.dae", CopyCommand);
-    // Scene->Load("D:\\models\\2.0\\Sponza\\glTF\\Sponza.gltf", CopyCommand);
-    // Scene->Load("D:/Boulot/Models/Sponza_gltf/glTF/Sponza.gltf", CopyCommand);
-    // Scene->Load("D:/Boulot/Models/Duck/glTF/Duck.gltf", CopyCommand);
-    // Scene->Load("D:/Boulot/Models/Cube/glTF/Cube.gltf", CopyCommand);
-    Scene->Load("D:/Boulot/Models/Pica pica/scene.gltf", CopyCommand);
-    // Scene->Load("D:/Boulot/Models/DamagedHelmet/glTF/DamagedHelmet.gltf", CopyCommand);
-    // Scene->Load("D:\\Boulot\\Models\\Lantern\\glTF\\Lantern.gltf", CopyCommand);
-    // Scene->Load("D:\\Boulot\\Models\\Cube\\glTF\\Cube.gltf", CopyCommand);
+    Scene->Load(ModelFile, ModelSize, CopyCommand);
 
     vkFreeCommandBuffers(VulkanObjects.VulkanDevice->Device, VulkanObjects.CommandPool, 1, &CopyCommand);
 
@@ -293,17 +285,22 @@ void vulkanApp::CreateGeneralResources()
     }
 }
 
-void vulkanApp::Initialize(HWND Window)
+void vulkanApp::Initialize(HWND Window, std::string &ModelFile, float ModelSize)
 {
     //Common for any app
     Width = 1920;
     Height = 1080;
+    
+    this->ModelFile = ModelFile;
+    this->ModelSize = ModelSize;
+
     InitVulkan();
     VulkanObjects.Swapchain->InitSurface(Window);
     CreateGeneralResources();
     
     ObjectPicker = new objectPicker();
     ObjectPicker->Initialize(VulkanObjects.VulkanDevice, this);
+
 }
 
 void vulkanApp::SetSelectedItem(uint32_t Index, bool UnselectIfAlreadySelected)
@@ -492,12 +489,17 @@ void vulkanApp::RenderGUI()
                     if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
                         mCurrentGizmoOperation = ImGuizmo::SCALE;                    
 
-                    glm::vec3 Translation, Rotation, Scale;
-                    ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Transform), glm::value_ptr(Translation), glm::value_ptr(Rotation), glm::value_ptr(Scale));
+                    glm::vec3 Translation(0);
+                    glm::vec3 Rotation(0);
+                    glm::vec3 Scale(1);
+
+                    float *ptr = glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Transform);
+                      
+                    ImGuizmo::DecomposeMatrixToComponents(ptr, glm::value_ptr(Translation), glm::value_ptr(Rotation), glm::value_ptr(Scale));
                     UpdateTransform |= ImGui::DragFloat3("Position", glm::value_ptr(Translation), 0.01f);
                     UpdateTransform |= ImGui::DragFloat3("Rotation", glm::value_ptr(Rotation), 0.01f);
                     UpdateTransform |= ImGui::DragFloat3("Scale", glm::value_ptr(Scale), 0.01f);
-                    ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(Scene->InstancesPointers[CurrentSceneItemIndex]->InstanceData.Transform), glm::value_ptr(Translation), glm::value_ptr(Rotation), glm::value_ptr(Scale));
+                    ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(Translation), glm::value_ptr(Rotation), glm::value_ptr(Scale), ptr);
                 }
                 
                 //ImGuizmo

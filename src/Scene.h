@@ -10,6 +10,8 @@
 #include "Camera.h"
 #include "Resources.h"
 
+#include <glm/gtc/matrix_inverse.hpp>
+
 class vulkanApp;
 struct descriptor;
 class textureList;
@@ -337,7 +339,7 @@ public:
     camera Camera;
     scene(vulkanApp *App);
     
-    void Load(std::string FileName, VkCommandBuffer CopyCommand);
+    void Load(std::string FileName, float Size, VkCommandBuffer CopyCommand);
     void CreateDescriptorSets();
     void Update();
 

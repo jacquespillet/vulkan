@@ -89,9 +89,9 @@ void renderTarget::SetPixel(int x, int y, rgba8 ColorValue)
 
 void rasterizerRenderer::DrawTriangle(vertexOut VertexOut, shader &RenderShader)
 {
-    glm::vec3 p0 = VertexOut.Data[0].Coord;
-    glm::vec3 p1 = VertexOut.Data[1].Coord;
-    glm::vec3 p2 = VertexOut.Data[2].Coord;
+    glm::vec3 p0 = glm::vec3(VertexOut.Data[0].Coord);
+    glm::vec3 p1 = glm::vec3(VertexOut.Data[1].Coord);
+    glm::vec3 p2 = glm::vec3(VertexOut.Data[2].Coord);
     
 	p0.x = std::floor(p0.x); p0.y = std::floor(p0.y);
 	p1.x = std::floor(p1.x); p1.y = std::floor(p1.y);
@@ -130,7 +130,7 @@ void rasterizerRenderer::Rasterize()
     std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
 
     glm::mat4 ViewProjectionMatrix = App->Scene->Camera.GetProjectionMatrix() * App->Scene->Camera.GetViewMatrix();
-	glm::vec3 ViewDir = App->Scene->Camera.GetModelMatrix()[2];
+	glm::vec3 ViewDir = glm::vec3(App->Scene->Camera.GetModelMatrix()[2]);
     
 
     Shader.Uniforms.ViewProjectionMatrix = &ViewProjectionMatrix;
@@ -163,7 +163,9 @@ void rasterizerRenderer::Rasterize()
             glm::mat4 ModelMatrix = App->Scene->InstancesPointers[Instance]->InstanceData.Transform;
             Shader.Uniforms.ModelMatrix = &ModelMatrix;
             
-            uint32_t TrianglesPerThread = (uint32_t)((Shader.Buffers.Indices->size()/3) / NUM_THREADS);
+            uint32_t TrianglesPerThread = (uint32_t)std::ceil(
+                ( (float)(Shader.Buffers.Indices->size()/3) / NUM_THREADS)
+            );
             std::array<uint32_t, NUM_THREADS> ThreadCounters;
             for(int i=0; i<NUM_THREADS; i++)
             {
@@ -179,9 +181,9 @@ void rasterizerRenderer::Rasterize()
                     int ThreadID = omp_get_thread_num();
                     
                     int i = j * 3;
-                    glm::vec3 v0 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 0)).Position;
-                    glm::vec3 v1 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 1)).Position;
-                    glm::vec3 v2 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 2)).Position;
+                    glm::vec3 v0 = glm::vec3(Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 0)).Position);
+                    glm::vec3 v1 = glm::vec3(Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 1)).Position);
+                    glm::vec3 v2 = glm::vec3(Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 2)).Position);
                     glm::vec3 Normal = glm::normalize(glm::cross(glm::vec3(v2 - v0), glm::vec3(v1 - v0)));
                     float BackFace = glm::dot(Normal, -ViewDir);
 
@@ -206,9 +208,9 @@ void rasterizerRenderer::Rasterize()
                 {
                     vertexOut VertexOut = ThreadVertexOutData[j][i];
 
-                    glm::vec3 p0 = VertexOut.Data[0].Coord;
-                    glm::vec3 p1 = VertexOut.Data[1].Coord;
-                    glm::vec3 p2 = VertexOut.Data[2].Coord;
+                    glm::vec3 p0 = glm::vec3(VertexOut.Data[0].Coord);
+                    glm::vec3 p1 = glm::vec3(VertexOut.Data[1].Coord);
+                    glm::vec3 p2 = glm::vec3(VertexOut.Data[2].Coord);
                     
                     p0.x = std::floor(p0.x); p0.y = std::floor(p0.y);
                     p1.x = std::floor(p1.x); p1.y = std::floor(p1.y);
@@ -272,9 +274,9 @@ void rasterizerRenderer::Rasterize()
             for(int j=0; j<Shader.Buffers.Indices->size()/3; j++)
             {
                 int i = j * 3;
-                glm::vec3 v0 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 0)).Position;
-                glm::vec3 v1 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 1)).Position;
-                glm::vec3 v2 = Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 2)).Position;
+                glm::vec3 v0 = glm::vec3(Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 0)).Position);
+                glm::vec3 v1 = glm::vec3(Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 1)).Position);
+                glm::vec3 v2 = glm::vec3(Shader.Buffers.Vertices->at(Shader.Buffers.Indices->at(i + 2)).Position);
                 glm::vec3 Normal = glm::normalize(glm::cross(glm::vec3(v2 - v0), glm::vec3(v1 - v0)));
                 float BackFace = glm::dot(Normal, -ViewDir);
 
@@ -295,9 +297,9 @@ void rasterizerRenderer::Rasterize()
             {
                 vertexOut VertexOut = VertexOutData[i];
 
-                glm::vec3 p0 = VertexOut.Data[0].Coord;
-                glm::vec3 p1 = VertexOut.Data[1].Coord;
-                glm::vec3 p2 = VertexOut.Data[2].Coord;
+                glm::vec3 p0 = glm::vec3(VertexOut.Data[0].Coord);
+                glm::vec3 p1 = glm::vec3(VertexOut.Data[1].Coord);
+                glm::vec3 p2 = glm::vec3(VertexOut.Data[2].Coord);
                 
                 p0.x = std::floor(p0.x); p0.y = std::floor(p0.y);
                 p1.x = std::floor(p1.x); p1.y = std::floor(p1.y);

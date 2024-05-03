@@ -1,5 +1,4 @@
 #include "bvh.h"
-#include <glm/ext.hpp>
 
 #define BINS 8
 

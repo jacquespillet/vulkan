@@ -1,5 +1,6 @@
 #pragma once
 #include "TextureLoader.h"
+#include <glm/gtc/type_ptr.hpp>
 
 namespace IBLHelper
 {

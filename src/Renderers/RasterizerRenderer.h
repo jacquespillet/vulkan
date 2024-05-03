@@ -102,7 +102,7 @@ public:
     std::array<std::vector<vertexOut>, NUM_THREADS> ThreadVertexOutData;
     std::vector<vertexOut> VertexOutData;
 
-    bool Multithreaded=true;
+    bool Multithreaded=false;
 
     void UpdateCamera();
 private:

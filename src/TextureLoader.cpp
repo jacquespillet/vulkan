@@ -1,7 +1,8 @@
 #include "TextureLoader.h"
 #include "Scene.h"
 #include "GLTFImporter.h"
-
+#include <gli/gli.hpp>
+#include <glm/gtc/type_ptr.hpp>
 glm::vec4 vulkanTexture::Sample(glm::vec2 UV, borderType BorderType)
 { 	
 	// UV = glm::abs(UV);
@@ -58,10 +59,10 @@ textureLoader::textureLoader(vulkanDevice *VulkanDevice, VkQueue Queue, VkComman
 
 void textureLoader::LoadTexture2D(std::string Filename, VkFormat Format, vulkanTexture *Texture, VkImageUsageFlags ImageUsageFlags)
 {
-    gli::texture2D GliTexture(gli::load(Filename.c_str()));
+    gli::texture2d GliTexture(gli::load(Filename.c_str()));
     
-    Texture->Width = static_cast<uint32_t>(GliTexture[0].dimensions().x);
-    Texture->Height = static_cast<uint32_t>(GliTexture[0].dimensions().y);
+    Texture->Width = static_cast<uint32_t>(GliTexture[0].extent().x);
+    Texture->Height = static_cast<uint32_t>(GliTexture[0].extent().y);
     Texture->MipLevels = static_cast<uint32_t>(GliTexture.levels());
 
     VkFormatProperties FormatProperties;
@@ -107,8 +108,8 @@ void textureLoader::LoadTexture2D(std::string Filename, VkFormat Format, vulkanT
         BufferCopyRegion.imageSubresource.mipLevel = i;
         BufferCopyRegion.imageSubresource.baseArrayLayer = 0;
         BufferCopyRegion.imageSubresource.layerCount=1;
-        BufferCopyRegion.imageExtent.width = static_cast<uint32_t>(GliTexture[i].dimensions().x);
-        BufferCopyRegion.imageExtent.height = static_cast<uint32_t>(GliTexture[i].dimensions().y);
+        BufferCopyRegion.imageExtent.width = static_cast<uint32_t>(GliTexture[i].extent().x);
+        BufferCopyRegion.imageExtent.height = static_cast<uint32_t>(GliTexture[i].extent().y);
         BufferCopyRegion.imageExtent.depth = 1;
         BufferCopyRegion.bufferOffset = Offset;
 

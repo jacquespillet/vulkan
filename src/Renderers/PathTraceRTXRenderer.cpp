@@ -5,6 +5,7 @@
 
 #include "../Swapchain.h"
 #include "../ImguiHelper.h"
+#include <glm/gtc/type_ptr.hpp>
 
 pathTraceRTXRenderer::pathTraceRTXRenderer(vulkanApp *App) : renderer(App) {
     App->VulkanObjects.VulkanDevice->LoadRayTracingFuncs();

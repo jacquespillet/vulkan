@@ -1,7 +1,6 @@
 #include "AssimpImporter.h"
 #include <vector>
 #include "Scene.h"
-#include <glm/ext.hpp>
 #include "Resources.h"
 
 #include <assimp/Importer.hpp>      // C++ importer interface
@@ -9,11 +8,12 @@
 #include <assimp/postprocess.h>     // Post processing flags
 #include <assimp/material.h>
 
+#include <glm/gtc/type_ptr.hpp>
 
 namespace assimpImporter
 {
 void Load(std::string FileName,  std::unordered_map<int, std::vector<instance>> &Instances, std::vector<sceneMesh> &Meshes, std::vector<sceneMaterial> &Materials,std::vector<vertex> &GVertices, 
-            std::vector<uint32_t> &GIndices, textureList *Textures)
+            std::vector<uint32_t> &GIndices, textureList *Textures, float Size)
 {
     Assimp::Importer Importer;
     int Flags = aiProcess_FlipWindingOrder | aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_GenSmoothNormals;
@@ -168,7 +168,7 @@ void Load(std::string FileName,  std::unordered_map<int, std::vector<instance>> 
             }
 			
 			instance Instance = {};
-			Instance.InstanceData.Transform = glm::mat4(1.0f);
+			Instance.InstanceData.Transform = glm::scale(glm::mat4(1.0f), glm::vec3(Size));
 			Instance.Mesh = &Meshes[i];
 			
 			int MatFlag = Instance.Mesh->Material->Flags;

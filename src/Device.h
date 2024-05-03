@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <assert.h>
+#include <string>
 
 class vulkanDevice
 {

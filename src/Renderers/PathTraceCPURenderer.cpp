@@ -268,10 +268,10 @@ void pathTraceCPURenderer::PreviewTile(uint32_t StartX, uint32_t StartY, uint32_
             (*ImageToWrite)[yy * ImageWidth + xx] = { 0, 0, 0, 0 };
 
             glm::vec2 uv((float)(xx - StartPreview) / (float)RenderWidth, (float)yy / (float)RenderHeight);
-            Ray.Origin = Origin;
+            Ray.Origin = glm::vec3(Origin);
             glm::vec4 Target = glm::inverse(App->Scene->Camera.GetProjectionMatrix()) * glm::vec4(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f, 0.0f, 1.0f);
             glm::vec4 Direction = App->Scene->Camera.GetModelMatrix() * glm::normalize(glm::vec4(Target.x,Target.y, Target.z, 0.0f));
-            Ray.Direction = Direction;
+            Ray.Direction = glm::vec3(Direction);
             
             rayPayload RayPayload = {};
             RayPayload.Distance = 1e30f;
@@ -372,8 +372,8 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                 glm::vec3 V = -Ray.Direction;
                 //Jitter
                 glm::vec2 Jitter = (glm::vec2(RandomBilateral(RayPayload.RandomState), RandomBilateral(RayPayload.RandomState))) * InverseImageSize;
-                glm::vec3 JitteredTarget = Target + glm::vec4(Jitter,0,0);
-                Ray.Direction = App->Scene->Camera.GetModelMatrix() * glm::vec4(glm::normalize(JitteredTarget), 0.0);
+                glm::vec3 JitteredTarget = glm::vec3(Target + glm::vec4(Jitter,0,0));
+                Ray.Direction = glm::vec3(App->Scene->Camera.GetModelMatrix() * glm::vec4(glm::normalize(JitteredTarget), 0.0));
                 
                 glm::vec3 Attenuation(1.0);
                 glm::vec3 Radiance(0);
@@ -442,7 +442,7 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                     float Metallic = MatData->Metallic;
                     if(MatData->MetallicRoughnessTextureID >=0 && MatData->UseMetallicRoughness>0)
                     {
-                        glm::vec2 RoughnessMetallic = MetallicRoughnessTexture->Sample(UV);
+                        glm::vec2 RoughnessMetallic = glm::vec2(MetallicRoughnessTexture->Sample(UV));
                         Metallic *= RoughnessMetallic.r;
                         Roughness *= RoughnessMetallic.g;
                     }    
@@ -453,7 +453,7 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                     if(App->Scene->UBOSceneMatrices.BackgroundType == BACKGROUND_TYPE_DIRLIGHT)
                     {
                         glm::vec3 L = normalize(-App->Scene->UBOSceneMatrices.LightDirection);
-                        glm::vec3 shadowRayOrigin = glm::vec4(Ray.Origin + RayPayload.Distance * Ray.Direction, 1);
+                        glm::vec3 shadowRayOrigin = Ray.Origin + RayPayload.Distance * Ray.Direction;
                         ray ShadowRay = {
                             shadowRayOrigin,
                             L,
@@ -523,7 +523,7 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
                         Attenuation *= brdfWeight;						
 
                         Ray.Origin = Ray.Origin + RayPayload.Distance * Ray.Direction;
-                        Ray.Direction = glm::vec4(ScatterDir, 0.0f);
+                        Ray.Direction = ScatterDir;
                         RayPayload.Distance = 1e30f;
                     }					   
                 }
@@ -533,7 +533,7 @@ void pathTraceCPURenderer::PathTraceTile(uint32_t StartX, uint32_t StartY, uint3
 
 			AccumulationImage[yy * ImageWidth + xx] += SampleColor;
 
-			glm::vec3 Color = AccumulationImage[yy * ImageWidth + xx] / CurrentSampleCount;
+			glm::vec3 Color = AccumulationImage[yy * ImageWidth + xx] / (float)CurrentSampleCount;
 
             Color = toneMap(Color, App->Scene->UBOSceneMatrices.Exposure);
 			Color = glm::clamp(Color, glm::vec3(0), glm::vec3(1));

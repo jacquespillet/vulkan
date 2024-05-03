@@ -1,8 +1,7 @@
 #pragma once
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
-#include <glm/ext.hpp>
-
+#include <glm/gtx/orthonormalize.hpp>
 
 #define PI 3.14159265359f
 #define TWO_PI 6.28318530717958647692529f
